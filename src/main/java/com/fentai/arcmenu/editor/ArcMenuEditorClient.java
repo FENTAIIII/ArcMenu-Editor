@@ -11,12 +11,13 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.Minecraft;
 
 public final class ArcMenuEditorClient implements ClientModInitializer {
-    public static final String CLIENT_VERSION = "0.1.0-M3.3";
+    public static final String CLIENT_VERSION = EditorProtocol.EDITOR_VERSION;
     private static final EditorState STATE = new EditorState();
     private static final FrameAssembler ASSEMBLER = new FrameAssembler();
 
     @Override
     public void onInitializeClient() {
+        EditorWorldCompositor.initialize();
         PayloadTypeRegistry.serverboundPlay().register(EditorPayload.TYPE, EditorPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(EditorPayload.TYPE, EditorPayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(EditorPayload.TYPE, (payload, context) -> receive(context.client(), payload));
@@ -37,8 +38,8 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
                 if (client.screen instanceof EditorScreen screen) screen.serverStateChanged();
                 else client.setScreen(new EditorScreen(STATE));
             } else if (packet instanceof EditorProtocol.AckPacket ack) {
-                STATE.apply(ack);
-                if (client.screen instanceof EditorScreen screen) screen.serverOperationCompleted(ack.operation());
+                long gestureId = STATE.apply(ack);
+                if (client.screen instanceof EditorScreen screen) screen.serverOperationCompleted(ack.operation(), gestureId);
             } else if (packet instanceof EditorProtocol.ErrorPacket error) {
                 STATE.error(EditorI18n.text("arcmenu_editor.status.error", error.message()));
                 if (client.screen instanceof EditorScreen screen) screen.serverOperationFailed();
@@ -50,6 +51,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
 
     public static void send(EditorProtocol.Packet packet) {
         if (ClientPlayNetworking.canSend(EditorPayload.TYPE)) {
+            STATE.expectReply(packet);
             ClientPlayNetworking.send(new EditorPayload(EditorProtocol.encode(packet)));
         } else {
             STATE.error(EditorI18n.text("arcmenu_editor.status.no_channel"));

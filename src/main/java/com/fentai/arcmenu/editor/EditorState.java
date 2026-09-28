@@ -3,6 +3,7 @@ package com.fentai.arcmenu.editor;
 import com.fentai.arcmenu.protocol.EditorProtocol;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -19,8 +20,38 @@ public final class EditorState {
     private boolean errorStatus;
     private final Set<String> expanded = new HashSet<>();
     private final Set<String> locked = new HashSet<>();
+    private long selectionVersion;
+    private final ArrayDeque<SelectionRequest> requests = new ArrayDeque<>();
+
+    /** Capture intent when sending, before a delayed response can observe a different selection. */
+    public void expectReply(EditorProtocol.Packet packet) {
+        byte operation;
+        String renamedId = "";
+        long gestureId = 0;
+        switch (packet) {
+            case EditorProtocol.MovePacket move -> { operation = EditorProtocol.OP_MOVE; gestureId = move.gestureId(); }
+            case EditorProtocol.ResizePacket resize -> { operation = EditorProtocol.OP_RESIZE; gestureId = resize.gestureId(); }
+            case EditorProtocol.CreatePacket ignored -> operation = EditorProtocol.OP_CREATE;
+            case EditorProtocol.DuplicatePacket ignored -> operation = EditorProtocol.OP_DUPLICATE;
+            case EditorProtocol.GroupPacket ignored -> operation = EditorProtocol.OP_GROUP;
+            case EditorProtocol.InstantiateTemplatePacket ignored -> operation = EditorProtocol.OP_TEMPLATE_INSTANTIATE;
+            case EditorProtocol.SetPropertyPacket property -> {
+                operation = EditorProtocol.OP_PROPERTY;
+                gestureId = property.gestureId();
+                if (property.key().equals("id")) renamedId = property.nodeId();
+            }
+            default -> { return; }
+        }
+        requests.addLast(new SelectionRequest(operation, selectionVersion, activeTab, renamedId, gestureId));
+    }
+
+    private record SelectionRequest(byte operation, long selectionVersion, byte tab, String renamedId, long gestureId) {}
 
     public void update(EditorProtocol.SnapshotPacket value) {
+        if (snapshot != null && !snapshot.menuId().equals(value.menuId())) {
+            clearSelection();
+            requests.clear();
+        }
         snapshot = value;
         selected.removeIf(id -> find(id) == null);
         if (find(selectedId) == null) selectedId = selected.stream().findFirst().orElse("");
@@ -30,17 +61,41 @@ public final class EditorState {
     }
 
     /** Applies the compact authoritative response used between live-drag samples. */
-    public void apply(EditorProtocol.AckPacket value) {
+    public long apply(EditorProtocol.AckPacket value) {
         status = value.message();
         errorStatus = false;
-        if (!value.nodeId().isBlank()) selectOnly(value.nodeId());
-        if (snapshot == null) return;
-        List<EditorProtocol.NodeSnapshot> frontend = updateGeometry(snapshot.frontend(), value);
-        List<EditorProtocol.NodeSnapshot> backend = updateGeometry(snapshot.backend(), value);
+        SelectionRequest request = null;
+        for (var iterator = requests.iterator(); iterator.hasNext();) {
+            SelectionRequest candidate = iterator.next();
+            if (candidate.operation == value.operation()) {
+                request = candidate;
+                iterator.remove();
+                break;
+            }
+        }
+        if (request != null && request.selectionVersion == selectionVersion && request.tab == activeTab
+                && !value.nodeId().isBlank()) {
+            if (value.operation() == EditorProtocol.OP_CREATE || value.operation() == EditorProtocol.OP_DUPLICATE
+                    || value.operation() == EditorProtocol.OP_GROUP || value.operation() == EditorProtocol.OP_TEMPLATE_INSTANTIATE)
+                selectOnly(value.nodeId());
+            else if (!request.renamedId.isBlank() && selected.remove(request.renamedId)) {
+                selected.add(value.nodeId());
+                if (selectedId.equals(request.renamedId)) selectedId = value.nodeId();
+                if (selectionAnchor.equals(request.renamedId)) selectionAnchor = value.nodeId();
+            }
+        }
+        long gestureId = request == null ? 0 : request.gestureId;
+        if (snapshot == null) return gestureId;
+        byte responseTab = request == null ? activeTab : request.tab;
+        List<EditorProtocol.NodeSnapshot> frontend = responseTab == EditorProtocol.TAB_FRONTEND
+                ? updateGeometry(snapshot.frontend(), value) : snapshot.frontend();
+        List<EditorProtocol.NodeSnapshot> backend = responseTab == EditorProtocol.TAB_BACKEND
+                ? updateGeometry(snapshot.backend(), value) : snapshot.backend();
         snapshot = new EditorProtocol.SnapshotPacket(
                 value.revision(), snapshot.menuId(), snapshot.canvasWidth(), snapshot.canvasHeight(),
                 value.dirty(), value.saved(), snapshot.serverVersion(), frontend, backend,
                 snapshot.images(), snapshot.templates());
+        return gestureId;
     }
 
     private static List<EditorProtocol.NodeSnapshot> updateGeometry(
@@ -64,6 +119,7 @@ public final class EditorState {
     public boolean selected(String id) { return selected.contains(id); }
     public void select(String id) { selectOnly(id); }
     public void selectOnly(String id) {
+        selectionVersion++;
         selected.clear();
         selectedId = id == null ? "" : id;
         selectionAnchor = selectedId;
@@ -71,6 +127,7 @@ public final class EditorState {
     }
     public void toggleSelection(String id) {
         if (id == null || id.isBlank()) return;
+        selectionVersion++;
         if (!selected.remove(id)) {
             selected.add(id);
             selectedId = id;
@@ -81,6 +138,7 @@ public final class EditorState {
     }
     public void selectRange(List<String> orderedIds, String id) {
         if (id == null || id.isBlank()) return;
+        selectionVersion++;
         int end = orderedIds.indexOf(id);
         int start = orderedIds.indexOf(selectionAnchor);
         if (start < 0 || end < 0) { selectOnly(id); return; }
@@ -91,6 +149,7 @@ public final class EditorState {
         selectedId = id;
     }
     public void selectAll(List<String> orderedIds) {
+        selectionVersion++;
         selected.clear();
         selected.addAll(orderedIds);
         selectedId = orderedIds.isEmpty() ? "" : orderedIds.get(orderedIds.size() - 1);
@@ -102,7 +161,7 @@ public final class EditorState {
     public String status() { return status; }
     public boolean errorStatus() { return errorStatus; }
     public void status(String value) { status = value == null ? "" : value; errorStatus = false; }
-    public void error(String value) { status = value == null ? "" : value; errorStatus = true; }
+    public void error(String value) { status = value == null ? "" : value; errorStatus = true; requests.clear(); }
     public Set<String> expanded() { return expanded; }
     public boolean locked(String id) { return locked.contains(id); }
     public void toggleLocked(String id) { if (!locked.add(id)) locked.remove(id); }

@@ -1,4 +1,10 @@
 {
+"arcmenu_editor.images.library": "图片素材库",
+"arcmenu_editor.images.root": "素材",
+"arcmenu_editor.images.help": "双击图片或点击「添加」插入",
+"arcmenu_editor.images.insert": "添加",
+"arcmenu_editor.images.folder": "文件夹",
+"arcmenu_editor.images.unavailable": "暂无预览",
   "arcmenu_editor.screen.title": "ArcMenu 编辑器",
   "arcmenu_editor.common.elements": "%s 个元素",
   "arcmenu_editor.common.template_drag": "模板  %s",
@@ -95,6 +101,7 @@
   "arcmenu_editor.property.rotation_z": "旋转 Z",
   "arcmenu_editor.property.scale_x": "缩放 X",
   "arcmenu_editor.property.scale_y": "缩放 Y",
+  "arcmenu_editor.property.scale_z": "缩放 Z（厚度）",
   "arcmenu_editor.property.visible": "可见",
   "arcmenu_editor.property.width": "宽度",
   "arcmenu_editor.property.height": "高度",

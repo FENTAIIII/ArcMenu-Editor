@@ -29,6 +29,8 @@ public final class EditorWorldCompositor {
 
     private EditorWorldCompositor() {}
 
+    public static void initialize() {}
+
     public static void compose() {
         Minecraft minecraft = Minecraft.getInstance();
         EditorViewport.Physical viewport = EditorViewport.physical(minecraft.getWindow());

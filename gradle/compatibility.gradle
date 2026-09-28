@@ -1,0 +1,80 @@
+// Shared editor sources use the 26.1 API vocabulary. Mechanical API renames
+// happen at build time; behavioral differences live in src/compat.
+def versions = new Properties()
+file('gradle/minecraft-versions.properties').withInputStream { versions.load(it) }
+def target = project.minecraft_version.toString()
+if (!versions.containsKey(target)) throw new GradleException("Unsupported Minecraft target: ${target}; choose ${versions.keySet().sort()}")
+ext.targetFabricVersion = versions.getProperty(target)
+ext.targetJavaVersion = target.startsWith('1.') ? 21 : 25
+def old = target.startsWith('1.')
+def patch = old ? target.tokenize('.')[2].toInteger() : 0
+layout.buildDirectory = file("build/${target}")
+
+def generated = layout.buildDirectory.dir('generated/sources/compat/main')
+def prepare = tasks.register('prepareVersionSources', Sync) {
+    inputs.property('minecraft', target)
+    inputs.file('gradle/compatibility.gradle')
+    into generated
+    from('src/main/java') {
+        if (old || target == '26.2') exclude '**/EditorWorldCompositor.java'
+        if (old) exclude '**/mixin/CameraMixin.java', '**/mixin/GameRendererMixin.java'
+        if (target == '26.2') exclude '**/mixin/GameRendererMixin.java'
+        filter { String line ->
+            if (target == '26.2') return line.replace('client.screen', 'client.gui.screen()').replace('client.setScreen(', 'client.gui.setScreen(')
+            if (!old) return line
+            line = line.replace('GuiGraphicsExtractor', 'GuiGraphics')
+                    .replace('extractRenderState', 'render').replace('extractBackground', 'renderBackground')
+                    .replace('graphics.text(', 'graphics.drawString(')
+                    .replace('graphics.centeredText(', 'graphics.drawCenteredString(')
+                    .replace('graphics.outline(', patch == 9 || patch == 10 ? 'graphics.submitOutline(' : 'graphics.renderOutline(')
+                    .replace('PayloadTypeRegistry.serverboundPlay()', 'PayloadTypeRegistry.playC2S()')
+                    .replace('PayloadTypeRegistry.clientboundPlay()', 'PayloadTypeRegistry.playS2C()')
+            if (patch <= 10) line = line.replace('Identifier', 'ResourceLocation')
+            if (patch <= 5 && line.contains('box.setTextShadow(false)')) return ''
+            if (patch == 1) {
+                if (line.contains('graphics.blit(RenderPipelines.GUI_TEXTURED, texture,')) {
+                    return '        graphics.blit(texture, fit.x(), fit.y(), fit.width(), fit.height(), 0f, 0f,'
+                }
+                if (line.contains('fit.width(), fit.height(), image.width(), image.height(), image.width(), image.height());')) {
+                    return '                image.width(), image.height(), image.width(), image.height());'
+                }
+                if (line.contains('graphics.blit(RenderPipelines.GUI_TEXTURED, ATLAS')) {
+                    return '        graphics.setColor(((color >> 16) & 255) / 255f, ((color >> 8) & 255) / 255f, (color & 255) / 255f, ((color >>> 24) & 255) / 255f);\n' +
+                            '        graphics.blit(ATLAS, x, y, icon.u(), icon.v(), icon.width(), icon.height(), 256, 256);\n' +
+                            '        graphics.setColor(1, 1, 1, 1);'
+                }
+                if (line.contains('icon.width(), icon.height(), icon.width(), icon.height(), 256, 256, color);')) return ''
+            }
+            if (patch <= 8) {
+                line = line.replace('net.minecraft.client.input.KeyEvent', 'com.fentai.arcmenu.editor.compat.KeyEvent')
+                        .replace('net.minecraft.client.input.MouseButtonEvent', 'com.fentai.arcmenu.editor.compat.MouseButtonEvent')
+                        .replace('extends Screen', 'extends com.fentai.arcmenu.editor.compat.LegacyScreen')
+            }
+            if (patch <= 5) {
+                line = line.replace('import net.minecraft.client.renderer.RenderPipelines;', 'import net.minecraft.client.renderer.RenderType;')
+                if (patch == 1) line = line.replace('RenderPipelines.GUI_TEXTURED, ', '')
+                else line = line.replace('RenderPipelines.GUI_TEXTURED', 'RenderType::guiTextured')
+            }
+            return line
+        }
+    }
+    if (old) {
+        from('src/compat/legacy-render/java') {
+            filter { String line ->
+                if (patch <= 4) return line.replace('((com.mojang.blaze3d.opengl.GlTexture) main.getColorTexture()).glId()', 'main.getColorTextureId()')
+                        .replace('Lcom/mojang/blaze3d/systems/CommandEncoder;clearDepthTexture(Lcom/mojang/blaze3d/textures/GpuTexture;D)V',
+                                patch == 1 ? 'Lcom/mojang/blaze3d/systems/RenderSystem;clear(IZ)V' : 'Lcom/mojang/blaze3d/systems/RenderSystem;clear(I)V')
+                return line
+            }
+        }
+        if (patch <= 8) from('src/compat/legacy-input/java')
+    }
+    if (target == '26.2') from('src/compat/26.2/java')
+}
+sourceSets.main.java.setSrcDirs([generated])
+if (target == '26.2') {
+    sourceSets.main.resources.srcDir('src/compat/26.2/resources')
+    sourceSets.test.java.srcDir('src/compat/26.2/test/java')
+}
+tasks.named('compileJava') { dependsOn prepare }
+tasks.matching { it.name == 'sourcesJar' }.configureEach { dependsOn prepare }

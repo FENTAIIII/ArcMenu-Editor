@@ -11,7 +11,8 @@ import java.util.List;
 /** Versioned, dependency-free protocol shared by Paper and every Fabric adapter. */
 public final class EditorProtocol {
     public static final String CHANNEL = "arcmenu:editor";
-    public static final int VERSION = 8;
+    public static final int VERSION = 9;
+    public static final String EDITOR_VERSION = "1.0.0";
     public static final int MAX_PACKET_BYTES = 1_048_576;
     public static final int MAX_STRING_BYTES = 16_384;
     public static final int MAX_FRAME_DATA = 28_000;
@@ -85,6 +86,17 @@ public final class EditorProtocol {
     private static final byte ERROR = 66;
 
     private EditorProtocol() {}
+
+    public static boolean supportsClient(String clientVersion) {
+        return EDITOR_VERSION.equals(clientVersion);
+    }
+
+    /** Separate from malformed packets so the server can notify old editors through vanilla chat. */
+    public static final class ProtocolMismatchException extends IllegalArgumentException {
+        public ProtocolMismatchException(int version) {
+            super("protocol mismatch: client=" + version + ", server=" + VERSION);
+        }
+    }
 
     public record WireFrame(int messageId, int index, int count, byte[] data) {
         public WireFrame {
@@ -336,7 +348,7 @@ public final class EditorProtocol {
             var in = new DataInputStream(new ByteArrayInputStream(bytes));
             if (in.readInt() != MAGIC) throw new IllegalArgumentException("invalid editor packet magic");
             int version = in.readUnsignedByte();
-            if (version != VERSION) throw new IllegalArgumentException("protocol mismatch: client=" + version + ", server=" + VERSION);
+            if (version != VERSION) throw new ProtocolMismatchException(version);
             Packet result = switch (in.readUnsignedByte()) {
                 case HELLO -> new HelloPacket(readString(in));
                 case MOVE -> new MovePacket(in.readLong(), in.readByte(), readString(in), readPointer(in),

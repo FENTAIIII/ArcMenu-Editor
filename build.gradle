@@ -1,14 +1,22 @@
-plugins {
-    id 'net.fabricmc.fabric-loom' version '1.17.20'
-    id 'maven-publish'
+buildscript {
+    repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies { classpath 'net.fabricmc:fabric-loom:1.17.20' }
 }
+
+apply plugin: project.minecraft_version.startsWith('1.') ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
+apply plugin: 'maven-publish'
+apply from: 'gradle/compatibility.gradle'
 
 def editorVersion = providers.gradleProperty('mod_version').get()
 version = editorVersion
 group = providers.gradleProperty('maven_group').get()
 
 base {
-    archivesName = project.archives_base_name
+    archivesName = "${project.archives_base_name}-mc${project.minecraft_version}"
 }
 
 repositories {
@@ -17,16 +25,28 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    if (project.minecraft_version.startsWith('1.')) mappings loom.officialMojangMappings()
+    if (project.minecraft_version.startsWith('1.')) {
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${targetFabricVersion}"
+    } else {
+        implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${targetFabricVersion}"
+    }
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.13.4'
 }
 
 processResources {
     inputs.property 'version', editorVersion
+    inputs.property 'minecraft', project.minecraft_version
+    inputs.property 'java', targetJavaVersion
     filesMatching('fabric.mod.json') {
-        expand version: editorVersion
+        expand version: editorVersion, minecraft: project.minecraft_version, java: targetJavaVersion
+    }
+    filesMatching('arcmenu-editor.mixins.json') {
+        expand java: targetJavaVersion
+        if (project.minecraft_version == '26.2') filter { it.replace('"GameRendererMixin"', '"GameRendererMixin", "HudMixin"') }
     }
     from('LICENSE') {
         into 'META-INF'
@@ -38,7 +58,7 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release = 25
+    options.release = targetJavaVersion
     options.encoding = 'UTF-8'
 }
 

@@ -1,4 +1,10 @@
 {
+"arcmenu_editor.images.library": "Image library",
+"arcmenu_editor.images.root": "Media",
+"arcmenu_editor.images.help": "Double-click an image or click Add",
+"arcmenu_editor.images.insert": "Add",
+"arcmenu_editor.images.folder": "Folder",
+"arcmenu_editor.images.unavailable": "No preview",
   "arcmenu_editor.screen.title": "ArcMenu Editor",
   "arcmenu_editor.common.elements": "%s elements",
   "arcmenu_editor.common.template_drag": "Template  %s",
@@ -95,6 +101,7 @@
   "arcmenu_editor.property.rotation_z": "Rotation Z",
   "arcmenu_editor.property.scale_x": "Scale X",
   "arcmenu_editor.property.scale_y": "Scale Y",
+  "arcmenu_editor.property.scale_z": "Scale Z (depth)",
   "arcmenu_editor.property.visible": "Visible",
   "arcmenu_editor.property.width": "Width",
   "arcmenu_editor.property.height": "Height",
