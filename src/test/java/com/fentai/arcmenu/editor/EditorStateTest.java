@@ -134,6 +134,30 @@ class EditorStateTest {
         assertEquals(17, state.apply(ack(EditorProtocol.OP_PROPERTY, "c")));
     }
 
+    @Test void rejectionReasonSurvivesTheAuthoritativeSnapshotUntilTheNextSuccessfulEdit() {
+        EditorState state = state();
+        state.selectOnly("c");
+        state.expectReply(property("c", "id", "a"));
+        state.error("Element key already exists: a");
+        state.update(snapshot(List.of(node("a"), node("b"), node("c"))));
+        assertTrue(state.errorStatus());
+        assertEquals("Element key already exists: a", state.status());
+        assertEquals("c", state.selectedId());
+        state.expectReply(property("c", "id", "Shop.Item"));
+        state.apply(ack(EditorProtocol.OP_PROPERTY, "Shop.Item"));
+        state.update(snapshot(List.of(node("a"), node("b"), node("Shop.Item"))));
+        assertFalse(state.errorStatus());
+        assertEquals("Shop.Item", state.selectedId());
+    }
+
+    @Test void aNewMenuClearsThePreviousMenusRejectionReason() {
+        EditorState state = state();
+        state.error("Element key already exists: a");
+        state.update(new EditorProtocol.SnapshotPacket(0, "other-menu", 320, 180,
+                false, true, "26.3", List.of(node("a")), List.of()));
+        assertFalse(state.errorStatus());
+    }
+
     private static EditorProtocol.AckPacket ack(byte operation, String id) {
         return new EditorProtocol.AckPacket(operation, 1, id, 42, 12, 20, 30,
                 Double.NaN, Double.NaN, "", true, false, "updated");

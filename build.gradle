@@ -46,7 +46,7 @@ processResources {
     }
     filesMatching('arcmenu-editor.mixins.json') {
         expand java: targetJavaVersion
-        if (project.minecraft_version == '26.2') filter { it.replace('"GameRendererMixin"', '"GameRendererMixin", "HudMixin"') }
+        if (usesModernRenderer) filter { it.replace('"GameRendererMixin"', '"GameRendererMixin", "HudMixin"') }
     }
     from('LICENSE') {
         into 'META-INF'

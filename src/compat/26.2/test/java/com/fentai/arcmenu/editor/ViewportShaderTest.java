@@ -28,7 +28,8 @@ final class ViewportShaderTest {
             // Minecraft upgrades GLSL and assigns bindings during backend compilation.
             shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_core);
             shaderc_compile_options_set_auto_bind_uniforms(options, true);
-            shaderc_compile_options_set_auto_map_locations(options, true);
+            // RenderPearl requires explicit locations, as declared by Minecraft's screenquad shader.
+            shaderc_compile_options_set_auto_map_locations(options, false);
             long result = shaderc_compile_into_spv(compiler, source, shaderc_fragment_shader,
                     "viewport_blit.fsh", "main", options);
             assertNotEquals(0, result);

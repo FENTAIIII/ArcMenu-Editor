@@ -6,6 +6,7 @@ def target = project.minecraft_version.toString()
 if (!versions.containsKey(target)) throw new GradleException("Unsupported Minecraft target: ${target}; choose ${versions.keySet().sort()}")
 ext.targetFabricVersion = versions.getProperty(target)
 ext.targetJavaVersion = target.startsWith('1.') ? 21 : 25
+ext.usesModernRenderer = target in ['26.2', '26.3']
 def old = target.startsWith('1.')
 def patch = old ? target.tokenize('.')[2].toInteger() : 0
 layout.buildDirectory = file("build/${target}")
@@ -16,11 +17,12 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
     inputs.file('gradle/compatibility.gradle')
     into generated
     from('src/main/java') {
-        if (old || target == '26.2') exclude '**/EditorWorldCompositor.java'
+        if (old || usesModernRenderer) exclude '**/EditorWorldCompositor.java'
         if (old) exclude '**/mixin/CameraMixin.java', '**/mixin/GameRendererMixin.java'
-        if (target == '26.2') exclude '**/mixin/GameRendererMixin.java'
+        if (usesModernRenderer) exclude '**/mixin/GameRendererMixin.java'
         filter { String line ->
-            if (target == '26.2') return line.replace('client.screen', 'client.gui.screen()').replace('client.setScreen(', 'client.gui.setScreen(')
+            if (target == '26.3') line = line.replace('import org.lwjgl.glfw.GLFW;', 'import com.mojang.blaze3d.platform.InputConstants;').replace('GLFW.GLFW_', 'InputConstants.')
+            if (usesModernRenderer) return line.replace('client.screen', 'client.gui.screen()').replace('client.setScreen(', 'client.gui.setScreen(')
             if (!old) return line
             line = line.replace('GuiGraphicsExtractor', 'GuiGraphics')
                     .replace('extractRenderState', 'render').replace('extractBackground', 'renderBackground')
@@ -69,10 +71,27 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
         }
         if (patch <= 8) from('src/compat/legacy-input/java')
     }
-    if (target == '26.2') from('src/compat/26.2/java')
+    if (usesModernRenderer) from('src/compat/26.2/java') {
+        filter { String line ->
+            if (target != '26.3') return line
+            return line.replace('false, main.getColorTexture().getFormat()', 'main.getColorTexture().getFormat(), null')
+                    .replace('withSampler("InSampler")', 'withUniform("InSampler", UniformType.COMBINED_IMAGE_SAMPLER)')
+                    .replace('pass.setPipeline(VIEWPORT_BLIT)', 'pass.setPipeline(RenderSystem.getCompiledPipeline(VIEWPORT_BLIT))')
+                    .replace('pass.bindTexture(', 'pass.setUniform(')
+                    .replace('com.mojang.blaze3d.PrimitiveTopology', 'com.mojang.renderpearl.api.pipeline.PrimitiveTopology')
+                    .replace('com.mojang.blaze3d.buffers.GpuBuffer', 'com.mojang.renderpearl.api.buffers.GpuBuffer')
+                    .replace('com.mojang.blaze3d.pipeline.BindGroupLayout', 'com.mojang.renderpearl.api.pipeline.BindGroupLayout')
+                    .replace('com.mojang.blaze3d.pipeline.ColorTargetState', 'com.mojang.renderpearl.api.pipeline.ColorTargetState')
+                    .replace('com.mojang.blaze3d.pipeline.RenderPipeline', 'com.mojang.renderpearl.api.pipeline.RenderPipeline')
+                    .replace('com.mojang.blaze3d.shaders.UniformType', 'com.mojang.renderpearl.api.pipeline.UniformType')
+                    .replace('com.mojang.blaze3d.textures.FilterMode', 'com.mojang.renderpearl.api.textures.FilterMode')
+                    .replace('com/mojang/blaze3d/systems/CommandEncoder', 'com/mojang/renderpearl/api/commands/CommandEncoder')
+                    .replace('com/mojang/blaze3d/textures/GpuTexture', 'com/mojang/renderpearl/api/textures/GpuTexture')
+        }
+    }
 }
 sourceSets.main.java.setSrcDirs([generated])
-if (target == '26.2') {
+if (usesModernRenderer) {
     sourceSets.main.resources.srcDir('src/compat/26.2/resources')
     sourceSets.test.java.srcDir('src/compat/26.2/test/java')
 }

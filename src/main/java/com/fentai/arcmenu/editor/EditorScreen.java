@@ -28,7 +28,6 @@ public final class EditorScreen extends Screen {
     private static final int MUTED = 0xFF9AA4B2;
     private static final int ACCENT = 0xFF388BFF;
     private static final int SELECTED = 0xFF263F65;
-    private static final int DANGER = 0xFFE35D6A;
 
     private final EditorState state;
     private final EditorLayout layout = new EditorLayout();
@@ -353,7 +352,7 @@ public final class EditorScreen extends Screen {
         graphics.text(font, menu, Math.min(x + 8, width - 220), 8, snapshot != null && snapshot.dirty() ? 0xFFFFC857 : MUTED, false);
         String status = ellipsize(state.status(), 180);
         graphics.text(font, status, Math.max(x + 110, width - font.width(status) - 28), 8,
-                state.errorStatus() ? DANGER : MUTED, false);
+                MUTED, false);
         EditorIcons.draw(graphics, EditorIcons.CLOSE, width - 20, 4, 0xFFE7A0A7);
     }
 

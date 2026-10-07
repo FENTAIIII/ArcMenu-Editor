@@ -48,7 +48,8 @@ public final class EditorState {
     private record SelectionRequest(byte operation, long selectionVersion, byte tab, String renamedId, long gestureId) {}
 
     public void update(EditorProtocol.SnapshotPacket value) {
-        if (snapshot != null && !snapshot.menuId().equals(value.menuId())) {
+        boolean newMenu = snapshot == null || !snapshot.menuId().equals(value.menuId());
+        if (snapshot != null && newMenu) {
             clearSelection();
             requests.clear();
         }
@@ -56,8 +57,11 @@ public final class EditorState {
         selected.removeIf(id -> find(id) == null);
         if (find(selectedId) == null) selectedId = selected.stream().findFirst().orElse("");
         if (find(selectionAnchor) == null) selectionAnchor = selectedId;
-        status = EditorI18n.text(value.dirty() ? "arcmenu_editor.status.dirty" : "arcmenu_editor.status.synced");
-        errorStatus = false;
+        // A rejected edit is followed by a snapshot; keep its reason visible.
+        if (!errorStatus || newMenu) {
+            status = EditorI18n.text(value.dirty() ? "arcmenu_editor.status.dirty" : "arcmenu_editor.status.synced");
+            errorStatus = false;
+        }
     }
 
     /** Applies the compact authoritative response used between live-drag samples. */
