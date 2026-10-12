@@ -24,6 +24,6 @@ abstract class GameRendererMixin {
     @Redirect(method = "render", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/gui/Gui;render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V"))
     private void arcmenu$hideVanillaHudInEditor(Gui gui, GuiGraphics graphics, DeltaTracker tracker) {
-        if (!(Minecraft.getInstance().screen instanceof EditorScreen)) gui.render(graphics, tracker);
+        if (!(EditorScreen.isEditor(Minecraft.getInstance().screen))) gui.render(graphics, tracker);
     }
 }

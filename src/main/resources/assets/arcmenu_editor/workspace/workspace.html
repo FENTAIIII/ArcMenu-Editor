@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="aui-viewport" content="mode=browser,width=1440,user-scalable=false">
+    <meta name="aui-mouse-events" content="intercept">
+    <title>ArcMenu Studio</title>
+    <link rel="stylesheet" href="workspace.css">
+</head>
+<body>
+<div id="workspace" class="workspace">
+    <aside class="sidebar">
+        <div class="brand"><div class="brand-mark">A</div><div class="brand-copy"><strong>ArcMenu</strong><span>STUDIO</span></div></div>
+        <div id="navigation_label" class="sidebar-caption"></div>
+        <nav class="navigation">
+            <button id="nav_projects" data-action="nav_projects" class="nav-item active"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span id="nav_projects_label"></span><span id="projects_count" class="nav-count"></span></button>
+            <button id="nav_local_packages" data-action="nav_local_packages" class="nav-item"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9M7.5 5.25l9 4.5"/></svg><span id="nav_local_packages_label"></span><span id="local_packages_count" class="nav-count"></span></button>
+            <button id="nav_installed" data-action="nav_installed" class="nav-item"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3h14v18H5V3Z"/><path d="m8 12 3 3 5-6"/></svg><span id="nav_installed_label"></span><span id="installed_count" class="nav-count"></span></button>
+            <div class="nav-divider"></div>
+            <button id="nav_market" data-action="nav_market" class="nav-item"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10v10h16V10M3 10l2-7h14l2 7"/><path d="M3 10c0 3 4.5 3 4.5 0 0 3 4.5 3 4.5 0 0 3 4.5 3 4.5 0 0 3 4.5 3 4.5 0M9 20v-6h6v6"/></svg><span id="nav_market_label"></span><span class="nav-dot"></span></button>
+        </nav>
+        <div id="folders_label" class="sidebar-caption folders-caption"></div>
+        <div id="folder_tree" class="folder-tree"></div>
+        <div class="sidebar-bottom">
+            <div class="account"><div class="avatar"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></div><div class="account-copy"><strong id="account_name"></strong><span id="account_status"></span></div><span id="account_indicator" class="account-indicator"></span></div>
+            <div id="account_error" class="account-error hidden" role="status"></div>
+            <button id="account_retry" data-action="login" class="account-retry hidden"></button>
+        </div>
+    </aside>
+    <main class="main">
+        <header class="topbar">
+            <div class="heading"><h1 id="page_title"></h1><p id="page_subtitle"></p></div>
+            <div class="topbar-actions"><button id="action_refresh" data-action="refresh" class="button button-secondary"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 6a8 8 0 0 1 13 2M18 18A8 8 0 0 1 5 16"/></svg><span id="refresh_label"></span></button><span class="topbar-divider"></span><button id="action_close" data-action="close" class="button button-close"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg><span id="close_label"></span></button></div>
+        </header>
+        <section id="searchbar" class="searchbar">
+            <div class="search-field"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="search" type="search" autocomplete="off" spellcheck="false"><button id="search_clear" data-action="search_clear" class="search-clear hidden"><svg viewBox="0 0 24 24" class="icon" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+            <div id="filter_controls" class="filter-controls"></div>
+        </section>
+        <section id="toolbar" class="toolbar"></section>
+        <div id="body_layout" class="body-layout">
+            <div id="content_scroll" class="content-scroll"><div id="content" class="content"></div></div>
+            <aside id="inspector" class="inspector"></aside>
+        </div>
+        <footer class="statusbar"><div class="status-message"><span id="status_indicator" class="status-indicator"></span><span id="status_text"></span></div><span id="status_detail" class="status-detail"></span></footer>
+    </main>
+    <div id="modal_host" class="modal-host hidden"></div>
+</div>
+</body>
+</html>

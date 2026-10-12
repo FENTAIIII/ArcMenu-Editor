@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EffectProtocol;
 
 import java.util.ArrayList;
 import java.util.ArrayDeque;
@@ -9,6 +10,8 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 
 public final class EditorState {
     private EditorProtocol.SnapshotPacket snapshot;
@@ -53,6 +56,7 @@ public final class EditorState {
             clearSelection();
             requests.clear();
         }
+        if (newMenu) activeTab = EditorProtocol.TAB_FRONTEND;
         snapshot = value;
         selected.removeIf(id -> find(id) == null);
         if (find(selectedId) == null) selectedId = selected.stream().findFirst().orElse("");
@@ -62,6 +66,31 @@ public final class EditorState {
             status = EditorI18n.text(value.dirty() ? "arcmenu_editor.status.dirty" : "arcmenu_editor.status.synced");
             errorStatus = false;
         }
+    }
+
+    /** Apply sampled values without consuming edit replies or changing selection and property schemas. */
+    public boolean update(EffectProtocol.SceneFrame value) {
+        if (snapshot == null || snapshot.revision() != value.revision() || !snapshot.menuId().equals(value.menuId())) return false;
+        var changes = new HashMap<String, EffectProtocol.NodeFrame>();
+        for (var node : value.nodes()) changes.put(node.id(), node);
+        if (changes.isEmpty()) return false;
+        var ids = snapshot.frontend().stream().map(EditorProtocol.NodeSnapshot::id).collect(Collectors.toSet());
+        if (!ids.containsAll(changes.keySet())) return false;
+        var frontend = new ArrayList<EditorProtocol.NodeSnapshot>(snapshot.frontend().size());
+        for (var node : snapshot.frontend()) {
+            var frame = changes.get(node.id());
+            if (frame == null) { frontend.add(node); continue; }
+            var values = new HashMap<String, String>();
+            for (var property : frame.properties()) values.put(property.key(), property.value());
+            var properties = node.properties().stream().map(property -> values.containsKey(property.key())
+                    ? new EditorProtocol.PropertySnapshot(property.key(), property.type(), values.get(property.key()), property.choices())
+                    : property).toList();
+            frontend.add(new EditorProtocol.NodeSnapshot(node.id(), node.parentId(), node.kind(),
+                    frame.x(), frame.y(), frame.width(), frame.height(), frame.rotationZ(), frame.visible(), node.locked(), properties));
+        }
+        snapshot = new EditorProtocol.SnapshotPacket(snapshot.revision(), snapshot.menuId(), snapshot.canvasWidth(), snapshot.canvasHeight(),
+                snapshot.dirty(), snapshot.saved(), snapshot.serverVersion(), frontend, snapshot.backend(), snapshot.images(), snapshot.templates());
+        return true;
     }
 
     /** Applies the compact authoritative response used between live-drag samples. */
@@ -118,6 +147,7 @@ public final class EditorState {
     }
 
     public EditorProtocol.SnapshotPacket snapshot() { return snapshot; }
+    public void clear() { snapshot = null; requests.clear(); clearSelection(); }
     public String selectedId() { return selectedId; }
     public Set<String> selectedIds() { return Collections.unmodifiableSet(selected); }
     public boolean selected(String id) { return selected.contains(id); }
@@ -169,6 +199,7 @@ public final class EditorState {
     public Set<String> expanded() { return expanded; }
     public boolean locked(String id) { return locked.contains(id); }
     public void toggleLocked(String id) { if (!locked.add(id)) locked.remove(id); }
+    public void unlockAll() { locked.clear(); }
 
     public List<EditorProtocol.NodeSnapshot> nodes() {
         if (snapshot == null) return List.of();

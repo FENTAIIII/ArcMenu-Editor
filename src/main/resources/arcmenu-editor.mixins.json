@@ -4,7 +4,8 @@
   "compatibilityLevel": "JAVA_${java}",
   "client": [
     "CameraMixin",
-    "GameRendererMixin"
+    "GameRendererMixin",
+    "EffectAudioReloadMixin"
   ],
   "injectors": {
     "defaultRequire": 1

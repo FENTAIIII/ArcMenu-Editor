@@ -20,6 +20,7 @@ final class EditorIcons {
     static final Icon CUT = icon(224, 0);
     static final Icon FOLDER = icon(48, 16);
     static final Icon IMAGE = icon(64, 16);
+    static final Icon GIF = icon(64, 16);
     static final Icon EDIT = icon(80, 16);
     static final Icon MATERIAL = icon(96, 16);
     static final Icon CLOSE = icon(112, 16);
@@ -53,6 +54,11 @@ final class EditorIcons {
     static void draw(GuiGraphicsExtractor graphics, Icon icon, int x, int y, int color) {
         graphics.blit(RenderPipelines.GUI_TEXTURED, ATLAS, x, y, icon.u(), icon.v(),
                 icon.width(), icon.height(), icon.width(), icon.height(), 256, 256, color);
+        if (icon == GIF) {
+            graphics.fill(x+10,y+9,x+11,y+15,color);
+            graphics.fill(x+11,y+10,x+12,y+14,color);
+            graphics.fill(x+12,y+11,x+13,y+13,color);
+        }
     }
 
     record Icon(int u, int v, int width, int height) {}

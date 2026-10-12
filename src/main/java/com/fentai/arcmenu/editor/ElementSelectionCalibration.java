@@ -19,6 +19,7 @@ final class ElementSelectionCalibration {
             EditorProtocol.KIND_LINE,
             EditorProtocol.KIND_TEXT,
             EditorProtocol.KIND_IMAGE,
+            EditorProtocol.KIND_GIF,
             EditorProtocol.KIND_ITEM,
             EditorProtocol.KIND_BLOCK,
             EditorProtocol.KIND_REGION
@@ -62,7 +63,7 @@ final class ElementSelectionCalibration {
             case EditorProtocol.KIND_RECTANGLE -> new Calibration(0.0, -0.03, 1.0, 0.9);
             case EditorProtocol.KIND_LINE -> new Calibration(0.0, 0.0, 1.02, 0.1);
             case EditorProtocol.KIND_TEXT -> new Calibration(0.0, 0.5, 1.3, 1.3);
-            case EditorProtocol.KIND_IMAGE -> new Calibration(0.12, 0.25, 1.0, 1.0);
+            case EditorProtocol.KIND_IMAGE, EditorProtocol.KIND_GIF -> new Calibration(0.12, 0.25, 1.0, 1.0);
             case EditorProtocol.KIND_REGION -> new Calibration(0.0, -0.04, 1.01, 0.92);
             default -> IDENTITY;
         };
@@ -117,6 +118,7 @@ final class ElementSelectionCalibration {
             case EditorProtocol.KIND_LINE -> "line";
             case EditorProtocol.KIND_TEXT -> "text";
             case EditorProtocol.KIND_IMAGE -> "image";
+            case EditorProtocol.KIND_GIF -> "gif";
             case EditorProtocol.KIND_ITEM -> "item";
             case EditorProtocol.KIND_BLOCK -> "block";
             case EditorProtocol.KIND_REGION -> "interaction-region";

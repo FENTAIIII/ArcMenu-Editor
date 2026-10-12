@@ -1,0 +1,94 @@
+// ApricityUI remains a separately licensed internal library. Its source snapshot
+// and this compatibility recipe are distributed with the editor for replacement.
+def auiSource = file('libs/apricityui-source.zip')
+def auiEnglish = new Properties()
+file('gradle/embedded-aui-en.properties').withReader('UTF-8') { auiEnglish.load(it) }
+def auiGenerated = layout.buildDirectory.dir('generated/sources/embedded-aui')
+def auiTarget = project.minecraft_version.toString()
+def prepareAui = tasks.register('prepareEmbeddedAui', Sync) {
+    inputs.file(auiSource)
+    inputs.file('gradle/embedded-aui.gradle')
+    inputs.file('gradle/embedded-aui-en.properties')
+    inputs.property('minecraft', auiTarget)
+    from(zipTree(auiSource)) {
+        include 'common/src/main/java/**/*.java'
+        exclude 'common/src/main/java/com/sighs/apricityui/network/**', '**/mixin/**'
+        eachFile { relativePath = new RelativePath(true, *relativePath.segments.drop(4)) }
+        includeEmptyDirs = false
+        filter { String line ->
+            line = line.replace('com.sighs.apricityui', 'com.fentai.arcmenu.editor.aui.internal')
+            auiEnglish.each { before, after -> line = line.replace(before.toString(), after.toString()) }
+            // Embedded browser controls use the game's live language, including
+            // resource-pack overrides, rather than upstream literal labels.
+            if (line.contains('ContextMenu.Item.header("TEXT")')) line = line.replace('"TEXT"', 'com.fentai.arcmenu.editor.EditorI18n.text("arcmenu_editor.aui.text")')
+            ['Cut':'cut', 'Copy':'copy', 'Paste':'paste', 'Select All':'select_all'].each { label, key ->
+                if (line.contains('ContextMenu.Item.action("' + label + '"')) line = line.replace('"' + label + '"', 'com.fentai.arcmenu.editor.EditorI18n.text("arcmenu_editor.aui.' + key + '")')
+            }
+            if (line.contains('label = "button";')) line = line.replace('"button"', 'com.fentai.arcmenu.editor.EditorI18n.text("arcmenu_editor.aui.button")')
+            line = line.replace('/assets/apricityui/lang/en_us.json', '/assets/arcmenu_editor/lang/en_us.json')
+            if (line.contains('String translated = minecraftTranslation(key);')) line = line.replace('minecraftTranslation(key)', 'com.fentai.arcmenu.editor.EditorI18n.text(key)')
+            if (line.contains('String translated = minecraftTranslation(key, arguments);')) line = line.replace('minecraftTranslation(key, arguments)', 'com.fentai.arcmenu.editor.EditorI18n.text(key, arguments)')
+            if (line.contains('import dev.latvian.mods.rhino.util.HideFromJS;') || line.trim() == '@HideFromJS') return ''
+            if (auiTarget in ['26.2', '26.3']) line = line.replace('minecraft.screen', 'minecraft.gui.screen()').replace('minecraft.setScreen(', 'minecraft.gui.setScreen(').replace('Minecraft.getInstance().screen', 'Minecraft.getInstance().gui.screen()').replace('minecraft.getOverlay()', 'minecraft.gui.overlay()')
+            if (auiTarget == '26.3') line = line.replace('minecraft.getOverlay()', 'minecraft.gui.overlay()').replace('poseStack.mulPose(quaternion);', 'poseStack.last().pose().rotate(quaternion);').replace('if (key.getType() == InputConstants.Type.KEYSYM)', 'if (false)')
+            if (line.contains('import org.lwjgl.util.tinyfd.TinyFileDialogs;')) return ''
+            if (line.contains('String selected = TinyFileDialogs.tinyfd_openFileDialog')) return '            String selected = null;'
+            if (line.contains('public static InputStream getResourceStream(String path) {')) return line + '\n        java.util.Optional<InputStream> embedded = com.fentai.arcmenu.editor.aui.internal.spi.AuiServices.resources().openResource(path); if (embedded.isPresent()) return embedded.get();'
+            if (line.contains('int workerCount = Math.max(2,')) return '        int workerCount = 2;'
+            if (line.contains('public static int cachedGlyphs() {')) return '    public static boolean hasPendingGlyphs() { synchronized (LOCK) { return CACHE.values().stream().anyMatch(glyph -> glyph.hasInk && !glyph.pixels); } }\n' + line
+            if (line.contains('public boolean hasVisualChanges() {')) return '    public boolean hasActiveMotion() { return !flags.isEmpty(); }\n' + line
+            if (line.contains('public boolean stepMotionRender() {')) return '    public boolean hasActiveMotion() { return !activeScrollElements.isEmpty() || motion.hasActiveMotion(); }\n' + line
+            if (line.contains('String glfwName = GLFW.glfwGetKeyName(keyCode, scanCode);')) return '                String glfwName = com.fentai.arcmenu.editor.aui.AuiKeyNames.name(keyCode, scanCode);'
+            if (line.contains('addRect(mesh, mat, x - 0.7f, y, x, y + height, color | 0xFF000000);')) return '                com.fentai.arcmenu.editor.aui.AuiCaret.addRect(mesh, mat, x, y, height, color);'
+            if (line.contains('boolean blink = (System.currentTimeMillis() - lastBlinkTime) % 1000 < 500;')) return '        boolean blink = com.fentai.arcmenu.editor.aui.AuiCaret.visible(lastBlinkTime);'
+            // The host owns cursors and input. Avoid initializing a GLFW window
+            // backend when Minecraft uses SDL, or creating unrelated AUI shortcuts.
+            if (line.contains('if (initialized) return;')) return '        initialized = true; if (true) return;'
+            return line
+        }
+    }
+    into auiGenerated
+}
+sourceSets.main.java.srcDir(auiGenerated)
+if (auiTarget == '26.3') sourceSets.test.java.srcDir('src/compat/26.3/test/java')
+tasks.named('compileJava') { dependsOn prepareAui }
+tasks.matching { it.name == 'sourcesJar' }.configureEach { dependsOn prepareAui }
+tasks.named('prepareVersionSources', Sync) {
+    if (auiTarget == '26.3') {
+        exclude { details -> details.file.path.replace('\\', '/').contains('/src/main/java/') && details.name in ['AuiTextInput.java', 'AuiKeyCodes.java'] }
+        from('src/compat/26.3/java')
+    }
+    filesMatching('**/aui/ApricityWorkspaceView.java') {
+        filter { String line ->
+            if (auiTarget.startsWith('1.') && auiTarget.tokenize('.')[2].toInteger() <= 4) line = line.replace('new DynamicTexture(()->"ArcMenu marketplace preview",nativeImage)', 'new DynamicTexture(nativeImage)')
+            return line
+        }
+    }
+    filesMatching('**/aui/AuiPixels.java') {
+        filter { String line ->
+            if (auiTarget == '1.21.1') line = line.replace('return image.getPixel(x,y);', 'return swap(image.getPixelRGBA(x,y));').replace('image.setPixel(x,y,color);', 'image.setPixelRGBA(x,y,swap(color));').replace('return image.getPixels();', 'int[] pixels=image.getPixelsRGBA();for(int i=0;i<pixels.length;i++)pixels[i]=swap(pixels[i]);return pixels;')
+            if (auiTarget.startsWith('1.') && line.contains('MemoryUtil.memIntBuffer(image.getPointer()')) return '        for(int y=0,i=0;y<image.getHeight();y++)for(int x=0;x<image.getWidth();x++)write(image,x,y,swap(pixels[i++]));'
+            return line
+        }
+    }
+}
+dependencies {
+    // Legacy AUI signatures need GLFW at compile time. Minecraft owns its
+    // LWJGL runtime; bundling an older GLFW breaks the game's callback ABI.
+    compileOnly 'org.lwjgl:lwjgl-glfw:3.3.3'
+}
+tasks.named('processResources', ProcessResources) {
+    from(zipTree(auiSource)) {
+        include 'LICENSE'
+        into 'META-INF'
+        rename { 'LICENSE-ApricityUI.txt' }
+    }
+    from(auiSource) { into 'META-INF/third-party' }
+    from('gradle/embedded-aui.gradle') { into 'META-INF/third-party' }
+    from('gradle/embedded-aui-en.properties') { into 'META-INF/third-party' }
+    from(zipTree(auiSource)) {
+        include '**/global.css'
+        eachFile { path = 'assets/arcmenu_editor/workspace/aui-global.css' }
+        includeEmptyDirs = false
+    }
+}

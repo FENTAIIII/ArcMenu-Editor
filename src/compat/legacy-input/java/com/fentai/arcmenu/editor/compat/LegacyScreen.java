@@ -37,6 +37,15 @@ public abstract class LegacyScreen extends Screen {
     }
 
     @Override
+    public final boolean charTyped(char character, int modifiers) {
+        return charTyped(new CharacterEvent(character, modifiers));
+    }
+
+    public boolean charTyped(CharacterEvent event) {
+        return super.charTyped((char) event.codepoint(), event.modifiers());
+    }
+
+    @Override
     public final boolean keyPressed(int key, int scancode, int modifiers) {
         return keyPressed(new KeyEvent(key, scancode, modifiers));
     }

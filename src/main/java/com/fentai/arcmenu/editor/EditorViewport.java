@@ -1,15 +1,58 @@
 package com.fentai.arcmenu.editor;
 
 import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.repository.PackSource;
 
 /** Shares the docked game rectangle with render mixins without changing GUI dimensions. */
 public final class EditorViewport {
     private static volatile EditorLayout.Rect guiRect;
+    private static volatile double verticalFov = 70;
+    private static final Identifier MENU_PROJECTION_SHADER =
+            Identifier.fromNamespaceAndPath("arcmenu", "shaders/include/menu_projection.glsl");
+    private record ProjectionResources(boolean shaderPresent, boolean serverPackActive) {}
+    private static volatile ProjectionResources projectionResources;
 
     private EditorViewport() {}
 
     public static void update(EditorLayout.Rect rect) {
         guiRect = rect;
+    }
+
+    public static double verticalFov() {
+        ProjectionResources resources = projectionResources;
+        if (resources == null) {
+            var client = Minecraft.getInstance();
+            // A manually installed pack alone does not enable the server's menu encoding.
+            resources = new ProjectionResources(
+                    client.getResourceManager().getResource(MENU_PROJECTION_SHADER).isPresent(),
+                    client.getResourcePackRepository().getSelectedPacks().stream()
+                            .anyMatch(pack -> pack.getPackSource() == PackSource.SERVER));
+            projectionResources = resources;
+        }
+        return EffectProjection.verticalFov(verticalFov, resources.shaderPresent(), resources.serverPackActive());
+    }
+
+    public static void resourceReloaded() { projectionResources = null; }
+
+    public static void verticalFov(double value) {
+        if (Double.isFinite(value) && value > 0 && value < 180) verticalFov = value;
+    }
+
+    /** Optional Effect composition crop; ordinary menu editors retain the full source frame. */
+    public static EditorLayout.Rect sourceFrame(int sourceWidth, int sourceHeight) {
+        var client = Minecraft.getInstance();
+        if (!(client.screen instanceof EffectEditorScreen screen)) return null;
+        var plane = ArcMenuEditorClient.EFFECT.viewport();
+        var scene = ArcMenuEditorClient.state().snapshot();
+        var viewport = guiRect;
+        if (plane == null || scene == null || viewport == null || sourceWidth < 1 || sourceHeight < 1) return null;
+        var base = screen.fitView() ? EffectProjection.fitCrop(sourceWidth, sourceHeight, viewport.width() / (double) viewport.height(),
+                scene.canvasWidth(), scene.canvasHeight(), plane.pixelsPerBlock(), plane.distance(),
+                plane.offsetX(), plane.offsetY(), verticalFov()) : new EditorLayout.Rect(0,0,sourceWidth,sourceHeight);
+        if (!screen.fitView() && screen.viewZoom()==1 && screen.viewPanX()==0 && screen.viewPanY()==0) return null;
+        return EffectViewNavigation.crop(base,sourceWidth,sourceHeight,screen.viewZoom(),screen.viewPanX(),screen.viewPanY());
     }
 
     public static void clear() {

@@ -12,6 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 abstract class HudMixin {
     @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
     private void arcmenu$hideVanillaHudInEditor(CallbackInfo info) {
-        if (Minecraft.getInstance().gui.screen() instanceof EditorScreen) info.cancel();
+        if (EditorScreen.isEditor(Minecraft.getInstance().gui.screen())) info.cancel();
     }
 }

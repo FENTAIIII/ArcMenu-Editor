@@ -10,6 +10,7 @@ buildscript {
 apply plugin: project.minecraft_version.startsWith('1.') ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
 apply plugin: 'maven-publish'
 apply from: 'gradle/compatibility.gradle'
+apply from: 'gradle/embedded-aui.gradle'
 
 def editorVersion = providers.gradleProperty('mod_version').get()
 version = editorVersion
@@ -65,6 +66,19 @@ tasks.withType(JavaCompile).configureEach {
 test {
     useJUnitPlatform()
 }
+
+def runtimeJar = tasks.named(project.minecraft_version.startsWith('1.') ? 'remapJar' : 'jar')
+tasks.register('verifyNoBundledLwjgl') {
+    dependsOn runtimeJar
+    inputs.file(runtimeJar.flatMap { it.archiveFile })
+    doLast {
+        def libraries = zipTree(runtimeJar.get().archiveFile.get()).matching {
+            include 'META-INF/jars/lwjgl*.jar', 'org/lwjgl/**'
+        }
+        if (!libraries.isEmpty()) throw new GradleException('The editor must use Minecraft\'s LWJGL runtime without bundling replacement classes.')
+    }
+}
+tasks.named('check') { dependsOn 'verifyNoBundledLwjgl' }
 
 java {
     withSourcesJar()

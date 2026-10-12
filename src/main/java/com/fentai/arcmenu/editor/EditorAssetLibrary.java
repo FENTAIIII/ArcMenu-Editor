@@ -14,20 +14,22 @@ final class EditorAssetLibrary {
     private List<EditorProtocol.ImageSnapshot> images = List.of();
     private List<String> folders = List.of("");
     private boolean imageMode;
+    private byte imageKind = EditorProtocol.KIND_IMAGE;
     private String folder = "";
     private String selectedPath = "";
 
     void selectTool(byte kind) {
-        if (kind == EditorProtocol.KIND_IMAGE) imageMode = true;
+        if (EditorImageTypes.imageKind(kind)) { imageMode = true; imageKind = kind; update(images); }
         else if (kind == -1) imageMode = false;
     }
     boolean imageMode() { return imageMode; }
+    byte imageKind() { return imageKind; }
     String folder() { return folder; }
     List<String> folders() { return folders; }
     String selectedPath() { return selectedPath; }
     void select(String path) { selectedPath = path; }
     EditorProtocol.ImageSnapshot selected() {
-        return images.stream().filter(image -> image.path().equals(selectedPath)).findFirst().orElse(null);
+        return images.stream().filter(image -> EditorImageTypes.matches(imageKind,image.path()) && image.path().equals(selectedPath)).findFirst().orElse(null);
     }
     void openFolder(String path) {
         if (folders.contains(path)) { folder = path; selectedPath = ""; }
@@ -39,7 +41,7 @@ final class EditorAssetLibrary {
                 .sorted(Comparator.comparing(image -> relative(image.path()))).toList();
         TreeSet<String> paths = new TreeSet<>();
         paths.add("");
-        for (var image : images) {
+        for (var image : images.stream().filter(image -> EditorImageTypes.matches(imageKind,image.path())).toList()) {
             String path = parent(relative(image.path()));
             while (!path.isEmpty()) { paths.add(path); path = parent(path); }
         }
@@ -54,6 +56,7 @@ final class EditorAssetLibrary {
             if (!path.isEmpty() && parent(path).equals(folder)) result.add(new Entry(path, name(path), null));
         }
         for (var image : images) {
+            if (!EditorImageTypes.matches(imageKind,image.path())) continue;
             String path = relative(image.path());
             if (parent(path).equals(folder)) result.add(new Entry(path, name(path), image));
         }
@@ -62,7 +65,7 @@ final class EditorAssetLibrary {
 
     static boolean isUserImage(String source) {
         String path = relative(source).toLowerCase(Locale.ROOT);
-        if (!path.endsWith(".png")) return false;
+        if (!path.endsWith(".png") && !path.endsWith(".gif")) return false;
         String[] parts = path.split("/");
         for (int i = 0; i < parts.length; i++) {
             String part = parts[i];
@@ -71,7 +74,7 @@ final class EditorAssetLibrary {
         }
         return true;
     }
-    static String texturePath(String source) { return "textures/images/" + relative(source); }
+    static String texturePath(String source) { return EditorImageTypes.gif(source) ? "textures/gifs/" + relative(source) + "/0.png" : "textures/images/" + relative(source); }
     static String relative(String source) { return source.replace('\\', '/').replaceAll("^/+", ""); }
     static String parent(String path) { int slash = path.lastIndexOf('/'); return slash < 0 ? "" : path.substring(0, slash); }
     static String name(String path) { return path.substring(path.lastIndexOf('/') + 1); }

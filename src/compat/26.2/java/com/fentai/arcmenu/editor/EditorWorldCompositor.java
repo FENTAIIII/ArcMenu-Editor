@@ -40,7 +40,7 @@ public final class EditorWorldCompositor {
     public static void compose() {
         var minecraft = Minecraft.getInstance();
         var viewport = EditorViewport.physical(minecraft.getWindow());
-        if (viewport == null || !(minecraft.gui.screen() instanceof EditorScreen)) return;
+        if (viewport == null || !(EditorScreen.isEditor(minecraft.gui.screen()))) return;
         RenderSystem.assertOnRenderThread();
         var main = minecraft.gameRenderer.mainRenderTarget();
         if (main.width < 1 || main.height < 1) return;
@@ -54,12 +54,16 @@ public final class EditorWorldCompositor {
         encoder.copyTextureToTexture(main.getColorTexture(), worldCopy.getColorTexture(),
                 0, 0, 0, 0, 0, main.width, main.height);
         encoder.clearColorTexture(main.getColorTexture(), new Vector4f(16 / 255f, 19 / 255f, 26 / 255f, 1));
-        // RenderArea only clips; it does not scale the backend's full-target
-        // viewport. Remap texture coordinates explicitly to fit the full frame.
+        // RenderArea only clips. Remap the preserved world frame and optional Effect canvas crop.
         try (var stack = MemoryStack.stackPush()) {
-            var data = stack.malloc(16);
+            var data = stack.malloc(32);
+            var source = EditorViewport.sourceFrame(main.width, main.height);
             data.putFloat(viewport.x() / (float) main.width).putFloat(viewport.y() / (float) main.height)
-                    .putFloat(viewport.width() / (float) main.width).putFloat(viewport.height() / (float) main.height).flip();
+                    .putFloat(viewport.width() / (float) main.width).putFloat(viewport.height() / (float) main.height);
+            data.putFloat(source == null ? 0 : source.x() / (float) main.width)
+                    .putFloat(source == null ? 0 : source.y() / (float) main.height)
+                    .putFloat(source == null ? 1 : source.width() / (float) main.width)
+                    .putFloat(source == null ? 1 : source.height() / (float) main.height).flip();
             var uniform = encoder.transientMemory().uploadGpu(data,
                     RenderSystem.getDevice().getDeviceInfo().limits().minUniformOffsetAlignment(), GpuBuffer.USAGE_UNIFORM);
             try (var pass = encoder.createRenderPass(() -> "ArcMenu editor viewport",

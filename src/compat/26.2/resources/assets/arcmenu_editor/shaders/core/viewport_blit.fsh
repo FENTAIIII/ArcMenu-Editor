@@ -5,6 +5,7 @@ uniform sampler2D InSampler;
 
 layout(std140) uniform EditorViewport {
     vec4 ViewportRect;
+    vec4 SourceRect;
 };
 
 layout(location = 0) in vec2 texCoord;
@@ -15,5 +16,5 @@ void main() {
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0)))) {
         discard;
     }
-    fragColor = texture(InSampler, uv);
+    fragColor = texture(InSampler, SourceRect.xy + uv * SourceRect.zw);
 }

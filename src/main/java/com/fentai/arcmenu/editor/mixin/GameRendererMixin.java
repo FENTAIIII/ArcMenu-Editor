@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.client.Minecraft;
 
 @Mixin(GameRenderer.class)
 abstract class GameRendererMixin {
@@ -40,7 +41,7 @@ abstract class GameRendererMixin {
             )
     )
     private void arcmenu$hideVanillaHudInEditor(Gui gui, GuiGraphicsExtractor graphics, DeltaTracker tracker) {
-        if (!(net.minecraft.client.Minecraft.getInstance().screen instanceof EditorScreen)) {
+        if (!(EditorScreen.isEditor(Minecraft.getInstance().screen))) {
             gui.extractRenderState(graphics, tracker);
         }
     }

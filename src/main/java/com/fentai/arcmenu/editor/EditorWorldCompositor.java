@@ -34,7 +34,7 @@ public final class EditorWorldCompositor {
     public static void compose() {
         Minecraft minecraft = Minecraft.getInstance();
         EditorViewport.Physical viewport = EditorViewport.physical(minecraft.getWindow());
-        if (viewport == null || !(minecraft.screen instanceof EditorScreen)) return;
+        if (viewport == null || !(EditorScreen.isEditor(minecraft.screen))) return;
 
         RenderSystem.assertOnRenderThread();
         RenderTarget main = minecraft.getMainRenderTarget();
@@ -49,7 +49,8 @@ public final class EditorWorldCompositor {
         // main target becomes the full-window editor canvas.
         encoder.copyTextureToTexture(mainColor, copyColor, 0, 0, 0, 0, 0, main.width, main.height);
         encoder.clearColorTexture(mainColor, WORKSPACE_COLOR);
-        blit((GlTexture) copyColor, (GlTexture) mainColor, main.width, main.height, viewport);
+        blit((GlTexture) copyColor, (GlTexture) mainColor, main.width, main.height, viewport,
+                EditorViewport.sourceFrame(main.width, main.height));
     }
 
     private static void ensureResources(int width, int height) {
@@ -63,7 +64,7 @@ public final class EditorWorldCompositor {
     }
 
     private static void blit(GlTexture source, GlTexture destination, int sourceWidth, int sourceHeight,
-                             EditorViewport.Physical viewport) {
+                             EditorViewport.Physical viewport, EditorLayout.Rect sourceRect) {
         int previousRead = GlStateManager.getFrameBuffer(GL30.GL_READ_FRAMEBUFFER);
         int previousDraw = GlStateManager.getFrameBuffer(GL30.GL_DRAW_FRAMEBUFFER);
         try {
@@ -75,7 +76,8 @@ public final class EditorWorldCompositor {
             GlStateManager._glFramebufferTexture2D(
                     GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, destination.glId(), 0);
             GlStateManager._glBlitFrameBuffer(
-                    0, 0, sourceWidth, sourceHeight,
+                    sourceRect == null ? 0 : sourceRect.x(), sourceRect == null ? 0 : sourceRect.y(),
+                    sourceRect == null ? sourceWidth : sourceRect.right(), sourceRect == null ? sourceHeight : sourceRect.bottom(),
                     viewport.x(), viewport.y(), viewport.x() + viewport.width(), viewport.y() + viewport.height(),
                     GL11.GL_COLOR_BUFFER_BIT, GL11.GL_LINEAR);
         } finally {

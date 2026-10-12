@@ -17,8 +17,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.fentai.arcmenu.editor.mcp.EditorMcp;
+import com.fentai.arcmenu.editor.mcp.McpScreen;
+import com.fentai.arcmenu.protocol.EffectProtocol;
+import com.mojang.blaze3d.platform.InputConstants;
+import java.util.HashSet;
+import java.util.Optional;
 
-public final class EditorScreen extends Screen {
+public final class EditorScreen extends Screen implements EffectTimeline.Host {
+    public static boolean captureClean;
+
+    public static boolean isEditor(Screen screen) {
+        return screen instanceof EditorScreen || screen instanceof EffectEditorScreen || screen instanceof WorkspacePreviewScreen;
+    }
     private static final long LIVE_DRAG_INTERVAL_NANOS = 50_000_000L;
     private static final int PANEL = 0xFF1A1D24;
     private static final int PANEL_ALT = 0xFF232731;
@@ -30,6 +41,7 @@ public final class EditorScreen extends Screen {
     private static final int SELECTED = 0xFF263F65;
 
     private final EditorState state;
+    private final EffectTimeline effectTimeline;
     private final EditorLayout layout = new EditorLayout();
     private final ElementSelectionCalibration selectionCalibration = new ElementSelectionCalibration();
     private EditorLayout.Layout currentLayout;
@@ -37,6 +49,7 @@ public final class EditorScreen extends Screen {
     private final List<PropertyField> propertyFields = new ArrayList<>();
     private final List<ToolButton> toolButtons = new ArrayList<>();
     private final EditorAssetLibrary assetLibrary = new EditorAssetLibrary();
+    private String imageSourceTarget = "";
     private final List<AssetCard> assetCards = new ArrayList<>();
     private final List<FolderRow> folderRows = new ArrayList<>();
     private final List<TemplateCard> templateCards = new ArrayList<>();
@@ -88,6 +101,8 @@ public final class EditorScreen extends Screen {
     public EditorScreen(EditorState state) {
         super(EditorI18n.component("arcmenu_editor.screen.title"));
         this.state = state;
+        state.activeTab(EditorProtocol.TAB_FRONTEND);
+        this.effectTimeline = new EffectTimeline(this, state);
         var preferences = ArcMenuEditorClient.preferencesFile();
         this.layout.load(preferences);
         this.layout.save(preferences);
@@ -114,6 +129,12 @@ public final class EditorScreen extends Screen {
             propertyField(propertyDrag.property.key()).ifPresent(field -> field.box.setValue(
                     formatPropertyValue(propertyDrag.property, pendingPropertyValue)));
         }
+    }
+    public void effectStateChanged() { if (currentLayout != null) rebuildWidgets(); }
+    @Override public void timelineSearchFocus(EditBox field) {setFocused(field);}
+    public void effectDialog(String mode, String target, String property, int frame,
+                      EffectProtocol.Key key, EffectProtocol.Cue cue) {
+        minecraft.setScreen(new EffectDialog(this, state, mode, target, property, frame, key, cue));
     }
 
     public void serverOperationCompleted(byte operation, long gestureId) {
@@ -159,6 +180,7 @@ public final class EditorScreen extends Screen {
 
     @Override
     protected void rebuildWidgets() {
+        boolean restoreTimelineSearch=effectTimeline.searchFocused();
         clearWidgets();
         propertyFields.clear();
         assetLibrary.update(state.snapshot() == null ? List.of() : state.snapshot().images());
@@ -170,6 +192,7 @@ public final class EditorScreen extends Screen {
             templateNameBox = null;
             return;
         }
+        if(effectTimeline.active())addRenderableWidget(effectTimeline.rebuildSearch(font,currentLayout.templates(),restoreTimelineSearch));
         EditorProtocol.NodeSnapshot node = state.find(state.selectedId());
         if (node != null) {
             int fieldX = currentLayout.properties().x() + 94;
@@ -180,7 +203,7 @@ public final class EditorScreen extends Screen {
                 if (y >= currentLayout.properties().y() + 21 && y + 19 < currentLayout.properties().bottom() - 22) {
                     boolean numeric = isNumeric(property);
                     int boxInset = numeric ? 18 : 7;
-                    int boxRightInset = numeric ? 18 : 15;
+                    int boxRightInset = numeric ? 18 : property.key().equals("source") && EditorImageTypes.imageKind(node.kind()) ? 26 : 15;
                     EditBox box = new EditBox(font, fieldX + boxInset, y + 6,
                             Math.max(20, fieldWidth - boxInset - boxRightInset), 10,
                             Component.literal(property.key()));
@@ -287,7 +310,7 @@ public final class EditorScreen extends Screen {
         drawTools(graphics, mouseX, mouseY);
         drawViewport(graphics, mouseX, mouseY);
         drawElementManager(graphics, mouseX, mouseY);
-        drawProperties(graphics);
+        drawProperties(graphics, mouseX, mouseY);
         drawTemplates(graphics, mouseX, mouseY);
         if (calibrationSettingsOpen) {
             drawCalibrationSettings(graphics, mouseX, mouseY);
@@ -347,12 +370,16 @@ public final class EditorScreen extends Screen {
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.save"), false, mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.apply"), false, mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.settings"), calibrationSettingsOpen, mouseX, mouseY);
+        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.mcp.title"), EditorMcp.running(), mouseX, mouseY);
+        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.projects.projects"), false, mouseX, mouseY);
+        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.projects.market"), false, mouseX, mouseY);
         String menu = snapshot == null ? EditorI18n.text("arcmenu_editor.header.disconnected")
                 : snapshot.menuId() + "  r" + snapshot.revision() + (snapshot.dirty() ? "  *" : "");
-        graphics.text(font, menu, Math.min(x + 8, width - 220), 8, snapshot != null && snapshot.dirty() ? 0xFFFFC857 : MUTED, false);
-        String status = ellipsize(state.status(), 180);
-        graphics.text(font, status, Math.max(x + 110, width - font.width(status) - 28), 8,
-                MUTED, false);
+        int menuX = x + 8, available = Math.max(0, width - 28 - menuX);
+        int menuWidth = Math.min(font.width(menu), available / 2);
+        if (menuWidth > 8) graphics.text(font, ellipsize(menu, menuWidth), menuX, 8, snapshot != null && snapshot.dirty() ? 0xFFFFC857 : MUTED, false);
+        int statusX = menuX + menuWidth + 8, statusWidth = width - 28 - statusX;
+        if (statusWidth > 8) graphics.text(font, ellipsize(state.status(), statusWidth), statusX, 8, MUTED, false);
         EditorIcons.draw(graphics, EditorIcons.CLOSE, width - 20, 4, 0xFFE7A0A7);
     }
 
@@ -420,6 +447,7 @@ public final class EditorScreen extends Screen {
                 new ToolDefinition(EditorIcons.LINE, EditorI18n.text("arcmenu_editor.tool.line"), EditorProtocol.KIND_LINE),
                 new ToolDefinition(EditorIcons.FONT, EditorI18n.text("arcmenu_editor.tool.text"), EditorProtocol.KIND_TEXT),
                 new ToolDefinition(EditorIcons.IMAGE, EditorI18n.text("arcmenu_editor.tool.image"), EditorProtocol.KIND_IMAGE),
+                new ToolDefinition(EditorIcons.GIF, EditorI18n.text("arcmenu_editor.tool.gif"), EditorProtocol.KIND_GIF),
                 new ToolDefinition(EditorIcons.MATERIAL, EditorI18n.text("arcmenu_editor.tool.item"), EditorProtocol.KIND_ITEM),
                 new ToolDefinition(EditorIcons.BLOCK, EditorI18n.text("arcmenu_editor.tool.block"), EditorProtocol.KIND_BLOCK)};
         toolButtons.clear();
@@ -436,7 +464,7 @@ public final class EditorScreen extends Screen {
             int x = panel.x() + 6 + column * (cellWidth + gap);
             int y = contentTop + row * (cellHeight + gap) - toolsScroll;
             boolean hover = mouseX >= x && mouseX < x + cellWidth && mouseY >= y && mouseY < y + cellHeight;
-            boolean active = tool.kind == EditorProtocol.KIND_IMAGE && assetLibrary.imageMode()
+            boolean active = EditorImageTypes.imageKind(tool.kind) && tool.kind == assetLibrary.imageKind() && assetLibrary.imageMode()
                     || tool.kind == -1 && !assetLibrary.imageMode();
             graphics.fill(x, y, x + cellWidth, y + cellHeight, active ? SELECTED : hover ? 0xFF343B48 : 0xFF242933);
             if (hover) graphics.outline(x, y, cellWidth, cellHeight, 0xFF52647C);
@@ -453,6 +481,7 @@ public final class EditorScreen extends Screen {
     }
 
     private void drawViewport(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        if (captureClean) return;
         var view = currentLayout.viewport();
         var virtual = virtualScreen();
         EditorProtocol.SnapshotPacket snapshot = state.snapshot();
@@ -581,14 +610,7 @@ public final class EditorScreen extends Screen {
 
     private void drawHoverTooltip(GuiGraphicsExtractor graphics) {
         if (hoverTooltip == null || contextMenu != null) return;
-        int tooltipWidth = Math.min(width - 4, font.width(hoverTooltip.text) + 10);
-        int tooltipHeight = 19;
-        int x = Math.max(2, Math.min(width - tooltipWidth - 2, hoverTooltip.x));
-        int y = Math.max(2, Math.min(height - tooltipHeight - 2, hoverTooltip.y));
-        graphics.fill(x + 3, y + 3, x + tooltipWidth + 3, y + tooltipHeight + 3, 0x77000000);
-        graphics.fill(x, y, x + tooltipWidth, y + tooltipHeight, 0xFF161920);
-        graphics.outline(x, y, tooltipWidth, tooltipHeight, BORDER);
-        graphics.text(font, hoverTooltip.text, x + 5, y + 6, TEXT, false);
+        EditorTooltips.draw(graphics,font,Component.literal(hoverTooltip.text),hoverTooltip.x,hoverTooltip.y,width,height,0xFF161920,BORDER,TEXT);
     }
 
     private void appendRows(Map<String, List<EditorProtocol.NodeSnapshot>> children, String parent, int depth, int[] row) {
@@ -599,7 +621,7 @@ public final class EditorScreen extends Screen {
         }
     }
 
-    private void drawProperties(GuiGraphicsExtractor graphics) {
+    private void drawProperties(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         var panel = currentLayout.properties();
         title(graphics, panel, EditorI18n.text("arcmenu_editor.panel.properties"));
         EditorProtocol.NodeSnapshot node = state.find(state.selectedId());
@@ -614,6 +636,15 @@ public final class EditorScreen extends Screen {
                     field.box.isFocused() ? 0xFF223A5B : 0xFF171A20);
             int stripe = propertyStripe(field.property.key());
             graphics.fill(field.rect.x(), field.rect.y(), field.rect.x() + 3, field.rect.bottom(), stripe);
+            if (field.property.key().equals("source") && EditorImageTypes.imageKind(node.kind())) {
+                EditorIcons.draw(graphics, EditorIcons.FOLDER, field.rect.right() - 19, field.y + 2, ACCENT);
+                if (mouseX >= field.rect.right() - 21 && field.rect.contains(mouseX,mouseY))
+                    hoverTooltip = new HoverTooltip(EditorI18n.text("arcmenu_editor.images.choose_source"), mouseX + 8, mouseY - 20);
+            }
+            String hint = EditorImageTypes.hint(node.kind(),field.property.key());
+            if (hint.isEmpty()) hint = EditorI18n.propertyHint(field.property.key());
+            if (!hint.isEmpty() && mouseX >= panel.x() && mouseX < field.rect.x() && mouseY >= field.y && mouseY < field.y + 24)
+                hoverTooltip = new HoverTooltip(hint, mouseX + 8, mouseY - 20);
             if (isNumeric(field.property)) {
                 EditorIcons.draw(graphics, EditorIcons.CHEVRON_LEFT, field.rect.x() + 6, field.rect.y() + 2, 0x887F8997);
                 EditorIcons.draw(graphics, EditorIcons.CHEVRON_RIGHT, field.rect.right() - 12, field.rect.y() + 2, 0x887F8997);
@@ -626,6 +657,7 @@ public final class EditorScreen extends Screen {
     }
 
     private void drawTemplates(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        if (effectTimeline.active()) { effectTimeline.draw(graphics, font, currentLayout.templates(), mouseX, mouseY); return; }
         if (assetLibrary.imageMode()) {
             templateCards.clear();
             drawImages(graphics, mouseX, mouseY);
@@ -676,7 +708,7 @@ public final class EditorScreen extends Screen {
 
     private void drawImages(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         var panel = currentLayout.templates();
-        title(graphics, panel, EditorI18n.text("arcmenu_editor.images.library"));
+        title(graphics, panel, EditorI18n.text(assetLibrary.imageKind() == EditorProtocol.KIND_GIF ? "arcmenu_editor.images.gif_library" : "arcmenu_editor.images.library"));
         String help = EditorI18n.text("arcmenu_editor.images.help");
         if (panel.width() > font.width(help) + 110)
             graphics.text(font, help, panel.right() - font.width(help) - 8, panel.y() + 7, MUTED, false);
@@ -694,7 +726,7 @@ public final class EditorScreen extends Screen {
         graphics.disableScissor();
         boolean canInsert = assetLibrary.selected() != null && state.activeTab() == EditorProtocol.TAB_FRONTEND;
         graphics.fill(panel.right() - 65, panel.y() + 24, panel.right() - 6, top - 3, canInsert ? SELECTED : PANEL_ALT);
-        graphics.centeredText(font, EditorI18n.text("arcmenu_editor.images.insert"),
+        graphics.centeredText(font, EditorI18n.text(imageSourceTarget.isEmpty() ? "arcmenu_editor.images.insert" : "arcmenu_editor.images.apply_source"),
                 panel.right() - 35, panel.y() + 28, canInsert ? TEXT : MUTED);
 
         folderRows.clear();
@@ -793,8 +825,13 @@ public final class EditorScreen extends Screen {
 
     private void insertSelectedImage() {
         var image = assetLibrary.selected();
-        if (image != null && state.activeTab() == EditorProtocol.TAB_FRONTEND)
-            create(EditorProtocol.KIND_IMAGE, image.path());
+        if (image != null && state.activeTab() == EditorProtocol.TAB_FRONTEND) {
+            var target = state.find(imageSourceTarget);
+            if (target != null && EditorImageTypes.imageKind(target.kind())) {
+                ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(), EditorProtocol.TAB_FRONTEND, target.id(), "source", image.path()));
+                imageSourceTarget = "";
+            } else create(EditorImageTypes.kind(image.path()), image.path());
+        }
     }
     private void drawTemplateDialog(GuiGraphicsExtractor graphics) {
         int dialogWidth = 260;
@@ -847,6 +884,7 @@ public final class EditorScreen extends Screen {
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (currentLayout == null) return super.mouseClicked(event, doubleClick);
         if (calibrationSettingsOpen) return clickCalibrationSettings(event, doubleClick);
+        if (effectTimeline.click(event, doubleClick)) return true;
         double x = event.x();
         double y = event.y();
         if (contextMenu != null) {
@@ -893,6 +931,14 @@ public final class EditorScreen extends Screen {
         for (PropertyField field : propertyFields) {
             if (!field.rect.contains(x, y)) continue;
             if (propertyRequestInFlight || propertyReleased) return true;
+            var fieldNode = state.find(field.nodeId);
+            if (field.property.key().equals("source") && fieldNode != null && EditorImageTypes.imageKind(fieldNode.kind()) && x >= field.rect.right() - 21) {
+                unfocusPropertyFields();
+                imageSourceTarget = field.nodeId;
+                assetLibrary.selectTool(fieldNode.kind());
+                imageScroll = 0;
+                return true;
+            }
             if (isNumeric(field.property)) {
                 double value = parseNumber(field.box.getValue(), field.property.value());
                 if (event.hasControlDown()) {
@@ -926,8 +972,9 @@ public final class EditorScreen extends Screen {
         if (currentLayout.tools().contains(x, y) && y >= currentLayout.tools().y() + 21) {
             for (ToolButton button : toolButtons) {
                 if (button.rect.contains(x, y)) {
+                    imageSourceTarget = "";
                     assetLibrary.selectTool(button.tool.kind);
-                    if (button.tool.kind == EditorProtocol.KIND_IMAGE) { contextMenu = null; }
+                    if (EditorImageTypes.imageKind(button.tool.kind)) { contextMenu = null; }
                     else if (button.tool.kind >= 0) create(button.tool.kind, "");
                     else state.status(EditorI18n.text("arcmenu_editor.status.select_tool"));
                     return true;
@@ -1143,6 +1190,13 @@ public final class EditorScreen extends Screen {
     }
 
     private void performHeaderAction(HeaderAction action) {
+        if (action == HeaderAction.PROJECTS || action == HeaderAction.MARKET) {
+            WorkspaceClient.open(this, action == HeaderAction.MARKET); return;
+        }
+        if (action == HeaderAction.MCP) {
+            minecraft.setScreen(new McpScreen(this));
+            return;
+        }
         if (action == HeaderAction.SETTINGS) {
             openCalibrationSettings();
             return;
@@ -1154,12 +1208,13 @@ public final class EditorScreen extends Screen {
             case REDO -> ArcMenuEditorClient.send(new EditorProtocol.RedoPacket(snapshot.revision()));
             case SAVE -> ArcMenuEditorClient.send(new EditorProtocol.SavePacket(snapshot.revision()));
             case APPLY -> ArcMenuEditorClient.send(new EditorProtocol.ApplyPacket(snapshot.revision()));
-            case SETTINGS -> { }
+            case SETTINGS, MCP, PROJECTS, MARKET -> { }
         }
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        if (effectTimeline.drag(event)) return true;
         if (propertyDrag != null) {
             double dx = event.x() - propertyDrag.startX;
             if (!propertyDrag.dragging && Math.abs(dx) >= 3.0) propertyDrag.dragging = true;
@@ -1197,6 +1252,7 @@ public final class EditorScreen extends Screen {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
+        if (effectTimeline.release(event)) return true;
         if (propertyDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             if (!propertyDrag.dragging) {
                 PropertyDrag clicked = propertyDrag;
@@ -1385,6 +1441,11 @@ public final class EditorScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        if (effectTimeline.active()) {
+        boolean control = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LCONTROL) || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RCONTROL);
+        boolean shift = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RSHIFT);
+        if (effectTimeline.scroll(mouseX, mouseY, vertical, control, shift)) return true;
+        }
         if (currentLayout != null && currentLayout.tools().contains(mouseX, mouseY)) {
             int visible = currentLayout.tools().height() - 28;
             toolsScroll = Math.max(0, Math.min(Math.max(0, toolContentHeight - visible), toolsScroll - (int) Math.round(vertical * 25)));
@@ -1423,6 +1484,8 @@ public final class EditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if(effectTimeline.searchFocused())return effectTimeline.key(event)||super.keyPressed(event);
+        if (!(getFocused() instanceof EditBox) && effectTimeline.key(event)) return true;
         if (calibrationSettingsOpen) return keyPressedCalibrationSettings(event);
         if (contextMenu != null && event.isEscape()) {
             contextMenu = null;
@@ -1435,7 +1498,7 @@ public final class EditorScreen extends Screen {
                 return true;
             }
             if (event.isConfirmation() && templateNameBox != null && state.snapshot() != null) {
-                String templateId = templateNameBox.getValue().trim().toLowerCase(java.util.Locale.ROOT);
+                String templateId = templateNameBox.getValue().trim().toLowerCase(Locale.ROOT);
                 ArcMenuEditorClient.send(new EditorProtocol.SaveTemplatePacket(state.snapshot().revision(), pendingTemplateNode, templateId));
                 pendingTemplateNode = "";
                 rebuildWidgets();
@@ -1578,7 +1641,7 @@ public final class EditorScreen extends Screen {
                 field.nodeId, field.property.key(), value));
     }
 
-    private java.util.Optional<PropertyField> propertyField(String key) {
+    private Optional<PropertyField> propertyField(String key) {
         return propertyFields.stream().filter(field -> field.property.key().equals(key)).findFirst();
     }
 
@@ -1827,10 +1890,10 @@ public final class EditorScreen extends Screen {
     }
 
     private String suggestTemplateId(String groupId) {
-        String base = groupId.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_-]", "-");
+        String base = groupId.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "-");
         if (base.isBlank() || !Character.isLetterOrDigit(base.charAt(0))) base = "template-" + base;
         if (state.snapshot() == null) return base;
-        java.util.Set<String> ids = new java.util.HashSet<>();
+        Set<String> ids = new HashSet<>();
         state.snapshot().templates().forEach(template -> ids.add(template.id()));
         if (!ids.contains(base)) return base;
         int suffix = 2;
@@ -1863,6 +1926,7 @@ public final class EditorScreen extends Screen {
             case "alignment" -> EditorI18n.text("arcmenu_editor.property.alignment");
             case "update" -> EditorI18n.text("arcmenu_editor.property.update");
             case "source" -> EditorI18n.text("arcmenu_editor.property.source");
+            case "speed" -> EditorI18n.text("arcmenu_editor.property.speed");
             case "material" -> EditorI18n.text("arcmenu_editor.property.material");
             case "context" -> EditorI18n.text("arcmenu_editor.property.context");
             case "block-data" -> EditorI18n.text("arcmenu_editor.property.block_data");
@@ -1871,6 +1935,7 @@ public final class EditorScreen extends Screen {
             case "condition" -> EditorI18n.text("arcmenu_editor.property.condition");
             case "actions" -> EditorI18n.text("arcmenu_editor.property.actions");
             case "deny" -> EditorI18n.text("arcmenu_editor.property.deny");
+            case "on-hover", "on-leave" -> EditorI18n.property(key);
             default -> key;
         };
     }
@@ -1893,6 +1958,7 @@ public final class EditorScreen extends Screen {
             case EditorProtocol.KIND_LINE -> EditorI18n.text("arcmenu_editor.tool.line");
             case EditorProtocol.KIND_TEXT -> EditorI18n.text("arcmenu_editor.tool.text");
             case EditorProtocol.KIND_IMAGE -> EditorI18n.text("arcmenu_editor.tool.image");
+            case EditorProtocol.KIND_GIF -> EditorI18n.text("arcmenu_editor.tool.gif");
             case EditorProtocol.KIND_ITEM -> EditorI18n.text("arcmenu_editor.tool.item");
             case EditorProtocol.KIND_BLOCK -> EditorI18n.text("arcmenu_editor.tool.block");
             case EditorProtocol.KIND_REGION -> EditorI18n.text("arcmenu_editor.tool.region");
@@ -1909,7 +1975,7 @@ public final class EditorScreen extends Screen {
 
     private static String format(double value) {
         if (Math.abs(value - Math.rint(value)) < 0.00001) return Long.toString(Math.round(value));
-        return String.format(java.util.Locale.ROOT, "%.3f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
+        return String.format(Locale.ROOT, "%.3f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     private static boolean isNumeric(EditorProtocol.PropertySnapshot property) {
@@ -1924,6 +1990,7 @@ public final class EditorScreen extends Screen {
             case EditorProtocol.KIND_LINE -> EditorIcons.LINE;
             case EditorProtocol.KIND_TEXT -> EditorIcons.FONT;
             case EditorProtocol.KIND_IMAGE -> EditorIcons.IMAGE;
+            case EditorProtocol.KIND_GIF -> EditorIcons.GIF;
             case EditorProtocol.KIND_ITEM -> EditorIcons.MATERIAL;
             case EditorProtocol.KIND_BLOCK -> EditorIcons.BLOCK;
             default -> EditorIcons.PROPERTIES;
@@ -1935,7 +2002,7 @@ public final class EditorScreen extends Screen {
             case EditorProtocol.KIND_GROUP -> 0xFF6CC7EA;
             case EditorProtocol.KIND_REGION -> 0xFF5DA8FF;
             case EditorProtocol.KIND_TEXT -> 0xFFF0CA65;
-            case EditorProtocol.KIND_IMAGE -> 0xFF9B8AFB;
+            case EditorProtocol.KIND_IMAGE, EditorProtocol.KIND_GIF -> 0xFF9B8AFB;
             case EditorProtocol.KIND_ITEM, EditorProtocol.KIND_BLOCK -> 0xFF65D68A;
             default -> 0xFFAFB8C6;
         };
@@ -1949,6 +2016,7 @@ public final class EditorScreen extends Screen {
             case EditorProtocol.KIND_LINE -> "line";
             case EditorProtocol.KIND_TEXT -> "text";
             case EditorProtocol.KIND_IMAGE -> "image";
+            case EditorProtocol.KIND_GIF -> "gif";
             case EditorProtocol.KIND_ITEM -> "item";
             case EditorProtocol.KIND_BLOCK -> "block";
             case EditorProtocol.KIND_REGION -> "interaction region";
@@ -2038,7 +2106,8 @@ public final class EditorScreen extends Screen {
     private enum HeaderAction {
         UNDO("arcmenu_editor.header.undo"), REDO("arcmenu_editor.header.redo"),
         SAVE("arcmenu_editor.header.save"), APPLY("arcmenu_editor.header.apply"),
-        SETTINGS("arcmenu_editor.header.settings");
+        SETTINGS("arcmenu_editor.header.settings"), MCP("arcmenu_editor.mcp.title"),
+        PROJECTS("arcmenu_editor.projects.projects"), MARKET("arcmenu_editor.projects.market");
 
         private final String translationKey;
         HeaderAction(String translationKey) { this.translationKey = translationKey; }
