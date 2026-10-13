@@ -5,6 +5,7 @@ import java.util.*;
 
 /** Server-owned catalogue and a separate, deterministic project selection. */
 public final class WorkspaceState {
+    static double defaultPixelsPerBlock(String type) { return "effect".equals(type) ? 100.0 : 42.7; }
     public record Project(String type, String id, String path, double width, double height,
                           double pixelsPerBlock, double distance, String permission, String rootId, int nodeCount) {
         public Project(String type,String id,String path,double width,double height,double pixelsPerBlock,double distance,String permission) {
@@ -16,8 +17,8 @@ public final class WorkspaceState {
         public boolean configurable() { return type.equals("menu") || type.equals("effect"); }
         public String openAction() { return previewOnly() ? "preview-open" : "open"; }
         static Project from(JsonObject p) {
-            String id=string(p,"id","");
-            return new Project(string(p,"type","menu"),id,string(p,"path",id+".yml"),number(p,"width",800),number(p,"height",450),number(p,"pixelsPerBlock",100),number(p,"distance",2),string(p,"permission",""),string(p,"rootId",""),(int)number(p,"nodeCount",0));
+            String id=string(p,"id",""),type=string(p,"type","menu");
+            return new Project(type,id,string(p,"path",id+".yml"),number(p,"width",800),number(p,"height",450),number(p,"pixelsPerBlock",defaultPixelsPerBlock(type)),number(p,"distance",2),string(p,"permission",""),string(p,"rootId",""),(int)number(p,"nodeCount",0));
         }
     }
     public record Pack(String id, String title, String version) {}

@@ -26,7 +26,7 @@ class WorkspaceModalTest {
             assertEquals("addon/templates", parameters.get("folder").getAsString());
             assertEquals(800, parameters.get("width").getAsDouble());
             assertEquals(450, parameters.get("height").getAsDouble());
-            assertEquals(100, parameters.get("pixelsPerBlock").getAsDouble());
+            assertEquals(mode.equals("new_menu") ? 42.7 : 100, parameters.get("pixelsPerBlock").getAsDouble());
             assertEquals(2, parameters.get("distance").getAsDouble());
         }
     }

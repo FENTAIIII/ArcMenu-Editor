@@ -32,7 +32,7 @@ final class WorkspaceModal {
     }
     private void geometry(WorkspaceState.Project project) {
         values.put("width",number(project==null?800:project.width()));values.put("height",number(project==null?450:project.height()));
-        values.put("pixelsPerBlock",number(project==null?100:project.pixelsPerBlock()));values.put("distance",number(project==null?2:project.distance()));
+        values.put("pixelsPerBlock",number(project==null?WorkspaceState.defaultPixelsPerBlock(mode.equals("new_effect")?"effect":"menu"):project.pixelsPerBlock()));values.put("distance",number(project==null?2:project.distance()));
     }
     private static String number(double n){return n==Math.rint(n)?Long.toString((long)n):Double.toString(n);}
     JsonObject parameters(Map<String,String> input) {
