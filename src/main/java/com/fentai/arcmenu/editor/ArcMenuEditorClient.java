@@ -262,6 +262,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
                 case EditorProtocol.DeleteManyPacket ignored -> EditorProtocol.OP_DELETE_MANY;
                 case EditorProtocol.DuplicatePacket ignored -> EditorProtocol.OP_DUPLICATE;
                 case EditorProtocol.GroupPacket ignored -> EditorProtocol.OP_GROUP;
+                case EditorProtocol.UngroupPacket ignored -> EditorProtocol.OP_UNGROUP;
                 case EditorProtocol.ReorderPacket ignored -> EditorProtocol.OP_REORDER;
                 case EditorProtocol.ReparentPacket ignored -> EditorProtocol.OP_REPARENT;
                 case EditorProtocol.SetPropertyPacket ignored -> EditorProtocol.OP_PROPERTY;
@@ -285,6 +286,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
                 case EditorProtocol.DeleteManyPacket v -> new EditorProtocol.DeleteManyPacket(revision, v.tab(), v.nodeIds());
                 case EditorProtocol.DuplicatePacket v -> new EditorProtocol.DuplicatePacket(revision, v.tab(), v.nodeIds(), v.targetParentId(), v.preserveParents());
                 case EditorProtocol.GroupPacket v -> new EditorProtocol.GroupPacket(revision, v.nodeIds());
+                case EditorProtocol.UngroupPacket v -> new EditorProtocol.UngroupPacket(revision, v.nodeId());
                 case EditorProtocol.ReorderPacket v -> new EditorProtocol.ReorderPacket(revision, v.tab(), v.nodeIds(), v.beforeId());
                 case EditorProtocol.ReparentPacket v -> new EditorProtocol.ReparentPacket(revision, v.nodeIds(), v.targetParentId(), v.beforeId());
                 case EditorProtocol.SetPropertyPacket v -> new EditorProtocol.SetPropertyPacket(revision, v.tab(), v.nodeId(), v.key(), v.value(), v.gestureId(), v.finalUpdate());

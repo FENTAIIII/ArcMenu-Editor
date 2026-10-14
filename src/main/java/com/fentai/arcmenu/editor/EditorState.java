@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
 import java.util.stream.Collectors;
@@ -121,9 +122,9 @@ public final class EditorState {
         if (snapshot == null) return gestureId;
         byte responseTab = request == null ? activeTab : request.tab;
         List<EditorProtocol.NodeSnapshot> frontend = responseTab == EditorProtocol.TAB_FRONTEND
-                ? updateGeometry(snapshot.frontend(), value) : snapshot.frontend();
+                ? updateGeometry(snapshot.frontend(), value, false) : snapshot.frontend();
         List<EditorProtocol.NodeSnapshot> backend = responseTab == EditorProtocol.TAB_BACKEND
-                ? updateGeometry(snapshot.backend(), value) : snapshot.backend();
+                ? updateGeometry(snapshot.backend(), value, true) : snapshot.backend();
         snapshot = new EditorProtocol.SnapshotPacket(
                 value.revision(), snapshot.menuId(), snapshot.canvasWidth(), snapshot.canvasHeight(),
                 value.dirty(), value.saved(), snapshot.serverVersion(), frontend, backend,
@@ -132,18 +133,42 @@ public final class EditorState {
     }
 
     private static List<EditorProtocol.NodeSnapshot> updateGeometry(
-            List<EditorProtocol.NodeSnapshot> nodes, EditorProtocol.AckPacket value) {
+            List<EditorProtocol.NodeSnapshot> nodes, EditorProtocol.AckPacket value, boolean backend) {
         if (value.nodeId().isBlank() || !Double.isFinite(value.x()) || !Double.isFinite(value.y())
                 || !Double.isFinite(value.width()) || !Double.isFinite(value.height())) return nodes;
+        var target = nodes.stream().filter(node -> node.id().equals(value.nodeId())).findFirst().orElse(null);
+        boolean group = backend && target != null && target.kind() == EditorProtocol.KIND_GROUP;
+        Map<String, EditorProtocol.NodeSnapshot> index = group
+                ? nodes.stream().collect(Collectors.toMap(EditorProtocol.NodeSnapshot::id, node -> node)) : Map.of();
         List<EditorProtocol.NodeSnapshot> result = new ArrayList<>(nodes.size());
         for (EditorProtocol.NodeSnapshot node : nodes) {
             if (node.id().equals(value.nodeId())) {
                 result.add(new EditorProtocol.NodeSnapshot(node.id(), node.parentId(), node.kind(),
                         value.x(), value.y(), value.width(), value.height(), node.rotationZ(),
                         node.visible(), node.locked(), node.properties()));
+            } else if (group && descendantOf(node, target.id(), index)) {
+                double scaleX = value.width() / target.width();
+                double scaleY = value.height() / target.height();
+                result.add(new EditorProtocol.NodeSnapshot(node.id(), node.parentId(), node.kind(),
+                        value.x() + (node.x() - target.x()) * scaleX,
+                        value.y() + (node.y() - target.y()) * scaleY,
+                        node.width() * scaleX, node.height() * scaleY, 0,
+                        node.visible(), node.locked(), node.properties()));
             } else result.add(node);
         }
         return result;
+    }
+
+    private static boolean descendantOf(EditorProtocol.NodeSnapshot node, String ancestor,
+                                        Map<String, EditorProtocol.NodeSnapshot> index) {
+        Set<String> visited = new HashSet<>();
+        String parent = node.parentId();
+        while (!parent.isBlank() && visited.add(parent)) {
+            if (parent.equals(ancestor)) return true;
+            var entry = index.get(parent);
+            parent = entry == null ? "" : entry.parentId();
+        }
+        return false;
     }
 
     public EditorProtocol.SnapshotPacket snapshot() { return snapshot; }

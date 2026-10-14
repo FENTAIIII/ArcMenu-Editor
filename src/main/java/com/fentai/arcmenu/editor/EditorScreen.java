@@ -439,7 +439,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         var panel = currentLayout.tools();
         title(graphics, panel, EditorI18n.text("arcmenu_editor.panel.tools"));
         ToolDefinition[] tools = state.activeTab() == EditorProtocol.TAB_BACKEND
-                ? new ToolDefinition[]{new ToolDefinition(EditorIcons.OUTLINE, EditorI18n.text("arcmenu_editor.tool.region"), EditorProtocol.KIND_REGION)}
+                ? new ToolDefinition[]{new ToolDefinition(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.tool.group"), EditorProtocol.KIND_GROUP),
+                new ToolDefinition(EditorIcons.OUTLINE, EditorI18n.text("arcmenu_editor.tool.region"), EditorProtocol.KIND_REGION)}
                 : new ToolDefinition[]{new ToolDefinition(EditorIcons.CURSOR, EditorI18n.text("arcmenu_editor.tool.select"), (byte) -1),
                 new ToolDefinition(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.tool.group"), EditorProtocol.KIND_GROUP),
                 new ToolDefinition(EditorIcons.SQUARE, EditorI18n.text("arcmenu_editor.tool.rectangle"), EditorProtocol.KIND_RECTANGLE),
@@ -537,10 +538,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         buttonX = managerButton(graphics, buttonX, panel.y() + 23, EditorIcons.ADD,
                 EditorI18n.text(state.activeTab() == EditorProtocol.TAB_FRONTEND
                         ? "arcmenu_editor.manager.new_group" : "arcmenu_editor.manager.new_region"), ManagerAction.CREATE, mouseX, mouseY);
-        if (state.activeTab() == EditorProtocol.TAB_FRONTEND) {
-            buttonX = managerButton(graphics, buttonX, panel.y() + 23, EditorIcons.FOLDER,
-                    EditorI18n.text("arcmenu_editor.manager.group"), ManagerAction.GROUP, mouseX, mouseY);
-        }
+        buttonX = managerButton(graphics, buttonX, panel.y() + 23, EditorIcons.FOLDER,
+                EditorI18n.text("arcmenu_editor.manager.group"), ManagerAction.GROUP, mouseX, mouseY);
         buttonX = managerButton(graphics, buttonX, panel.y() + 23, EditorIcons.DUPLICATE,
                 EditorI18n.text("arcmenu_editor.manager.duplicate"), ManagerAction.DUPLICATE, mouseX, mouseY);
         buttonX = managerButton(graphics, buttonX, panel.y() + 23, EditorIcons.PASTE,
@@ -590,7 +589,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             nodeRow.screenY = y;
         }
         graphics.disableScissor();
-        if (managerDrag && state.activeTab() == EditorProtocol.TAB_FRONTEND
+        if (managerDrag
                 && panel.contains(mouseX, mouseY) && mouseY >= panel.y() + 46 && !hoveringRow
                 && canMoveToParent(dragSelection, "")) {
             graphics.outline(panel.x() + 3, panel.y() + 46, panel.width() - 6,
@@ -1182,7 +1181,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         if (snapshot == null) return;
         String parent = "";
         EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
-        if (state.activeTab() == EditorProtocol.TAB_FRONTEND && selected != null && selected.kind() == EditorProtocol.KIND_GROUP) {
+        if (selected != null && selected.kind() == EditorProtocol.KIND_GROUP) {
             parent = selected.id();
             state.expanded().add(parent);
         }
@@ -1278,7 +1277,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             return true;
         }
         boolean managerDragged = !dragCandidateNode.isBlank() && Math.hypot(event.x() - dragStartX, event.y() - dragStartY) >= 4.0;
-        if (managerDragged && !assetLibrary.imageMode() && currentLayout != null && currentLayout.templates().contains(event.x(), event.y())) {
+        if (managerDragged && state.activeTab() == EditorProtocol.TAB_FRONTEND && !assetLibrary.imageMode() && currentLayout != null && currentLayout.templates().contains(event.x(), event.y())) {
             List<String> selected = selectedOrder();
             if (selected.size() == 1) {
                 EditorProtocol.NodeSnapshot node = state.find(selected.getFirst());
@@ -1548,7 +1547,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
                 return true;
             }
             if (event.key() == GLFW.GLFW_KEY_D) { duplicateSelection(); return true; }
-            if (event.key() == GLFW.GLFW_KEY_G && !event.hasShiftDown()) { groupSelection(); return true; }
+            if (event.key() == GLFW.GLFW_KEY_G) {
+                if (event.hasShiftDown()) ungroupSelection(); else groupSelection();
+                return true;
+            }
         }
         if (event.key() == GLFW.GLFW_KEY_F2 && state.selectedIds().size() == 1) {
             focusIdProperty();
@@ -1603,8 +1605,15 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
     }
 
     private void groupSelection() {
-        if (state.snapshot() == null || state.activeTab() != EditorProtocol.TAB_FRONTEND || state.selectedIds().isEmpty()) return;
+        if (state.snapshot() == null || state.selectedIds().isEmpty()) return;
         ArcMenuEditorClient.send(new EditorProtocol.GroupPacket(state.snapshot().revision(), selectedOrder()));
+    }
+
+    private void ungroupSelection() {
+        if (state.snapshot() == null || state.activeTab() != EditorProtocol.TAB_BACKEND || state.selectedIds().size() != 1) return;
+        var node = state.find(state.selectedId());
+        if (node == null || node.kind() != EditorProtocol.KIND_GROUP) return;
+        ArcMenuEditorClient.send(new EditorProtocol.UngroupPacket(state.snapshot().revision(), node.id()));
     }
 
     private void deleteSelection() {
@@ -1658,7 +1667,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
     }
 
     private boolean canMoveToParent(List<String> ids, String targetParentId) {
-        if (state.activeTab() != EditorProtocol.TAB_FRONTEND || ids.isEmpty()) return false;
+        if (ids.isEmpty()) return false;
         if (targetParentId.isBlank()) return true;
         EditorProtocol.NodeSnapshot target = state.find(targetParentId);
         if (target == null || target.kind() != EditorProtocol.KIND_GROUP) return false;
@@ -1687,8 +1696,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         entries.add(new ContextEntry(EditorIcons.PASTE, EditorI18n.text("arcmenu_editor.context.paste_original"), "Ctrl+V", clipboardAvailable(),
                 () -> pasteSelection(true, "")));
         entries.add(new ContextEntry(EditorIcons.DUPLICATE, EditorI18n.text("arcmenu_editor.context.duplicate"), "Ctrl+D", hasSelection, this::duplicateSelection));
-        if (state.activeTab() == EditorProtocol.TAB_FRONTEND) {
-            entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.group"), "Ctrl+G", hasSelection, this::groupSelection));
+        entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.group"), "Ctrl+G", hasSelection, this::groupSelection));
+        if (state.activeTab() == EditorProtocol.TAB_BACKEND && row != null && row.node.kind() == EditorProtocol.KIND_GROUP) {
+            entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.ungroup"), "Ctrl+Shift+G",
+                    state.selectedIds().size() == 1, this::ungroupSelection));
         }
         if (row != null && state.hasChildren(row.node.id())) {
             boolean expanded = state.expanded().contains(row.node.id());

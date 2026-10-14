@@ -214,6 +214,7 @@ public final class EditorMcp {
             case "delete-many" -> { packet = new EditorProtocol.DeleteManyPacket(revision, tab, ids); operation = EditorProtocol.OP_DELETE_MANY; }
             case "duplicate" -> { packet = new EditorProtocol.DuplicatePacket(revision, tab, ids, parent, bool(args, "preserveParents", true)); operation = EditorProtocol.OP_DUPLICATE; }
             case "group" -> { packet = new EditorProtocol.GroupPacket(revision, ids); operation = EditorProtocol.OP_GROUP; }
+            case "ungroup" -> { packet = new EditorProtocol.UngroupPacket(revision, required(args, "target")); operation = EditorProtocol.OP_UNGROUP; }
             case "reorder" -> { packet = new EditorProtocol.ReorderPacket(revision, tab, ids, string(args, "before", "")); operation = EditorProtocol.OP_REORDER; }
             case "reparent" -> { packet = new EditorProtocol.ReparentPacket(revision, ids, parent, string(args, "before", "")); operation = EditorProtocol.OP_REPARENT; }
             case "undo" -> { packet = new EditorProtocol.UndoPacket(revision); operation = EditorProtocol.OP_UNDO; }
