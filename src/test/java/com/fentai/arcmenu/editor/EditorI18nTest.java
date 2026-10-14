@@ -101,6 +101,26 @@ final class EditorI18nTest {
         assertEquals("On leave", EditorI18n.property("on-leave"));
     }
 
+    @Test void arcitxInspectorLabelsAndInputGuidanceFollowTheGameLanguage() {
+        Language.inject(language("en_us", Map.of()));
+        assertEquals("Submit region", EditorI18n.property("arcitx-submit"));
+        assertTrue(EditorI18n.propertyHint("arcitx-submit").contains("Closing the anvil only keeps a draft"));
+        assertTrue(EditorI18n.propertyHint("arcitx-display-editing").contains("{input}"));
+        assertTrue(EditorI18n.propertyHint("arcitx-display-editing").contains("{caret}"));
+        assertTrue(EditorI18n.propertyHint("arcitx-max-length").contains("UTF-16"));
+
+        Language.inject(language("zh_cn", Map.of()));
+        assertEquals("提交点击区", EditorI18n.property("arcitx-submit"));
+        assertTrue(EditorI18n.propertyHint("arcitx-submit").contains("关闭铁砧只保留草稿"));
+        assertTrue(EditorI18n.propertyHint("arcitx-max-length").contains("空格不会提交"));
+        assertTrue(EditorI18n.propertyHint("arcitx-display-editing").contains("{input}"));
+        assertTrue(EditorI18n.propertyHint("arcitx-display-editing").contains("{caret}"));
+
+        Language.inject(language("fr_fr", Map.of("arcmenu_editor.property.arcitx_submit", "Valider")));
+        assertEquals("Valider", EditorI18n.property("arcitx-submit"));
+        assertEquals("Input text", EditorI18n.property("arcitx-text"));
+    }
+
     @Test void effectChoicesAndMarketplaceReasonsChangeLanguageWithoutChangingProjectDataOrDiagnostics() {
         String diagnostic = "Dependency entries must contain at most 2048 UTF-16 code units";
         var failure = new MarketClient.RequestException(400, "invalid_manifest", diagnostic);

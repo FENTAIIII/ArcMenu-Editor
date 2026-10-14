@@ -1,19 +1,20 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.editor.net.FrameAssembler;
 import org.junit.jupiter.api.Test;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class EditorDepthProtocolTest {
     @Test void releaseAndHandshakeUseTheSameVersion() {
-        assertEquals("3.0.0", ArcMenuEditorClient.CLIENT_VERSION);
+        assertEquals("3.0.1", ArcMenuEditorClient.CLIENT_VERSION);
         assertTrue(EditorProtocol.supportsClient(ArcMenuEditorClient.CLIENT_VERSION));
         assertTrue(EditorProtocol.supportsClient("1.2.1"));
         assertTrue(EditorProtocol.supportsClient("1.0.0"));
         assertTrue(EditorProtocol.supportsClient("1.0.1"));
         assertFalse(EditorProtocol.supportsClient("0.1.0-M3.3"));
-        assertEquals(9, EditorProtocol.VERSION);
+        assertEquals(10, EditorProtocol.VERSION);
     }
 
     @Test void depthPropertyAndEditorSnapshotRoundTrip() {
@@ -27,5 +28,20 @@ final class EditorDepthProtocolTest {
         var state = new EditorState();
         state.update(snapshot);
         assertEquals(snapshot, state.snapshot());
+    }
+
+    @Test void largeChinesePropertyUsesFramedRequestsWithPreciseByteLimit() {
+        var value = "中".repeat(EditorProtocol.MAX_STRING_BYTES / 3) + "a";
+        var packet = new EditorProtocol.SetPropertyPacket(3, EditorProtocol.TAB_BACKEND, "submit", "actions", value);
+        var frames = EditorProtocol.frame(1, EditorProtocol.encode(packet));
+        assertTrue(frames.size() > 1);
+        var assembler = new FrameAssembler();
+        byte[] result = null;
+        for (byte[] frame : frames) result = assembler.accept(frame);
+        assertEquals(packet, EditorProtocol.decode(result));
+        var failure = assertThrows(EditorProtocol.StringLimitException.class, () -> EditorProtocol.encode(
+                new EditorProtocol.SetPropertyPacket(3, EditorProtocol.TAB_BACKEND, "submit", "actions", value + "a")));
+        assertEquals("backend.submit.actions", failure.field());
+        assertEquals(EditorProtocol.MAX_STRING_BYTES + 1, failure.byteCount());
     }
 }

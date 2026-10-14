@@ -39,7 +39,7 @@ public final class WorkspaceFormScreen extends Screen {
         else if(mode.equals("publish")) {var pack=parent.selectedLocalPackage();if(pack!=null){values.put("title",pack.title());values.put("description",pack.description());}}
         else if(mode.equals("import"))values.put("filename","");
     }
-    private void geometry(WorkspaceState.Project p) {values.put("width",format(p==null?800:p.width()));values.put("height",format(p==null?450:p.height()));values.put("pixelsPerBlock",format(p==null?WorkspaceState.defaultPixelsPerBlock(mode.equals("new_effect")?"effect":"menu"):p.pixelsPerBlock()));values.put("distance",format(p==null?2:p.distance()));}
+    private void geometry(WorkspaceState.Project p) {values.put("width",format(p==null?800:p.width()));values.put("height",format(p==null?450:p.height()));values.put("pixelsPerBlock",format(p==null?WorkspaceState.defaultPixelsPerBlock(mode.equals("new_effect")?"effect":"menu"):p.pixelsPerBlock()));values.put("distance",format(p==null?2:p.distance()));values.put("depthMode",p==null?"perspective":p.depthMode());}
     private static String format(double v) {return v==Math.rint(v)?Long.toString((long)v):Double.toString(v);}
     @Override public boolean isPauseScreen(){return false;}
     @Override protected void init() {
@@ -81,6 +81,7 @@ public final class WorkspaceFormScreen extends Screen {
         try {
             var json=new JsonObject();for(var entry:fields.entrySet()){String key=entry.getKey(),value=entry.getValue().getValue().strip();
                 if(List.of("width","height","pixelsPerBlock","distance").contains(key)){double number;try{number=Double.parseDouble(value);}catch(NumberFormatException invalid){number=Double.NaN;}if(!Double.isFinite(number)||number<=0)throw new IllegalArgumentException(EditorI18n.text("arcmenu_editor.projects.positive",EditorI18n.text("arcmenu_editor.projects.field."+key)));json.addProperty(key,number);}
+                else if(key.equals("depthMode"))json.addProperty(key,WorkspaceState.depthMode(value));
                 else if(key.equals("allowCe")){if(!value.equals("true")&&!value.equals("false"))throw new IllegalArgumentException(EditorI18n.text("arcmenu_editor.projects.boolean"));json.addProperty(key,Boolean.parseBoolean(value));}
                 else json.addProperty(key,value);
             }

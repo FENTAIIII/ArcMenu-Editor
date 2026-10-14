@@ -54,7 +54,7 @@ class EditorGifTest {
     }
 
     @Test void appendedGifKindAndFractionalSpeedRoundTripWithoutChangingExistingWireKinds() {
-        assertEquals(7,EditorProtocol.KIND_IMAGE);assertEquals(8,EditorProtocol.KIND_LINE);assertEquals(9,EditorProtocol.KIND_GIF);assertEquals(9,EditorProtocol.VERSION);
+        assertEquals(7,EditorProtocol.KIND_IMAGE);assertEquals(8,EditorProtocol.KIND_LINE);assertEquals(9,EditorProtocol.KIND_GIF);assertEquals(10,EditorProtocol.VERSION);
         var create=new EditorProtocol.CreatePacket(4,EditorProtocol.TAB_FRONTEND,EditorProtocol.KIND_GIF,"group","/example.gif");
         assertEquals(create,EditorProtocol.decode(EditorProtocol.encode(create)));
         var node=new EditorProtocol.NodeSnapshot("gif","group",EditorProtocol.KIND_GIF,20,30,120,60,0,true,false,List.of(

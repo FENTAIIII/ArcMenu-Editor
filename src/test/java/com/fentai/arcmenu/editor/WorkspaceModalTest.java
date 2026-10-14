@@ -28,7 +28,16 @@ class WorkspaceModalTest {
             assertEquals(450, parameters.get("height").getAsDouble());
             assertEquals(mode.equals("new_menu") ? 42.7 : 100, parameters.get("pixelsPerBlock").getAsDouble());
             assertEquals(2, parameters.get("distance").getAsDouble());
+            assertEquals("perspective", parameters.get("depthMode").getAsString());
         }
+    }
+
+    @Test void configurationKeepsLayeredDepthAndRejectsUnknownModes() {
+        var project = new WorkspaceState.Project("menu", "layers", "layers.yml", 320, 180, 42.7, 3, "", "", 0, "layered");
+        var modal = modal("configure", List.of(project));
+        assertEquals("layered", modal.parameters(Map.of("width", "640")).get("depthMode").getAsString());
+        assertEquals("perspective", modal.parameters(Map.of("depthMode", "perspective")).get("depthMode").getAsString());
+        assertThrows(IllegalArgumentException.class, () -> modal.parameters(Map.of("depthMode", "flat")));
     }
 
     @Test void configurationPreservesTheSelectedIdentityAndPermissionWhileChangingGeometry() {

@@ -7,9 +7,12 @@ import java.util.*;
 public final class WorkspaceState {
     static double defaultPixelsPerBlock(String type) { return "effect".equals(type) ? 100.0 : 42.7; }
     public record Project(String type, String id, String path, double width, double height,
-                          double pixelsPerBlock, double distance, String permission, String rootId, int nodeCount) {
+                          double pixelsPerBlock, double distance, String permission, String rootId, int nodeCount, String depthMode) {
+        public Project(String type,String id,String path,double width,double height,double pixelsPerBlock,double distance,String permission,String rootId,int nodeCount) {
+            this(type,id,path,width,height,pixelsPerBlock,distance,permission,rootId,nodeCount,"perspective");
+        }
         public Project(String type,String id,String path,double width,double height,double pixelsPerBlock,double distance,String permission) {
-            this(type,id,path,width,height,pixelsPerBlock,distance,permission,"",0);
+            this(type,id,path,width,height,pixelsPerBlock,distance,permission,"",0,"perspective");
         }
         public String key() { return type + ":" + id; }
         public JsonObject reference() { var json = new JsonObject(); json.addProperty("type", type); json.addProperty("id", id); return json; }
@@ -18,8 +21,13 @@ public final class WorkspaceState {
         public String openAction() { return previewOnly() ? "preview-open" : "open"; }
         static Project from(JsonObject p) {
             String id=string(p,"id",""),type=string(p,"type","menu");
-            return new Project(type,id,string(p,"path",id+".yml"),number(p,"width",800),number(p,"height",450),number(p,"pixelsPerBlock",defaultPixelsPerBlock(type)),number(p,"distance",2),string(p,"permission",""),string(p,"rootId",""),(int)number(p,"nodeCount",0));
+            return new Project(type,id,string(p,"path",id+".yml"),number(p,"width",800),number(p,"height",450),number(p,"pixelsPerBlock",defaultPixelsPerBlock(type)),number(p,"distance",2),string(p,"permission",""),string(p,"rootId",""),(int)number(p,"nodeCount",0),string(p,"depthMode","perspective"));
         }
+    }
+    static String depthMode(String value) {
+        if (!List.of("perspective", "layered").contains(value))
+            throw new IllegalArgumentException(EditorI18n.text("arcmenu_editor.projects.depth_mode_invalid"));
+        return value;
     }
     public record Pack(String id, String title, String version) {}
     public record LocalPack(String filename, String id, String version, String title, String description,

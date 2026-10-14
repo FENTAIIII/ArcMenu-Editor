@@ -26,6 +26,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
     private static final FrameAssembler EFFECT_ASSEMBLER = new FrameAssembler();
     private static List<String> effectSelection = List.of();
     private static long sceneRequestCount;
+    private static int nextMessageId;
     private static int effectWireVersion = 2;
     private static final SceneReplies SCENE_REPLIES = new SceneReplies();
     public static long sceneRequestCount(){return sceneRequestCount;}
@@ -166,13 +167,17 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
 
     public static void send(EditorProtocol.Packet packet) {
         if (ClientPlayNetworking.canSend(EditorPayload.TYPE)) {
-            if (EFFECT.active() && !(packet instanceof EditorProtocol.HelloPacket) && !(packet instanceof EditorProtocol.ClosePacket)) {
-                EditorProtocol.encode(packet);
-                SCENE_REPLIES.enqueue(packet); sceneRequestCount++; EFFECT.beginSceneEdit(); flushSceneEdits(); return;
+            try {
+                byte[] bytes = EditorProtocol.encode(packet);
+                if (EFFECT.active() && !(packet instanceof EditorProtocol.HelloPacket) && !(packet instanceof EditorProtocol.ClosePacket)) {
+                    SCENE_REPLIES.enqueue(packet); sceneRequestCount++; EFFECT.beginSceneEdit(); flushSceneEdits(); return;
+                }
+                sceneRequestCount++;
+                STATE.expectReply(packet);
+                sendEncoded(bytes);
+            } catch (RuntimeException error) {
+                localFailure(error);
             }
-            sceneRequestCount++;
-            STATE.expectReply(packet);
-            ClientPlayNetworking.send(new EditorPayload(EditorProtocol.encode(packet)));
         } else {
             STATE.error(EditorI18n.text("arcmenu_editor.status.no_channel"));
         }
@@ -181,7 +186,29 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
     private static void flushSceneEdits() {
         if (!EFFECT.active() || EFFECT.inFlightRequest() != 0 || EFFECT.beforeScenePending() || STATE.snapshot() == null) return;
         var packet = SCENE_REPLIES.dispatch(STATE.snapshot().revision()); if (packet == null) return;
-        STATE.expectReply(packet); ClientPlayNetworking.send(new EditorPayload(EditorProtocol.encode(packet)));
+        try {
+            byte[] bytes = EditorProtocol.encode(packet);
+            STATE.expectReply(packet); sendEncoded(bytes);
+        } catch (RuntimeException error) { localFailure(error); }
+    }
+
+    private static void sendEncoded(byte[] bytes) {
+        if (bytes.length <= EditorProtocol.MAX_FRAME_DATA) ClientPlayNetworking.send(new EditorPayload(bytes));
+        else for (byte[] frame : EditorProtocol.frame(++nextMessageId, bytes)) ClientPlayNetworking.send(new EditorPayload(frame));
+    }
+
+    private static void localFailure(RuntimeException error) {
+        String message = error instanceof EditorProtocol.StringLimitException limit
+                ? EditorI18n.text("arcmenu_editor.status.string_too_long", limit.field(), limit.byteCount(), EditorProtocol.MAX_STRING_BYTES)
+                : error instanceof EditorProtocol.PacketLimitException limit
+                ? EditorI18n.text("arcmenu_editor.status.packet_too_large", limit.byteCount(), EditorProtocol.MAX_PACKET_BYTES)
+                : EditorI18n.text("arcmenu_editor.status.protocol_error", error.getMessage());
+        STATE.error(message);
+        releaseSceneEdits(SCENE_REPLIES.clear());
+        var client = Minecraft.getInstance();
+        if (client.screen instanceof EffectEditorScreen screen) screen.serverOperationFailed();
+        else if (client.screen instanceof EditorScreen screen) screen.serverOperationFailed();
+        EditorMcp.scenePacket(new EditorProtocol.ErrorPacket(-1, message));
     }
 
     /** The Effect scene channel waits for the authoritative snapshot following a final ACK. */

@@ -1936,7 +1936,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             case "actions" -> EditorI18n.text("arcmenu_editor.property.actions");
             case "deny" -> EditorI18n.text("arcmenu_editor.property.deny");
             case "on-hover", "on-leave" -> EditorI18n.property(key);
-            default -> key;
+            default -> EditorI18n.property(key);
         };
     }
 

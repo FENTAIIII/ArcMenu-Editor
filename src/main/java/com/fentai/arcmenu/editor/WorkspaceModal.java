@@ -33,6 +33,7 @@ final class WorkspaceModal {
     private void geometry(WorkspaceState.Project project) {
         values.put("width",number(project==null?800:project.width()));values.put("height",number(project==null?450:project.height()));
         values.put("pixelsPerBlock",number(project==null?WorkspaceState.defaultPixelsPerBlock(mode.equals("new_effect")?"effect":"menu"):project.pixelsPerBlock()));values.put("distance",number(project==null?2:project.distance()));
+        values.put("depthMode",project==null?"perspective":project.depthMode());
     }
     private static String number(double n){return n==Math.rint(n)?Long.toString((long)n):Double.toString(n);}
     JsonObject parameters(Map<String,String> input) {
@@ -44,6 +45,8 @@ final class WorkspaceModal {
                 try {number=Double.parseDouble(value);}catch(NumberFormatException failure){number=Double.NaN;}
                 if(!Double.isFinite(number)||number<=0)throw new IllegalArgumentException(EditorI18n.text("arcmenu_editor.projects.positive",EditorI18n.text("arcmenu_editor.projects.field."+key)));
                 json.addProperty(key,number);
+            } else if(key.equals("depthMode")) {
+                json.addProperty(key,WorkspaceState.depthMode(value));
             } else if(key.equals("allowCe")) {
                 if(!value.equals("true")&&!value.equals("false"))throw new IllegalArgumentException(EditorI18n.text("arcmenu_editor.projects.boolean"));
                 json.addProperty(key,Boolean.parseBoolean(value));
