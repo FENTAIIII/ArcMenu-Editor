@@ -1,8 +1,11 @@
+param([string]$LoaderVersion)
+
 $ErrorActionPreference = 'Stop'
 $editorRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $versionsFile = Join-Path $editorRoot 'gradle/minecraft-versions.properties'
 $versions = @(Get-Content -LiteralPath $versionsFile | Where-Object { $_ -match '^([0-9.]+)=' } | ForEach-Object { ($_ -split '=', 2)[0] })
 $logs = Join-Path $editorRoot 'build/verification/version-builds'
+if ($LoaderVersion) { $logs = Join-Path $logs "loader-$LoaderVersion" }
 New-Item -ItemType Directory -Path $logs -Force | Out-Null
 $failures = @()
 Push-Location $editorRoot
@@ -15,7 +18,9 @@ try {
         $cache = Join-Path $editorRoot ".gradle/minecraft-$version"
         $log = Join-Path $logs "$version.log"
         Write-Output "Building Minecraft $version"
-        & (Join-Path $editorRoot 'gradlew.bat') "-Pminecraft_version=$version" --project-cache-dir $cache clean test build *> $log
+        $buildArguments = @("-Pminecraft_version=$version", '--project-cache-dir', $cache, 'clean', 'test', 'build')
+        if ($LoaderVersion) { $buildArguments += "-Ploader_version=$LoaderVersion" }
+        & (Join-Path $editorRoot 'gradlew.bat') @buildArguments *> $log
         if ($LASTEXITCODE -ne 0) { $failures += $version; Write-Output "FAILED $version ($log)" }
         else { Write-Output "PASS $version" }
     }

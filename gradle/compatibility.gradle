@@ -19,11 +19,13 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
     from('src/main/java') {
         if (old || usesModernRenderer) exclude '**/EditorWorldCompositor.java'
         if (old) exclude '**/mixin/CameraMixin.java', '**/mixin/GameRendererMixin.java'
+        if (old) exclude '**/VisionCursorClient.java', '**/mixin/Vision*Mixin.java'
         if (usesModernRenderer) exclude '**/mixin/GameRendererMixin.java'
         filter { String line ->
             if (usesModernRenderer) line = line.replace('return client.options.hideGui;', 'return client.gui.hud.isHidden();').replace('client.options.hideGui=value;', 'if(client.gui.hud.isHidden()!=value)client.gui.hud.toggle();')
             if (target == '26.3') line = line.replace('import org.lwjgl.glfw.GLFW;', 'import com.mojang.blaze3d.platform.InputConstants;').replace('GLFW.GLFW_', 'InputConstants.').replace('InputConstants.KEY_ENTER', 'InputConstants.KEY_RETURN').replace('InputConstants.KEY_EQUAL', 'InputConstants.KEY_EQUALS').replace('InputConstants.KEY_LEFT_BRACKET', 'InputConstants.KEY_LBRACKET').replace('InputConstants.KEY_RIGHT_BRACKET', 'InputConstants.KEY_RBRACKET').replace('InputConstants.KEY_PAGE_UP', 'InputConstants.KEY_PAGEUP').replace('InputConstants.KEY_PAGE_DOWN', 'InputConstants.KEY_PAGEDOWN').replace('InputConstants.KEY_KP_0', 'InputConstants.KEY_NUMPAD0').replace('InputConstants.KEY_KP_ADD', 'InputConstants.KEY_ADD').replace('InputConstants.KEY_KP_SUBTRACT', '86')
             if (target == '26.3') line = line.replace('InputConstants.isKeyDown(minecraft.getWindow(),', 'InputConstants.isKeyDown(')
+            if (usesModernRenderer) line = line.replace('client.gameRenderer.getMainCamera()', 'client.gameRenderer.mainCamera()')
             if (usesModernRenderer) return line.replace('client.screen', 'client.gui.screen()').replace('minecraft.screen', 'minecraft.gui.screen()').replace('client.setScreen(', 'client.gui.setScreen(').replace('minecraft.setScreen(', 'minecraft.gui.setScreen(').replace('client.getMainRenderTarget()', 'client.gameRenderer.mainRenderTarget()')
             if (!old) return line
             if (patch <= 8 && line == 'import net.minecraft.client.gui.screens.Screen;') line += '\nimport com.fentai.arcmenu.editor.compat.LegacyScreen;'
@@ -79,6 +81,7 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
         }
     }
     if (old) {
+        from('src/compat/legacy-vision/java')
         from('src/compat/legacy-render/java') {
             filter { String line ->
                 if (patch <= 4) {
@@ -92,6 +95,8 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
         }
         if (patch <= 8) from('src/compat/legacy-input/java')
     }
+    if (target == '26.3') from('src/compat/26.3/java')
+    else if (!old) from('src/compat/legacy-scene/java')
     if (usesModernRenderer) from('src/compat/26.2/java') {
         filter { String line ->
             if (target != '26.3') return line

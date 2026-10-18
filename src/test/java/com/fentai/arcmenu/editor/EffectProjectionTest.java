@@ -4,34 +4,28 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class EffectProjectionTest {
-    @Test void activeMenuShaderKeepsEffectGeometryStableAcrossCameraFovs() {
+    @Test void nativeEffectProjectionTracksTheActualCameraFieldOfView() {
         var aperture = new EditorLayout.Rect(100, 50, 320, 180);
-        var reference = EffectProjection.calculate(aperture, 160, 90, 30, 3, 30, 15,
-                EffectProjection.MENU_VERTICAL_FOV);
-        var referenceCrop = EffectProjection.fitCrop(1280, 800, 16.0 / 9, 160, 90, 30, 3, 30, 15,
-                EffectProjection.MENU_VERTICAL_FOV);
         for (double cameraFov : new double[] {30, 70, 110}) {
-            double menuFov = EffectProjection.verticalFov(cameraFov, true, true);
-            assertEquals(reference, EffectProjection.calculate(aperture, 160, 90, 30, 3, 30, 15, menuFov));
-            assertEquals(referenceCrop, EffectProjection.fitCrop(1280, 800, 16.0 / 9, 160, 90, 30, 3, 30, 15, menuFov));
+            EditorViewport.verticalFov(cameraFov);
+            assertEquals(cameraFov, EditorViewport.verticalFov());
+            var plane = EffectProjection.calculate(aperture, 160, 90, 30, 3, 30, 15, EditorViewport.verticalFov());
+            assertEquals(90 * 180 / (2 * 3 * 30 * Math.tan(Math.toRadians(cameraFov) / 2)), plane.height(), 1e-9);
         }
+        EditorViewport.verticalFov(70);
     }
 
-    @Test void missingMenuShaderRetainsTheActualCameraProjection() {
-        for (double cameraFov : new double[] {30, 70, 110}) {
-            assertEquals(cameraFov, EffectProjection.verticalFov(cameraFov, false, true));
-        }
+    @Test void invalidCameraFovCannotReplaceTheLastExtractedProjection() {
+        EditorViewport.verticalFov(90);
+        EditorViewport.verticalFov(Double.NaN);
+        EditorViewport.verticalFov(180);
+        assertEquals(90, EditorViewport.verticalFov());
+        EditorViewport.verticalFov(70);
     }
 
-    @Test void manuallyInstalledShaderWithoutServerPackRetainsCameraProjection() {
-        for (double cameraFov : new double[] {30, 70, 110}) {
-            assertEquals(cameraFov, EffectProjection.verticalFov(cameraFov, true, false));
-        }
-    }
-
-    @Test void pixelDensityStillControlsPlaybackSizeWithFixedMenuProjection() {
+    @Test void pixelDensityStillControlsPlaybackSizeWithNativeProjection() {
         var aperture = new EditorLayout.Rect(100, 50, 320, 180);
-        double menuFov = EffectProjection.verticalFov(110, true, true);
+        double menuFov = 110;
         var playback = EffectProjection.calculate(aperture, 160, 90, 30, 3, 0, 0, menuFov);
         var denser = EffectProjection.calculate(aperture, 160, 90, 60, 3, 0, 0, menuFov);
         assertEquals(playback.width() / 2, denser.width(), 1e-9);

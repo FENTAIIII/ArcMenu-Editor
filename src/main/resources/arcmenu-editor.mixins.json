@@ -4,6 +4,8 @@
   "compatibilityLevel": "JAVA_${java}",
   "client": [
     "CameraMixin",
+    "VisionMouseMixin",
+    "VisionKeyboardMixin",
     "GameRendererMixin",
     "EffectAudioReloadMixin"
   ],

@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 public final class EditorProtocol {
     public static final String CHANNEL = "arcmenu:editor";
     public static final int VERSION = 10;
-    public static final String EDITOR_VERSION = "3.0.1";
+    public static final String EDITOR_VERSION = "3.1.0";
     public static final int MAX_PACKET_BYTES = 1_048_576;
     public static final int MAX_STRING_BYTES = 262_144;
     public static final int MAX_FRAME_DATA = 28_000;
@@ -94,7 +94,7 @@ public final class EditorProtocol {
     private EditorProtocol() {}
 
     public static boolean supportsClient(String clientVersion) {
-        return EDITOR_VERSION.equals(clientVersion) || "3.0.0".equals(clientVersion) || "1.2.1".equals(clientVersion) || "1.2.0".equals(clientVersion) || "1.1.0".equals(clientVersion) || "1.0.1".equals(clientVersion) || "1.0.0".equals(clientVersion);
+        return EDITOR_VERSION.equals(clientVersion) || "3.0.6".equals(clientVersion) || "3.0.5".equals(clientVersion) || "3.0.4".equals(clientVersion) || "3.0.3".equals(clientVersion) || "3.0.2".equals(clientVersion) || "3.0.1".equals(clientVersion) || "3.0.0".equals(clientVersion) || "1.2.1".equals(clientVersion) || "1.2.0".equals(clientVersion) || "1.1.0".equals(clientVersion) || "1.0.1".equals(clientVersion) || "1.0.0".equals(clientVersion);
     }
 
     /** Separate from malformed packets so the server can notify old editors through vanilla chat. */

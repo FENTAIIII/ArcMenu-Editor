@@ -96,6 +96,7 @@ public final class EditorMcp {
         result.addProperty("connected", client.player != null && client.getConnection() != null);
         result.addProperty("screen",client.screen==null?"":client.screen.getClass().getSimpleName());
         result.addProperty("editorOpen", EditorScreen.isEditor(client.screen) || client.screen instanceof EffectWorkspaceChild || client.screen instanceof McpScreen);
+        result.add("visionCursor", VisionCursorClient.metadata());
         result.add("scene", JSON.toJsonTree(ArcMenuEditorClient.state().snapshot())); result.add("effect", JSON.toJsonTree(ArcMenuEditorClient.EFFECT.snapshot()));
         result.add("viewport", JSON.toJsonTree(ArcMenuEditorClient.EFFECT.viewport()));
         result.add("audioPreview", EffectAudioPreview.INSTANCE.metadata());

@@ -22,7 +22,7 @@ public final class MenuInputClient {
         }));
         ClientPlayConnectionEvents.DISCONNECT.register((listener, client) -> { active=false;Arrays.fill(held,false); });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!active || client.player == null || client.screen != null || !client.isWindowActive()) {
+            if (!active || VisionCursorClient.active() || client.player == null || client.screen != null || !client.isWindowActive()) {
                 Arrays.fill(held,false);return;
             }
             boolean[] down = {client.options.keyAttack.isDown(), client.options.keyUse.isDown(), client.options.keyPickItem.isDown()};

@@ -104,14 +104,16 @@ final class EditorI18nTest {
     @Test void arcitxInspectorLabelsAndInputGuidanceFollowTheGameLanguage() {
         Language.inject(language("en_us", Map.of()));
         assertEquals("Submit region", EditorI18n.property("arcitx-submit"));
-        assertTrue(EditorI18n.propertyHint("arcitx-submit").contains("Closing the anvil only keeps a draft"));
+        assertTrue(EditorI18n.propertyHint("arcitx-submit").contains("Closing the editor only keeps a draft"));
+        assertTrue(EditorI18n.propertyHint("arcitx-title").contains("Vision uses local native text input"));
         assertTrue(EditorI18n.propertyHint("arcitx-display-editing").contains("{input}"));
         assertTrue(EditorI18n.propertyHint("arcitx-display-editing").contains("{caret}"));
         assertTrue(EditorI18n.propertyHint("arcitx-max-length").contains("UTF-16"));
 
         Language.inject(language("zh_cn", Map.of()));
         assertEquals("提交点击区", EditorI18n.property("arcitx-submit"));
-        assertTrue(EditorI18n.propertyHint("arcitx-submit").contains("关闭铁砧只保留草稿"));
+        assertTrue(EditorI18n.propertyHint("arcitx-submit").contains("关闭编辑器只保留草稿"));
+        assertTrue(EditorI18n.propertyHint("arcitx-title").contains("Vision 使用本地原生文字输入"));
         assertTrue(EditorI18n.propertyHint("arcitx-max-length").contains("空格不会提交"));
         assertTrue(EditorI18n.propertyHint("arcitx-display-editing").contains("{input}"));
         assertTrue(EditorI18n.propertyHint("arcitx-display-editing").contains("{caret}"));

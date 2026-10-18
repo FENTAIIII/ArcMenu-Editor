@@ -32,6 +32,14 @@ class EditorLayoutTest {
     }
 
     @Test
+    void projectPreviewUsesTheSameCenteredSixteenByNineAperture() {
+        assertEquals(new EditorLayout.Rect(5, 3, 416, 234),
+                EditorLayout.fit16By9(new EditorLayout.Rect(0, 0, 427, 241)));
+        assertEquals(new EditorLayout.Rect(0, 0, 1280, 720),
+                EditorLayout.fit16By9(new EditorLayout.Rect(0, 0, 1281, 721)));
+    }
+
+    @Test
     void virtualScreenUsesUniformScaleAndIndependentOffsets() {
         EditorLayout editor = new EditorLayout();
         EditorLayout.Layout layout = editor.calculate(1920, 1080);

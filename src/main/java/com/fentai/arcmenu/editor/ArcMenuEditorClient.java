@@ -43,6 +43,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
         EditorWorldCompositor.initialize();
         WorkspaceClient.initialize();
         MenuInputClient.initialize();
+        VisionCursorClient.initialize();
         PayloadTypeRegistry.serverboundPlay().register(EditorPayload.TYPE, EditorPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(EditorPayload.TYPE, EditorPayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(EditorPayload.TYPE, (payload, context) -> receive(context.client(), payload));

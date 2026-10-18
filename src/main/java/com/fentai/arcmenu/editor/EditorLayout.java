@@ -93,7 +93,7 @@ public final class EditorLayout {
         }
     }
 
-    private static Rect fit16By9(Rect host) {
+    public static Rect fit16By9(Rect host) {
         // The editor contract requires an exact 16:9 game opening. Integer GUI
         // coordinates can only guarantee that when both sides use one shared unit.
         int unit = Math.max(1, Math.min(host.width / 16, host.height / 9));

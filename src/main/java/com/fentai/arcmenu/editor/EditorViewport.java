@@ -2,17 +2,11 @@ package com.fentai.arcmenu.editor;
 
 import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.repository.PackSource;
 
 /** Shares the docked game rectangle with render mixins without changing GUI dimensions. */
 public final class EditorViewport {
     private static volatile EditorLayout.Rect guiRect;
     private static volatile double verticalFov = 70;
-    private static final Identifier MENU_PROJECTION_SHADER =
-            Identifier.fromNamespaceAndPath("arcmenu", "shaders/include/menu_projection.glsl");
-    private record ProjectionResources(boolean shaderPresent, boolean serverPackActive) {}
-    private static volatile ProjectionResources projectionResources;
 
     private EditorViewport() {}
 
@@ -21,20 +15,8 @@ public final class EditorViewport {
     }
 
     public static double verticalFov() {
-        ProjectionResources resources = projectionResources;
-        if (resources == null) {
-            var client = Minecraft.getInstance();
-            // A manually installed pack alone does not enable the server's menu encoding.
-            resources = new ProjectionResources(
-                    client.getResourceManager().getResource(MENU_PROJECTION_SHADER).isPresent(),
-                    client.getResourcePackRepository().getSelectedPacks().stream()
-                            .anyMatch(pack -> pack.getPackSource() == PackSource.SERVER));
-            projectionResources = resources;
-        }
-        return EffectProjection.verticalFov(verticalFov, resources.shaderPresent(), resources.serverPackActive());
+        return verticalFov;
     }
-
-    public static void resourceReloaded() { projectionResources = null; }
 
     public static void verticalFov(double value) {
         if (Double.isFinite(value) && value > 0 && value < 180) verticalFov = value;

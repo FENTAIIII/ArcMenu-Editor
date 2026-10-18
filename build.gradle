@@ -24,6 +24,13 @@ repositories {
     mavenCentral()
 }
 
+// Compile against the single-@At Redirect API so the JAR also works with
+// MixinExtras 0.5.4 and earlier. Newer Mixin accepts this format as well.
+// Leave the game's runtime Mixin and MixinExtras versions under Loader's control.
+configurations.named('compileClasspath') {
+    resolutionStrategy.force 'net.fabricmc:sponge-mixin:0.17.0+mixin.0.8.7'
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     if (project.minecraft_version.startsWith('1.')) mappings loom.officialMojangMappings()
@@ -48,6 +55,8 @@ processResources {
     filesMatching('arcmenu-editor.mixins.json') {
         expand java: targetJavaVersion
         if (usesModernRenderer) filter { it.replace('"GameRendererMixin"', '"GameRendererMixin", "HudMixin"') }
+        if (project.minecraft_version == '26.3') filter { it.replace('"GameRendererMixin"', '"VisionLevelExtractorMixin", "VisionTextKeyboardMixin", "VisionEditorScreenMixin", "VisionWorkspacePreviewMixin", "GameRendererMixin"') }
+        if (project.minecraft_version.startsWith('1.')) filter { it.replace('    "VisionMouseMixin",', '').replace('    "VisionKeyboardMixin",', '') }
     }
     from('LICENSE') {
         into 'META-INF'
@@ -68,6 +77,12 @@ test {
 }
 
 def runtimeJar = tasks.named(project.minecraft_version.startsWith('1.') ? 'remapJar' : 'jar')
+
+tasks.named('test') {
+    dependsOn runtimeJar
+    inputs.file(runtimeJar.flatMap { it.archiveFile })
+    systemProperty 'arcmenu.runtimeJar', runtimeJar.get().archiveFile.get().asFile.absolutePath
+}
 tasks.register('verifyNoBundledLwjgl') {
     dependsOn runtimeJar
     inputs.file(runtimeJar.flatMap { it.archiveFile })

@@ -2,14 +2,7 @@ package com.fentai.arcmenu.editor;
 
 /** Maps the server menu plane into the current Minecraft camera aperture in GUI units. */
 public final class EffectProjection {
-    public static final double MENU_VERTICAL_FOV = 70;
-
     private EffectProjection() {}
-
-    /** Menu shaders normalize their own projection without changing the world camera. */
-    public static double verticalFov(double cameraFov, boolean menuShaderPresent, boolean serverPackActive) {
-        return menuShaderPresent && serverPackActive ? MENU_VERTICAL_FOV : cameraFov;
-    }
 
     public static EditorLayout.ScreenRect calculate(EditorLayout.Rect viewport, double canvasWidth, double canvasHeight,
                                                      double pixelsPerBlock, double distance, double offsetX, double offsetY,

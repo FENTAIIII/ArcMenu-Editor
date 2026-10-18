@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor;
 
 import com.google.gson.JsonParser;
+import com.llamalad7.mixinextras.wrapper.factory.FactoryRedirectWrapperMixinTransformer;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
@@ -12,11 +13,38 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.jar.JarFile;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Checks actual target bytecode, without starting Minecraft or loading its classes. */
 final class MixinTargetsTest {
+    @Test
+    void redirectsRemainReadableByOlderMixinExtras() throws Exception {
+        try (var jar = new JarFile(System.getProperty("arcmenu.runtimeJar"));
+             var reader = new InputStreamReader(jar.getInputStream(jar.getJarEntry("arcmenu-editor.mixins.json")),
+                     StandardCharsets.UTF_8)) {
+            var config = JsonParser.parseReader(reader).getAsJsonObject();
+            String prefix = config.get("package").getAsString().replace('.', '/') + "/";
+            for (var entry : config.getAsJsonArray("client")) {
+                var mixin = new ClassNode();
+                try (var stream = jar.getInputStream(jar.getJarEntry(prefix + entry.getAsString() + ".class"))) {
+                    new ClassReader(stream).accept(mixin, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                }
+                for (var handler : mixin.methods) {
+                    for (var annotation : annotations(handler.visibleAnnotations, handler.invisibleAnnotations)) {
+                        if (annotation.desc.equals("Lorg/spongepowered/asm/mixin/injection/Redirect;")) {
+                            assertInstanceOf(AnnotationNode.class, value(annotation, "at"),
+                                    mixin.name + "." + handler.name
+                                            + " must store a single @At for MixinExtras 0.5.4 and earlier");
+                        }
+                    }
+                }
+                new FactoryRedirectWrapperMixinTransformer().transform(null, mixin);
+            }
+        }
+    }
+
     @Test
     void everyRequiredInjectionMatchesTheSelectedMinecraftVersion() throws Exception {
         var stream = getClass().getResourceAsStream("/arcmenu-editor.mixins.json");
@@ -42,6 +70,15 @@ final class MixinTargetsTest {
                                         .filter(m -> m.name.equals(methodName) || (m.name + m.desc).equals(methodName)).toList();
                                 String context = mixin.name + "." + handler.name + " -> " + target.name + "." + methodName;
                                 assertFalse(candidates.isEmpty(), context + " missing method");
+                                if (injection.desc.endsWith("/Inject;")) {
+                                    Type[] arguments = Type.getArgumentTypes(handler.desc);
+                                    if (arguments.length > 1) {
+                                        List<Type> captured = List.of(arguments).subList(0, arguments.length - 1);
+                                        assertTrue(candidates.stream().anyMatch(candidate ->
+                                                        captured.equals(List.of(Type.getArgumentTypes(candidate.desc)))),
+                                                context + " must capture all target arguments before CallbackInfo");
+                                    }
+                                }
                                 for (var atObject : ats) {
                                     var at = (AnnotationNode) atObject;
                                     if (!"INVOKE".equals(value(at, "value"))) continue;
