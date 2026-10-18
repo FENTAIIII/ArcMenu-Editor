@@ -117,6 +117,7 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
     }
 }
 sourceSets.main.java.setSrcDirs([generated])
+if (target == '26.3') sourceSets.test.java.srcDir('src/compat/26.3/test/java')
 if (usesModernRenderer) {
     sourceSets.main.resources.srcDir('src/compat/26.2/resources')
     sourceSets.test.java.srcDir('src/compat/26.2/test/java')

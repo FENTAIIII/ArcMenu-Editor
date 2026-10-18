@@ -121,10 +121,10 @@ public final class VisionCursorClient {
 
     public static boolean button(int button, int action, int modifiers) {
         if (!controlling()) return false;
-        if (action == 1 && button >= 0 && button <= 2) {
+        byte operation = VisionMouseInput.action(button);
+        if (action == InputConstants.PRESS && operation != VisionMouseInput.NO_ACTION) {
             VisionTextClient.finish();
-            byte operation = button == 0 ? VisionProtocol.LEFT : button == 1 ? VisionProtocol.RIGHT : VisionProtocol.MIDDLE;
-            send(operation, (modifiers & 1) != 0);
+            send(operation, VisionMouseInput.shift(modifiers));
         }
         return true;
     }
