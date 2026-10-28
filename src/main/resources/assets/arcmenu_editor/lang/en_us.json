@@ -1036,5 +1036,10 @@
   "arcmenu_editor.status.packet_too_large": "Editor message is %s bytes; maximum: %s bytes. The edit was not sent.",
   "arcmenu_editor.projects.field.depthMode": "Depth mode",
   "arcmenu_editor.projects.help.depthMode": "perspective: normal perspective; layered: align planar layers without Z scaling or drift. Tilted and 3D elements retain perspective.",
-  "arcmenu_editor.projects.depth_mode_invalid": "Depth mode must be perspective or layered."
+  "arcmenu_editor.projects.depth_mode_invalid": "Depth mode must be perspective or layered.",
+  "arcmenu_editor.workspace.move_into": "Move into group…",
+  "arcmenu_editor.workspace.move_out": "Move out of group",
+  "arcmenu_editor.workspace.move_root": "Move to root",
+  "arcmenu_editor.workspace.visibility": "Toggle selected layers visibility",
+  "arcmenu_editor.workspace.solo": "Toggle selected layers solo"
 }

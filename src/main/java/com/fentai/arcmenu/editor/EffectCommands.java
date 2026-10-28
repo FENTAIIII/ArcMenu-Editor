@@ -14,6 +14,8 @@ public final class EffectCommands {
         c("settings","settings","Ctrl+K"),c("layer-settings","layer_settings","Ctrl+Shift+Y"),
         c("new-text","new_text","Ctrl+Alt+Shift+T"),c("new-rectangle","new_rectangle","Ctrl+Y"),
         c("new-gif","new_gif",""),
+        c("move-into","move_into",""),c("move-out","move_out",""),c("move-root","move_root",""),
+        c("visibility","visibility",""),c("solo","solo",""),c("trim-start","trim_start",""),c("trim-end","trim_end",""),
         c("new-group","new_group","Ctrl+Alt+Shift+Y"),c("tool-select","select","V"),
         c("tool-hand","hand","H"),c("tool-zoom","zoom","Z"),c("tool-rotate","rotate_tool","W"),
         c("tool-shape","shape_tool","Q"),c("tool-text","text_tool","Ctrl+T"),
@@ -34,6 +36,12 @@ public final class EffectCommands {
     public static String lookup(String key,boolean ctrl,boolean shift,boolean alt) {
         String chord=(ctrl?"Ctrl+":"")+(alt?"Alt+":"")+(shift?"Shift+":"")+key;
         return COMMANDS.stream().filter(c->!c.shortcut.isEmpty()&&c.shortcut.equals(chord)).map(Command::id).findFirst().orElse("");
+    }
+    public static List<String> layerMenu() {
+        return List.of("group", "ungroup", "new-group", "move-into", "move-out", "move-root",
+                "copy", "cut", "paste", "duplicate", "split", "rename", "visibility", "solo", "lock", "unlock-all",
+                "raise", "lower", "to-front", "to-back", "trim-start", "trim-end", "layer-settings", "delete",
+                "new-text", "new-rectangle", "new-gif");
     }
     private EffectCommands() {}
 }

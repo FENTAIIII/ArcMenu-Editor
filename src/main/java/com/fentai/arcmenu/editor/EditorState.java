@@ -90,7 +90,8 @@ public final class EditorState {
                     frame.x(), frame.y(), frame.width(), frame.height(), frame.rotationZ(), frame.visible(), node.locked(), properties));
         }
         snapshot = new EditorProtocol.SnapshotPacket(snapshot.revision(), snapshot.menuId(), snapshot.canvasWidth(), snapshot.canvasHeight(),
-                snapshot.dirty(), snapshot.saved(), snapshot.serverVersion(), frontend, snapshot.backend(), snapshot.images(), snapshot.templates());
+                snapshot.dirty(), snapshot.saved(), snapshot.serverVersion(), frontend, snapshot.backend(), snapshot.images(), snapshot.templates(),
+                snapshot.exactRectangles());
         return true;
     }
 
@@ -128,7 +129,7 @@ public final class EditorState {
         snapshot = new EditorProtocol.SnapshotPacket(
                 value.revision(), snapshot.menuId(), snapshot.canvasWidth(), snapshot.canvasHeight(),
                 value.dirty(), value.saved(), snapshot.serverVersion(), frontend, backend,
-                snapshot.images(), snapshot.templates());
+                snapshot.images(), snapshot.templates(), snapshot.exactRectangles());
         return gestureId;
     }
 

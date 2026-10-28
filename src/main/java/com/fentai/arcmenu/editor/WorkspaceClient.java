@@ -136,7 +136,7 @@ public final class WorkspaceClient {
         if(!(client.screen instanceof WorkspaceScreen screen))return CompletableFuture.failedFuture(new IllegalStateException("Open the project manager before capturing package previews"));
         var projects=new ArrayList<WorkspaceState.Project>();
         for(var entry:references){var ref=entry.getAsJsonObject();String type=ref.get("type").getAsString(),id=ref.get("id").getAsString();
-            projects.add(new WorkspaceState.Project(type,id,"",800,450,100,2,""));}
+            projects.add(new WorkspaceState.Project(type,id,"",WorkspaceState.DEFAULT_WIDTH,WorkspaceState.DEFAULT_HEIGHT,WorkspaceState.DEFAULT_PIXELS_PER_BLOCK,WorkspaceState.DEFAULT_DISTANCE,""));}
         return WorkspacePublication.capturePreviews(screen,filename,List.copyOf(projects));
     }
     public static CompletableFuture<JsonObject> preparePackage(String filename){

@@ -14,15 +14,20 @@ abstract class VisionMouseMixin {
     @Shadow private double accumulatedDX;
     @Shadow private double accumulatedDY;
 
-    @Inject(method = "turnPlayer", at = @At("HEAD"), cancellable = true)
-    private void arcmenu$moveVisionCursor(double elapsed, CallbackInfo info) {
-        if (VisionCursorClient.move(accumulatedDX, accumulatedDY)) info.cancel();
+    @Inject(method = "handleAccumulatedMovement", at = @At("HEAD"))
+    private void arcmenu$sampleNativePointer(CallbackInfo info) {
+        VisionCursorClient.sampleMouse();
+    }
+
+    @Inject(method = "grabMouse", at = @At("HEAD"), cancellable = true)
+    private void arcmenu$keepVisionPointerFree(CallbackInfo info) {
+        if (VisionCursorClient.active()) info.cancel();
     }
 
     @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
     private void arcmenu$clickVisionCursor(long window, MouseButtonInfo button, int action, CallbackInfo info) {
         if (VisionCursorClient.controlling()) {
-            VisionCursorClient.move(accumulatedDX, accumulatedDY);
+            VisionCursorClient.sampleMouse();
             accumulatedDX = 0;
             accumulatedDY = 0;
         }

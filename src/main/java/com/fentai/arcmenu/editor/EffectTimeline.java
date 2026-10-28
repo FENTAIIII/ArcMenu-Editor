@@ -21,6 +21,9 @@ final class EffectTimeline {
         default void serverStateChanged() {}
         default void timelineContextMenu(double x, double y, List<MenuItem> entries) {}
         default void timelineCommand(String action) {}
+        default void timelineLayerMenu(double x, double y) {}
+        default void timelineEmptyMenu(double x, double y) {}
+        default void beginLayerDrag(String id, double x, double y, boolean exclusiveClick) {}
         default void timelineSearchFocus(EditBox field) {}
     }
     record MenuItem(String translationKey, Runnable action, boolean enabled) {
@@ -30,6 +33,7 @@ final class EffectTimeline {
     private final EditorState scene;
     private final EffectState state = ArcMenuEditorClient.EFFECT;
     private final List<Row> rows = new ArrayList<>();
+    private final List<String> visibleLayers = new ArrayList<>();
     private final List<Control> controls = new ArrayList<>();
     private final LinkedHashSet<KeyRef> selected = new LinkedHashSet<>();
     private List<KeyRef> clipboard = List.of();
@@ -145,11 +149,12 @@ final class EffectTimeline {
         var hierarchy = new HashMap<String, EditorProtocol.NodeSnapshot>();
         for (var node : nodes) hierarchy.put(node.id(), node);
         updateHierarchy(p.id(), hierarchy);
-        int index = 0;
+        int index = 0; visibleLayers.clear();
         for (var node : nodes) {
             if (hiddenByGroup(node, hierarchy)) continue;
             var tracks = visibleTracks(node, p.tracks());
             if (!query.isEmpty() && !matches(node.id()) && tracks.stream().noneMatch(track -> matches(track.property()) || matches(EditorI18n.property(track.property())))) continue;
+            visibleLayers.add(node.id());
             var layer = layer(node.id());
             int rowY = gridTop + (index++ - rowScroll) * 16;
             boolean expanded = !collapsed.contains(node.id());
@@ -483,10 +488,23 @@ final class EffectTimeline {
         var node = scene.find(target); return scene.locked(target) || node != null && node.locked();
     }
     private void selectLayer(String target, MouseButtonEvent event) {
-        if (event.hasShiftDown()) scene.selectRange(scene.snapshot().frontend().stream().map(EditorProtocol.NodeSnapshot::id).toList(), target);
-        else if (event.hasControlDown()) scene.toggleSelection(target);
-        else if (!scene.selected(target)) scene.selectOnly(target);
+        selected.clear(); keysFocused = false;
+        EffectHierarchy.select(scene, visibleLayers, target, event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT,
+                event.hasShiftDown(), event.hasControlDown());
         screen.serverStateChanged();
+    }
+    boolean hierarchyArea(double x, double y) {
+        return panel != null && x >= panel.x() + 62 && x < gridX && y >= gridTop && y < panel.bottom() - 14;
+    }
+    EffectHierarchy.Drop hierarchyDrop(List<String> ids, double x, double y) {
+        if (!hierarchyArea(x, y)) return null;
+        for (var row : rows) if (y >= row.y && y < row.y + 16) {
+            if (row.track != null || row.cue != null) return null;
+            return EffectHierarchy.drop(scene, ids, new EffectHierarchy.Row(row.target,
+                    new EditorLayout.Rect(panel.x() + 62, row.y, gridX - panel.x() - 62, 16)), y);
+        }
+        return EffectHierarchy.canMove(scene, ids, "", "")
+                ? new EffectHierarchy.Drop("", "", new EditorLayout.Rect(panel.x() + 62, (int)y, gridX - panel.x() - 62, 2), false) : null;
     }
     private void selectKey(KeyRef ref, MouseButtonEvent event) {
         if (event.hasShiftDown() && selectionAnchor != null && selectionAnchor.target.equals(ref.target) && selectionAnchor.property.equals(ref.property)) {
@@ -547,7 +565,10 @@ final class EffectTimeline {
         if (row == null) {
             keysFocused = event.x() >= gridX;
             if (event.y() < panel.bottom() - 14) {
-                if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) showMenu(event, emptyMenu(at(event.x())));
+                if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+                    if (event.x() < gridX) screen.timelineEmptyMenu(event.x(), event.y());
+                    else showMenu(event, emptyMenu(at(event.x())));
+                }
                 else beginMarquee(event, event.x() < gridX);
             }
             return true;
@@ -567,14 +588,14 @@ final class EffectTimeline {
         }
         if (row.track == null) {
             keysFocused = false;
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && !event.hasShiftDown() && !event.hasControlDown()) selected.clear();
             selectLayer(row.target, event);
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) { showMenu(event, layerMenu(row.target)); return true; }
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) { screen.timelineLayerMenu(event.x(), event.y()); return true; }
             if (doubleClick) screen.effectDialog("layer", row.target, "", 0, null, null);
             else if (event.x() < panel.x() + 16) { var old = layer(row.target); setLayer(old, old.start(), old.end(), !old.enabled(), old.solo()); }
             else if (event.x() < panel.x() + 29) { var old = layer(row.target); setLayer(old, old.start(), old.end(), old.enabled(), !old.solo()); }
             else if (event.x() < panel.x() + 43) scene.toggleLocked(row.target);
             else if (event.x() >= panel.x() + 50 && event.x() < panel.x() + 62) { if (!collapsed.remove(row.target)) collapsed.add(row.target); }
+            else if (event.x() < gridX && scene.selected(row.target)) screen.beginLayerDrag(row.target, event.x(), event.y(), !event.hasShiftDown() && !event.hasControlDown());
             else if (event.x() >= gridX && !locked(row.target)) {
                 var old = layer(row.target);
                 if (Math.abs(event.x() - frameX(old.start())) <= 5) trimming = 1;
@@ -649,18 +670,6 @@ final class EffectTimeline {
         menu.add(item("paste_keys", "paste-keys", !clipboard.isEmpty())); menu.add(item("select_all_keys", "select-all-keys", !state.snapshot().tracks().isEmpty()));
         menu.add(item("fit_timeline", "fit-graph", true)); menu.add(item("settings", () -> screen.timelineCommand("settings")));
         return menu;
-    }
-    private List<MenuItem> layerMenu(String target) {
-        var old = layer(target); var menu = new ArrayList<MenuItem>();
-        menu.add(item("layer_settings", () -> screen.effectDialog("layer", target, "", 0, null, null)));
-        menu.add(item("split_layer", () -> screen.timelineCommand("split")));
-        menu.add(item("duplicate_layer", () -> screen.timelineCommand("duplicate")));
-        menu.add(item("rename_layer", () -> screen.timelineCommand("rename")));
-        menu.add(item(old.enabled() ? "hide_layer" : "show_layer", () -> setLayer(old, old.start(), old.end(), !old.enabled(), old.solo())));
-        menu.add(item(old.solo() ? "unsolo_layer" : "solo_layer", () -> setLayer(old, old.start(), old.end(), old.enabled(), !old.solo())));
-        menu.add(item(locked(target) ? "unlock_layer" : "lock_layer", () -> { scene.toggleLocked(target); screen.serverStateChanged(); }));
-        menu.add(item("trim_start", () -> trimSelected(true))); menu.add(item("trim_end", () -> trimSelected(false)));
-        menu.add(item("delete_layer", () -> screen.timelineCommand("delete"))); return menu;
     }
     private List<MenuItem> trackMenu(Row row) {
         var menu = new ArrayList<MenuItem>();
@@ -871,16 +880,7 @@ final class EffectTimeline {
         for (String id : selectedLayerRoots()) { var old = layer(id); int delta = frame - (start ? old.start() : old.end() - 1); if (delta != 0 && layerMoveAllowed(Set.of(id), delta)) state.submit("move-layer", id, "", delta, 0, "", "linear", 0, 0, 0, 0); }
     }
     private Set<String> selectedLayerRoots() {
-        var roots = new LinkedHashSet<>(scene.selectedIds()); roots.removeIf(this::locked);
-        var nested = new HashSet<String>();
-        for (String id : roots) {
-            var node = scene.find(id); var visited = new HashSet<String>();
-            while (node != null && !node.parentId().isEmpty() && visited.add(node.parentId())) {
-                if (roots.contains(node.parentId())) { nested.add(id); break; }
-                node = scene.find(node.parentId());
-            }
-        }
-        roots.removeAll(nested); return roots;
+        return new LinkedHashSet<>(EffectHierarchy.roots(scene, scene.selectedIds().stream().filter(id -> !locked(id)).toList()));
     }
     private Set<String> layerSubtree(Set<String> roots) {
         var result = new HashSet<>(roots);
@@ -931,6 +931,14 @@ final class EffectTimeline {
     boolean command(String action) {
         if (!active()) return false;
         switch (action) {
+            case "visibility", "solo" -> {
+                var ids = scene.selectedIds().stream().filter(id -> !locked(id)).toList();
+                boolean enabled = !ids.stream().allMatch(id -> action.equals("visibility") ? layer(id).enabled() : layer(id).solo());
+                for (String id : ids) {
+                    var old = layer(id);
+                    setLayer(old, old.start(), old.end(), action.equals("visibility") ? enabled : old.enabled(), action.equals("solo") ? enabled : old.solo());
+                }
+            }
             case "copy-keys" -> { if (selected.isEmpty()) return false; clipboard = List.copyOf(selected); }
             case "cut-keys" -> { if (selected.isEmpty()) return false; clipboard = List.copyOf(selected); command("delete-keys"); }
             case "paste-keys" -> {

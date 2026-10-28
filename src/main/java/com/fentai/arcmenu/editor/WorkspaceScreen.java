@@ -75,6 +75,12 @@ public final class WorkspaceScreen extends Screen {
     public void selectLocalPackage(String filename){selectedLocalFilename=filename;switchTab("local_packages");paint();}
     public void selectionChanged(){updateRows();paint();}
     private void updateRows(){rows=WorkspaceClient.STATE.rows(searchValue,projectType);}
+    private void searchChanged(String value){
+        if(Objects.equals(value,searchValue))return;
+        searchValue=value;page=1;managerPage=0;catalogGeneration++;
+        searchDeadline=tab.equals("market")?System.nanoTime()+350_000_000L:0;
+        updateRows();paint();
+    }
     private void switchTab(String next){
         if(next.equals("market")&&!WorkspaceClient.STATE.marketAllowed()){status=market("operator_required");paint();return;}
         if(modal!=null){if(modal.busy)return;saveFields();modal=null;modalSubmit=null;}
@@ -109,7 +115,7 @@ public final class WorkspaceScreen extends Screen {
         try{
             if(action.startsWith("nav_")){switchTab(action.substring(4));return;}
             switch(action){
-                case "input"->{if(modal!=null&&id.startsWith("field_"))modal.values.put(id.substring(6),view.value(id));}
+                case "input"->{if(modal==null&&id.equals("search"))searchChanged(view.value(id));else if(modal!=null&&id.startsWith("field_"))modal.values.put(id.substring(6),view.value(id));}
                 case "select_project","toggle_project","open_project"->{var p=WorkspaceClient.STATE.projects().stream().filter(item->item.key().equals(id)).findFirst().orElse(null);if(p!=null){int mods=view.lastActionModifiers();boolean toggle=action.equals("toggle_project");WorkspaceClient.STATE.select(p,toggle||(mods&2)!=0,!toggle&&(mods&1)!=0,rows);paint();if(action.equals("open_project"))perform("open");}}
                 case "toggle_folder"->{WorkspaceClient.STATE.toggleFolder(id);updateRows();paint();}
                 case "select_package"->{selectedLocalFilename=id;paint();}
@@ -153,7 +159,7 @@ public final class WorkspaceScreen extends Screen {
     }
     public boolean input(String field,String value){
         if(modal!=null){String key=field.startsWith("field_")?field.substring(6):field;if(modal.busy||!modal.values.containsKey(key))return false;modal.values.put(key,value);view.setValue("field_"+key,value);return true;}
-        if(field.equals("search")){searchValue=value;attr("search","value",value);page=1;updateRows();paint();return true;}
+        if(field.equals("search")){attr("search","value",value);searchChanged(value);return true;}
         if(field.equals("sort")&&List.of("popular","downloads","likes","rating","updated").contains(value)){marketSort=value;page=1;refreshMarket();return true;}return false;
     }
     private void perform(String action){
@@ -163,8 +169,8 @@ public final class WorkspaceScreen extends Screen {
             case "escape"->onClose();
             case "refresh"->refresh();
             case "login"->run("login",WorkspaceClient::login,json->{if(tab.equals("market"))refreshMarket();});
-            case "search"->{searchValue=view.value("search");page=1;searchDeadline=0;if(tab.equals("market"))refreshMarket();else{updateRows();paint();}}
-            case "search_clear"->{searchValue="";attr("search","value","");page=1;updateRows();if(tab.equals("market"))refreshMarket();paint();}
+            case "search"->{searchValue=view.value("search");page=1;managerPage=0;searchDeadline=0;if(tab.equals("market"))refreshMarket();else{updateRows();paint();}}
+            case "search_clear"->{searchValue="";attr("search","value","");page=1;managerPage=0;searchDeadline=0;updateRows();if(tab.equals("market"))refreshMarket();paint();}
             case "new_menu","new_effect","configure","delete","export","import"->form(action,action.equals("new_menu")||action.equals("new_effect")||action.equals("import")?List.of():selected,json->{
                 if(action.equals("export")&&WorkspaceClient.MARKET.authenticated()){json.addProperty("authorUuid",WorkspaceClient.MARKET.userId());json.addProperty("authorName",WorkspaceClient.MARKET.userName());}
                 return WorkspaceClient.request(action.startsWith("new_")?"create":action,json);
@@ -248,7 +254,7 @@ public final class WorkspaceScreen extends Screen {
         text("navigation_label",studio("navigation"));text("folders_label",studio("folders"));text("refresh_label",project("refresh"));text("close_label",studio(parent instanceof EditorScreen||parent instanceof EffectEditorScreen?"return_editor":"close_workspace"));
         text("projects_count",Integer.toString(WorkspaceClient.STATE.projects().size()));text("local_packages_count",Integer.toString(WorkspaceClient.STATE.localPacks().size()));text("installed_count",Integer.toString(WorkspaceClient.STATE.packs().size()));
         text("page_title",studio("page."+tab+".title"));text("page_subtitle",studio("page."+tab+".hint"));
-        attr("search","placeholder",studio("search."+tab));attr("search_clear","class","search-clear"+(searchValue.isEmpty()?" hidden":""));
+        attr("search","placeholder",studio("search."+tab));attr("search","maxlength",tab.equals("market")?"128":null);attr("search_clear","class","search-clear"+(searchValue.isEmpty()?" hidden":""));
         boolean authed=WorkspaceClient.MARKET.authenticated(),authPending=WorkspaceClient.authStatus().equals("signing_in");
         String authError=MarketMessages.authentication(WorkspaceClient.authError());
         text("account_name",authed?WorkspaceClient.MARKET.userName():studio("account.minecraft"));
@@ -290,7 +296,7 @@ public final class WorkspaceScreen extends Screen {
     private void paintMarket(){
         if(detail!=null){paintDetail();return;}
         StringBuilder filters=new StringBuilder();for(String sort:List.of("popular","downloads","updated"))filters.append(WorkspaceMarkup.button("sort_"+sort,"",market("sort."+sort),false,"filter-pill"+(marketSort.equals(sort)?" active":"")));html("filter_controls",filters.toString());
-        html("toolbar","<span class='toolbar-label'>"+e(studio("market.results",marketItems.size()))+"</span><span class='toolbar-spacer'></span>"+button("search",project("search"),false,"button button-secondary")+(pages>1?button("previous",!enabled("previous"))+"<span class='toolbar-label'>"+page+" / "+pages+"</span>"+button("next",!enabled("next")):""));
+        html("toolbar","<span class='toolbar-label'>"+e(studio("market.results",marketItems.size()))+"</span><span class='toolbar-spacer'></span>"+(pages>1?button("previous",!enabled("previous"))+"<span class='toolbar-label'>"+page+" / "+pages+"</span>"+button("next",!enabled("next")):""));
         String content="";
         if(!WorkspaceClient.MARKET.authenticated()){
             boolean authPending=WorkspaceClient.authStatus().equals("signing_in");
@@ -447,7 +453,7 @@ public final class WorkspaceScreen extends Screen {
     @Override public void tick(){
         if(view==null)return;refreshLanguage();view.tick();if(paintRequested){paintRequested=false;paint();}String auth=WorkspaceClient.authStatus()+":"+WorkspaceClient.authStage()+":"+WorkspaceClient.authError()+":"+WorkspaceClient.MARKET.userName();if(!auth.equals(lastAuth)){lastAuth=auth;paint();}
         if(localRefreshQueued&&!pending("catalog")){localRefreshQueued=false;String completionStatus=localRefreshStatus;localRefreshStatus=null;refreshLocal(completionStatus);}
-        if(modal==null){String value=view.value("search");if(!Objects.equals(value,searchValue)){searchValue=value;page=1;managerPage=0;updateRows();paint();if(tab.equals("market"))searchDeadline=System.nanoTime()+350_000_000L;}}
+        if(modal==null)searchChanged(view.value("search"));
         if(searchDeadline!=0&&System.nanoTime()>=searchDeadline){searchDeadline=0;if(tab.equals("market"))refreshMarket();}
     }
     private void refreshLanguage(){

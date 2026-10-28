@@ -35,6 +35,14 @@ final class ElementSelectionCalibration {
         return values.getOrDefault(kind, IDENTITY);
     }
 
+    /**
+     * The rectangle calibration compensates the legacy sizing, which trims the top of a
+     * rectangle. A menu with exact rectangle sizing shows its authored geometry directly.
+     */
+    Calibration forNode(byte kind, boolean exactRectangles) {
+        return exactRectangles && kind == EditorProtocol.KIND_RECTANGLE ? IDENTITY : get(kind);
+    }
+
     void set(byte kind, double offsetRatioX, double offsetRatioY, double scaleX, double scaleY) {
         double normalizedScaleX = scale(scaleX);
         double normalizedScaleY = scale(scaleY);

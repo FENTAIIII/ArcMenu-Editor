@@ -28,6 +28,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
     private static long sceneRequestCount;
     private static int nextMessageId;
     private static int effectWireVersion = 2;
+    private static final EffectPlaybackInput PLAYBACK_INPUT = new EffectPlaybackInput();
     private static final SceneReplies SCENE_REPLIES = new SceneReplies();
     public static long sceneRequestCount(){return sceneRequestCount;}
     private static void applyEffectSelection(Minecraft client) {
@@ -53,6 +54,12 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
         EFFECT.transport(packet -> ClientPlayNetworking.send(new EffectPayload(EffectProtocol.encode(packet, effectWireVersion))));
         EFFECT.localControl(EffectAudioPreview.INSTANCE::control);
         ClientTickEvents.END_CLIENT_TICK.register(client -> EFFECT.tick());
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            var exit = PLAYBACK_INPUT.poll(client.player != null && client.screen == null && client.isWindowActive(),
+                    client.options.keyShift.isDown(), client.options.keySwapOffhand.isDown());
+            if (exit != null && effectWireVersion >= 4 && ClientPlayNetworking.canSend(EffectPayload.TYPE))
+                ClientPlayNetworking.send(new EffectPayload(EffectProtocol.encode(exit, effectWireVersion)));
+        });
         ClientTickEvents.END_CLIENT_TICK.register(client -> EffectAudioPreview.INSTANCE.update(
                 client.screen instanceof EffectEditorScreen || client.screen instanceof EffectWorkspaceChild || client.screen instanceof McpScreen));
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> EffectAudioPreview.INSTANCE.close());
@@ -66,6 +73,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
             WorkspaceClient.reset();
             EFFECT_ASSEMBLER.clear(); EFFECT.clear(); SCENE_REPLIES.clear(); effectSelection=List.of();
             effectWireVersion = 2;
+            PLAYBACK_INPUT.clear();
             EffectAudioPreview.INSTANCE.disconnected();
             STATE.clear(); EditorMcp.disconnected();
             EditorViewport.clear();
@@ -121,6 +129,8 @@ public final class ArcMenuEditorClient implements ClientModInitializer {
                     ClientPlayNetworking.send(new EffectPayload(EffectProtocol.encode(new EffectProtocol.Hello(negotiatedVersion), 2)));
                     effectWireVersion = negotiatedVersion;
                 }
+            } else if (packet instanceof EffectProtocol.Playback playback) {
+                PLAYBACK_INPUT.update(playback);
             } else if (packet instanceof EffectProtocol.Transport transport) {
                 var previous = EFFECT.snapshot();
                 if (EFFECT.update(transport)) {

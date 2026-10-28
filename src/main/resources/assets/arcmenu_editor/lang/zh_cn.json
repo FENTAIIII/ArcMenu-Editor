@@ -1036,5 +1036,10 @@
   "arcmenu_editor.status.packet_too_large": "编辑消息占 %s 字节，上限为 %s 字节。本次修改未发送。",
   "arcmenu_editor.projects.field.depthMode": "深度模式",
   "arcmenu_editor.projects.help.depthMode": "perspective：正常透视；layered：平面图层不因 Z 值缩放或错位。倾斜元素和三维模型仍保留透视。",
-  "arcmenu_editor.projects.depth_mode_invalid": "深度模式必须为 perspective 或 layered。"
+  "arcmenu_editor.projects.depth_mode_invalid": "深度模式必须为 perspective 或 layered。",
+  "arcmenu_editor.workspace.move_into": "移入组…",
+  "arcmenu_editor.workspace.move_out": "移出当前组",
+  "arcmenu_editor.workspace.move_root": "移到根层级",
+  "arcmenu_editor.workspace.visibility": "显示／隐藏选中图层",
+  "arcmenu_editor.workspace.solo": "独显／取消独显选中图层"
 }

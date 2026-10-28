@@ -16,7 +16,7 @@ import java.util.List;
 /** Small runtime cursor channel shared by Paper and the existing ArcMenu Editor client. */
 public final class VisionProtocol {
     public static final String CHANNEL = "arcmenu:vision";
-    public static final int VERSION = 4;
+    public static final int VERSION = 6;
     public static final String MIN_EDITOR_VERSION = "3.0.6";
     public static final int MAX_PACKET_BYTES = 32767;
     public static final int MAX_SCENE_ENTITIES = 4096;
@@ -27,6 +27,7 @@ public final class VisionProtocol {
     public static final byte MIDDLE = 3;
     public static final byte CLOSE = 4;
     public static final byte JUMP = 5;
+    public static final byte LEAVE = 6;
     public static final byte TEXT_UPDATE = 0;
     public static final byte TEXT_FINISH = 1;
     public static final int MAX_TEXT_LENGTH = 50;
@@ -35,7 +36,8 @@ public final class VisionProtocol {
 
     private VisionProtocol() {}
 
-    public sealed interface Packet permits Hello, State, Input, Scene, TextState, TextInput, PreviewScene {}
+    public sealed interface Packet permits Hello, State, Input, Scene, TextState, TextInput, PreviewScene,
+            VisionVisuals.Hover, VisionVisuals.Follow {}
     public record Hello(int version) implements Packet {}
     /** Size and projection use logical canvas units; their ratio is the cursor's world angular size. */
     public record State(long sessionId, boolean active, boolean choosing, double cursorSize,
@@ -51,7 +53,7 @@ public final class VisionProtocol {
     public record Input(long sessionId, float yaw, float pitch, byte action, boolean shift) implements Packet {
         public Input {
             if (sessionId <= 0 || !Float.isFinite(yaw) || !Float.isFinite(pitch)
-                    || pitch < -90 || pitch > 90 || action < MOVE || action > JUMP) {
+                    || pitch < -90 || pitch > 90 || action < MOVE || action > LEAVE) {
                 throw new IllegalArgumentException("Invalid Vision input");
             }
         }
@@ -96,7 +98,9 @@ public final class VisionProtocol {
     /** An editor viewport scene has its own lifetime and never captures the runtime mouse. */
     public record PreviewScene(boolean active, Scene scene) implements Packet {
         public PreviewScene {
-            if (scene == null) throw new IllegalArgumentException("Missing Vision preview scene");
+            if (scene == null) {
+                throw new IllegalArgumentException("Missing Vision preview scene");
+            }
         }
     }
 
@@ -108,34 +112,65 @@ public final class VisionProtocol {
             // Version 1 clients can read this probe and decline support without a decoder exception.
             out.writeByte(packet instanceof Hello ? 1 : VERSION);
             if (packet instanceof Hello value) {
-                out.writeByte(1); out.writeInt(value.version());
+                out.writeByte(1);
+                out.writeInt(value.version());
             } else if (packet instanceof Input value) {
-                out.writeByte(2); out.writeLong(value.sessionId());
-                out.writeFloat(value.yaw()); out.writeFloat(value.pitch()); out.writeByte(value.action()); out.writeBoolean(value.shift());
+                out.writeByte(2);
+                out.writeLong(value.sessionId());
+                out.writeFloat(value.yaw());
+                out.writeFloat(value.pitch());
+                out.writeByte(value.action());
+                out.writeBoolean(value.shift());
             } else if (packet instanceof TextInput value) {
-                out.writeByte(3); out.writeLong(value.sessionId()); out.writeLong(value.editId());
-                out.writeByte(value.action()); writeString(out, value.value());
+                out.writeByte(3);
+                out.writeLong(value.sessionId());
+                out.writeLong(value.editId());
+                out.writeByte(value.action());
+                writeString(out, value.value());
             } else if (packet instanceof State value) {
-                out.writeByte(64); out.writeLong(value.sessionId());
-                out.writeBoolean(value.active()); out.writeBoolean(value.choosing());
-                out.writeDouble(value.cursorSize()); out.writeDouble(value.canvasProjection());
-                out.writeDouble(value.sensitivityX()); out.writeDouble(value.sensitivityY());
+                out.writeByte(64);
+                out.writeLong(value.sessionId());
+                out.writeBoolean(value.active());
+                out.writeBoolean(value.choosing());
+                out.writeDouble(value.cursorSize());
+                out.writeDouble(value.canvasProjection());
+                out.writeDouble(value.sensitivityX());
+                out.writeDouble(value.sensitivityY());
             } else if (packet instanceof Scene value) {
-                out.writeByte(65); writeScene(out, value);
+                out.writeByte(65);
+                writeScene(out, value);
             } else if (packet instanceof TextState value) {
-                out.writeByte(66); out.writeLong(value.sessionId()); out.writeLong(value.editId());
-                out.writeBoolean(value.active()); out.writeByte(value.maxLength());
-                writeString(out, value.title()); writeString(out, value.value());
+                out.writeByte(66);
+                out.writeLong(value.sessionId());
+                out.writeLong(value.editId());
+                out.writeBoolean(value.active());
+                out.writeByte(value.maxLength());
+                writeString(out, value.title());
+                writeString(out, value.value());
             } else if (packet instanceof PreviewScene value) {
-                out.writeByte(67); out.writeBoolean(value.active()); writeScene(out, value.scene());
-            } else throw new IllegalArgumentException("Unknown Vision packet");
+                out.writeByte(67);
+                out.writeBoolean(value.active());
+                writeScene(out, value.scene());
+            } else if (packet instanceof VisionVisuals.Hover value) {
+                out.writeByte(68);
+                VisionVisuals.writeHover(out, value);
+            } else if (packet instanceof VisionVisuals.Follow value) {
+                out.writeByte(69);
+                VisionVisuals.writeFollow(out, value);
+            } else {
+                throw new IllegalArgumentException("Unknown Vision packet");
+            }
             out.flush();
             return bytes.toByteArray();
-        } catch (IOException impossible) { throw new IllegalStateException(impossible); }
+        } catch (IOException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
 
     public static Packet decode(byte[] bytes) {
-        if (bytes.length > MAX_PACKET_BYTES) throw new IllegalArgumentException("Vision packet is too large");
+        if (bytes.length > MAX_PACKET_BYTES) {
+            throw new IllegalArgumentException("Vision packet is too large");
+        }
         try {
             var in = new DataInputStream(new ByteArrayInputStream(bytes));
             if (in.readInt() != MAGIC) {
@@ -155,19 +190,31 @@ public final class VisionProtocol {
                 case 65 -> readScene(in);
                 case 66 -> readTextState(in);
                 case 67 -> new PreviewScene(in.readBoolean(), readScene(in));
+                case 68 -> VisionVisuals.readHover(in);
+                case 69 -> VisionVisuals.readFollow(in);
                 default -> throw new IllegalArgumentException("Unknown Vision packet type");
             };
-            if (in.available() != 0) throw new IllegalArgumentException("Trailing Vision packet data");
+            if (in.available() != 0) {
+                throw new IllegalArgumentException("Trailing Vision packet data");
+            }
             return packet;
-        } catch (IOException error) { throw new IllegalArgumentException("Truncated Vision packet", error); }
+        } catch (IOException error) {
+            throw new IllegalArgumentException("Truncated Vision packet", error);
+        }
     }
 
     private static void writeScene(DataOutputStream out, Scene value) throws IOException {
         out.writeLong(value.sessionId());
-        out.writeDouble(value.eyeX()); out.writeDouble(value.eyeY()); out.writeDouble(value.eyeZ());
-        out.writeFloat(value.yaw()); out.writeFloat(value.pitch()); out.writeFloat(value.verticalFov());
+        out.writeDouble(value.eyeX());
+        out.writeDouble(value.eyeY());
+        out.writeDouble(value.eyeZ());
+        out.writeFloat(value.yaw());
+        out.writeFloat(value.pitch());
+        out.writeFloat(value.verticalFov());
         out.writeShort(value.entityIds().size());
-        for (int entityId : value.entityIds()) out.writeInt(entityId);
+        for (int entityId : value.entityIds()) {
+            out.writeInt(entityId);
+        }
     }
 
     private static TextState readTextState(DataInputStream in) throws IOException {
@@ -192,7 +239,9 @@ public final class VisionProtocol {
         try {
             String value = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(in.readNBytes(length))).toString();
-            if (!validText(value, maxLength)) throw new IllegalArgumentException("Invalid Vision text");
+            if (!validText(value, maxLength)) {
+                throw new IllegalArgumentException("Invalid Vision text");
+            }
             return value;
         } catch (CharacterCodingException error) {
             throw new IllegalArgumentException("Invalid Vision UTF-8 text", error);
@@ -200,12 +249,18 @@ public final class VisionProtocol {
     }
 
     private static boolean validText(String value, int maxLength) {
-        if (value == null || value.length() > maxLength) return false;
+        if (value == null || value.length() > maxLength) {
+            return false;
+        }
         for (int index = 0; index < value.length(); index++) {
             char character = value.charAt(index);
             if (Character.isHighSurrogate(character)) {
-                if (++index >= value.length() || !Character.isLowSurrogate(value.charAt(index))) return false;
-            } else if (Character.isLowSurrogate(character)) return false;
+                if (++index >= value.length() || !Character.isLowSurrogate(value.charAt(index))) {
+                    return false;
+                }
+            } else if (Character.isLowSurrogate(character)) {
+                return false;
+            }
         }
         return true;
     }
@@ -219,9 +274,13 @@ public final class VisionProtocol {
             throw new IllegalArgumentException("Invalid Vision scene entity count");
         }
         var entityIds = new ArrayList<Integer>(count);
-        for (int index = 0; index < count; index++) entityIds.add(in.readInt());
+        for (int index = 0; index < count; index++) {
+            entityIds.add(in.readInt());
+        }
         return new Scene(sessionId, eyeX, eyeY, eyeZ, yaw, pitch, verticalFov, entityIds);
     }
 
-    private static boolean positive(double value) { return Double.isFinite(value) && value > 0; }
+    private static boolean positive(double value) {
+        return Double.isFinite(value) && value > 0;
+    }
 }

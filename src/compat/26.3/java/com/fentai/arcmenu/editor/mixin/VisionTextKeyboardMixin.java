@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor.mixin;
 
 import com.fentai.arcmenu.editor.VisionTextClient;
+import com.fentai.arcmenu.editor.VisionTextInput;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.CharacterEvent;
@@ -19,6 +20,6 @@ abstract class VisionTextKeyboardMixin {
 
     @Inject(method = "textEditing", at = @At("HEAD"))
     private void arcmenu$composeVisionText(long window, PreeditEvent event, CallbackInfo info) {
-        if (window == Minecraft.getInstance().getWindow().handle()) VisionTextClient.preedit(event);
+        if (window == Minecraft.getInstance().getWindow().handle()) VisionTextInput.preedit(event);
     }
 }

@@ -39,7 +39,7 @@ public final class WorkspaceFormScreen extends Screen {
         else if(mode.equals("publish")) {var pack=parent.selectedLocalPackage();if(pack!=null){values.put("title",pack.title());values.put("description",pack.description());}}
         else if(mode.equals("import"))values.put("filename","");
     }
-    private void geometry(WorkspaceState.Project p) {values.put("width",format(p==null?800:p.width()));values.put("height",format(p==null?450:p.height()));values.put("pixelsPerBlock",format(p==null?WorkspaceState.defaultPixelsPerBlock(mode.equals("new_effect")?"effect":"menu"):p.pixelsPerBlock()));values.put("distance",format(p==null?2:p.distance()));values.put("depthMode",p==null?"perspective":p.depthMode());}
+    private void geometry(WorkspaceState.Project p) {values.put("width",format(p==null?WorkspaceState.DEFAULT_WIDTH:p.width()));values.put("height",format(p==null?WorkspaceState.DEFAULT_HEIGHT:p.height()));values.put("pixelsPerBlock",format(p==null?WorkspaceState.DEFAULT_PIXELS_PER_BLOCK:p.pixelsPerBlock()));values.put("distance",format(p==null?WorkspaceState.DEFAULT_DISTANCE:p.distance()));values.put("depthMode",p==null?"perspective":p.depthMode());}
     private static String format(double v) {return v==Math.rint(v)?Long.toString((long)v):Double.toString(v);}
     @Override public boolean isPauseScreen(){return false;}
     @Override protected void init() {

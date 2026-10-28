@@ -6,6 +6,13 @@
     "CameraMixin",
     "VisionMouseMixin",
     "VisionKeyboardMixin",
+    "VisionHudMixin",
+    "VisionGraphicsAccessor",
+    "VisionGuiRendererMixin",
+    "VisionItemLightingMixin",
+    "VisionTextKeyboardMixin",
+    "VisionEditorScreenMixin",
+    "VisionWorkspacePreviewMixin",
     "GameRendererMixin",
     "EffectAudioReloadMixin"
   ],

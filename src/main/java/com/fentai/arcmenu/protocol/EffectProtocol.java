@@ -7,11 +7,14 @@ import java.util.*;
 /** Optional channel: existing menu editors keep their original wire protocol. */
 public final class EffectProtocol {
     public static final String CHANNEL = "arcmenu:effect_editor";
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
     private static final int MAGIC = 0x41524546;
     private EffectProtocol() {}
-    public sealed interface Packet permits Hello, Edit, Snapshot, Closed, Error, Ack, Viewport, Selection, Transport, SceneFrame {}
+    public sealed interface Packet permits Hello, Edit, Snapshot, Closed, Error, Ack, Viewport, Selection, Transport, SceneFrame, Playback, Exit {}
     public record Hello(int version) implements Packet {}
+    /** Runtime playback only; zero releases the client's shortcut capture. */
+    public record Playback(long sessionId) implements Packet {}
+    public record Exit(long sessionId) implements Packet {}
     public record Edit(long revision, String action, String target, String property, int frame, int end,
                        String value, String interpolation, double x1, double y1, double x2, double y2, long requestId) implements Packet {}
     public record Key(int frame, String value, String interpolation, double x1, double y1, double x2, double y2) {}
@@ -56,11 +59,14 @@ public final class EffectProtocol {
     }
     public static byte[] encode(Packet packet, int version) {
         if (version < 1 || version > VERSION || (version == 1 && packet instanceof Selection)
-                || (version < 3 && (packet instanceof Transport || packet instanceof SceneFrame))) throw new IllegalArgumentException("Unsupported Effect protocol version");
+                || (version < 3 && (packet instanceof Transport || packet instanceof SceneFrame))
+                || (version < 4 && (packet instanceof Playback || packet instanceof Exit))) throw new IllegalArgumentException("Unsupported Effect protocol version");
         try {
             var bytes = new ByteArrayOutputStream(); var out = new DataOutputStream(bytes);
             out.writeInt(MAGIC); out.writeByte(version);
             if (packet instanceof Hello p) { out.writeByte(1); out.writeInt(p.version()); }
+            else if (packet instanceof Exit p) { out.writeByte(3); out.writeLong(p.sessionId()); }
+            else if (packet instanceof Playback p) { out.writeByte(72); out.writeLong(p.sessionId()); }
             else if (packet instanceof Edit p) {
                 out.writeByte(2); out.writeLong(p.revision()); string(out, p.action()); string(out, p.target()); string(out, p.property());
                 out.writeInt(p.frame()); out.writeInt(p.end()); string(out, p.value()); string(out, p.interpolation());
@@ -115,6 +121,14 @@ public final class EffectProtocol {
             Packet result = switch (in.readUnsignedByte()) {
                 case 1 -> new Hello(in.readInt());
                 case 2 -> new Edit(in.readLong(), string(in), string(in), string(in), in.readInt(), in.readInt(), string(in), string(in), finite(in), finite(in), finite(in), finite(in), in.readLong());
+                case 3 -> {
+                    if (version < 4) throw new IllegalArgumentException("Unsupported Effect exit version");
+                    yield new Exit(in.readLong());
+                }
+                case 72 -> {
+                    if (version < 4) throw new IllegalArgumentException("Unsupported Effect playback version");
+                    yield new Playback(in.readLong());
+                }
                 case 64 -> snapshot(in);
                 case 65 -> new Closed();
                 case 66 -> new Error(in.readLong(), string(in));

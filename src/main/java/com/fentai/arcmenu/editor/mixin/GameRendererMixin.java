@@ -2,6 +2,7 @@ package com.fentai.arcmenu.editor.mixin;
 
 import com.fentai.arcmenu.editor.EditorScreen;
 import com.fentai.arcmenu.editor.VisionCursorClient;
+import com.fentai.arcmenu.editor.VisionSceneClient;
 import com.fentai.arcmenu.editor.EditorWorldCompositor;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
@@ -43,6 +44,7 @@ abstract class GameRendererMixin {
     )
     private void arcmenu$hideVanillaHudInEditor(Gui gui, GuiGraphicsExtractor graphics, DeltaTracker tracker) {
         if (!(EditorScreen.isEditor(Minecraft.getInstance().screen))) {
+            VisionSceneClient.extract(graphics);
             gui.extractRenderState(graphics, tracker);
         }
         VisionCursorClient.render(graphics);

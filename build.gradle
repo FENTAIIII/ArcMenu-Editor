@@ -55,8 +55,7 @@ processResources {
     filesMatching('arcmenu-editor.mixins.json') {
         expand java: targetJavaVersion
         if (usesModernRenderer) filter { it.replace('"GameRendererMixin"', '"GameRendererMixin", "HudMixin"') }
-        if (project.minecraft_version == '26.3') filter { it.replace('"GameRendererMixin"', '"VisionLevelExtractorMixin", "VisionTextKeyboardMixin", "VisionEditorScreenMixin", "VisionWorkspacePreviewMixin", "GameRendererMixin"') }
-        if (project.minecraft_version.startsWith('1.')) filter { it.replace('    "VisionMouseMixin",', '').replace('    "VisionKeyboardMixin",', '') }
+        filter { it.replace('"GameRendererMixin"', '"' + (project.minecraft_version == '26.3' ? 'VisionLevelExtractorMixin' : 'VisionEntityRenderDispatcherMixin') + '", "GameRendererMixin"') }
     }
     from('LICENSE') {
         into 'META-INF'

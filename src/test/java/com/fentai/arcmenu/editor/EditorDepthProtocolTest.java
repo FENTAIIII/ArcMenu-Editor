@@ -8,14 +8,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class EditorDepthProtocolTest {
     @Test void releaseAndHandshakeUseTheSameVersion() {
-        assertEquals("3.1.0", ArcMenuEditorClient.CLIENT_VERSION);
+        assertEquals("3.4.0", ArcMenuEditorClient.CLIENT_VERSION);
         assertTrue(EditorProtocol.supportsClient(ArcMenuEditorClient.CLIENT_VERSION));
+        assertTrue(EditorProtocol.supportsClient("3.1.0"));
         assertTrue(EditorProtocol.supportsClient("3.0.6"));
         assertTrue(EditorProtocol.supportsClient("1.2.1"));
         assertTrue(EditorProtocol.supportsClient("1.0.0"));
         assertTrue(EditorProtocol.supportsClient("1.0.1"));
         assertFalse(EditorProtocol.supportsClient("0.1.0-M3.3"));
-        assertEquals(10, EditorProtocol.VERSION);
+        assertEquals(11, EditorProtocol.VERSION);
     }
 
     @Test void depthPropertyAndEditorSnapshotRoundTrip() {

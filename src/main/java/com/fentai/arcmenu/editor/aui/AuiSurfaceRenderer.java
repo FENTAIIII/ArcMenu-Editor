@@ -133,14 +133,27 @@ final class AuiSurfaceRenderer implements InvocationHandler {
         if(graphics==null || batch==null)return;
         SurfaceTexture texture=textures.get(normalize(batch.key));if(texture==null)return;
         for(Quad q:batch.quads){
-            BufferedImage image=texture.image;Graphics2D g=(Graphics2D)graphics.create();g.transform(affine(q.pose));
+            BufferedImage image=texture.image;
             int sx0=Math.round(q.u0*image.getWidth()),sy0=Math.round(q.v0*image.getHeight());
             int sx1=Math.round(q.u1*image.getWidth()),sy1=Math.round(q.v1*image.getHeight());
-            if(q.tint!=0xffffffff&&sx0>=0&&sy0>=0&&sx1<=image.getWidth()&&sy1<=image.getHeight()&&sx1>sx0&&sy1>sy0){
-                image=texture.tintedRegion(q.tint,sx0,sy0,sx1-sx0,sy1-sy0);sx0=0;sy0=0;sx1=image.getWidth();sy1=image.getHeight();
+            if(sx1<=sx0||sy1<=sy0)continue;
+            int left=Math.max(0,sx0),top=Math.max(0,sy0);
+            int right=Math.min(image.getWidth(),sx1),bottom=Math.min(image.getHeight(),sy1);
+            if(right<=left||bottom<=top)continue;
+            BufferedImage region=q.tint==0xffffffff?image.getSubimage(left,top,right-left,bottom-top)
+                    :texture.tintedRegion(q.tint,left,top,right-left,bottom-top);
+            // Font quads are already aligned to physical pixels. Rounding CSS coordinates
+            // here would stretch each glyph differently at fractional document scales.
+            AffineTransform placement=AffineTransform.getTranslateInstance(q.x,q.y);
+            placement.scale((double)q.w/(sx1-sx0),(double)q.h/(sy1-sy0));
+            placement.translate(left-sx0,top-sy0);
+            Graphics2D g=(Graphics2D)graphics.create();
+            try {
+                g.transform(affine(q.pose));
+                g.drawImage(region,placement,null);
+            } finally {
+                g.dispose();
             }
-            if(sx1>sx0&&sy1>sy0)g.drawImage(image,Math.round(q.x),Math.round(q.y),Math.round(q.x+q.w),Math.round(q.y+q.h),sx0,sy0,sx1,sy1,null);
-            g.dispose();
         }
     }
     private static Object normalize(Object key) { String value=String.valueOf(key);int colon=value.indexOf(':');return colon>=0?value.substring(colon+1):value; }

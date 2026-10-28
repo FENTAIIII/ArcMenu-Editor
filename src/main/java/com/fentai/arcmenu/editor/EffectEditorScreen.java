@@ -41,7 +41,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     private int syntheticModifiers=-1;
     private boolean panning, safeGuides, marquee, drawShape;
     private double marqueeX, marqueeY, marqueeEndX, marqueeEndY;
-    private String projectAnchor="", draggedAsset="", rotationTarget="";
+    private String draggedAsset="", rotationTarget="";
+    private List<String> visibleProjectLayers = List.of(), hierarchyDrag = List.of();
+    private double hierarchyStartX, hierarchyStartY;
+    private boolean hierarchyDragging;
+    private String hierarchyClick = "";
+    private EffectHierarchy.Drop hierarchyDrop;
     private String propertyHint="";
     private double rotationOrigin,rotationBase,rotationValue;
     private Field scrubField;
@@ -145,6 +150,11 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         propertyHint="";
         mask(g); header(g, mx, my); project(g, mx, my); composition(g, mx, my); preview(g, mx, my); properties(g, mx, my);
         timeline.draw(g, font, panels.timeline(), mx, my);
+        if (hierarchyDragging && hierarchyDrop != null) {
+            var rect = hierarchyDrop.bounds();
+            if (hierarchyDrop.inside()) g.outline(rect.x(), rect.y(), rect.width(), rect.height(), EffectUi.ACCENT);
+            else g.fill(rect.x(), rect.y(), rect.right(), rect.bottom(), EffectUi.ACCENT);
+        }
         super.extractRenderState(g, mx, my, partial);
         menu(g, mx, my);
         popup.draw(g,font,width,height,mx,my);
@@ -223,6 +233,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             for (var image : s.images()) items.add(new ProjectEntry(image.path(), EditorImageTypes.gif(image.path()) ? "gif" : "image", null, () -> create(EditorImageTypes.kind(image.path()), image.path())));
         }
         if(!projectQuery.isEmpty()) items.removeIf(item -> !item.id.toLowerCase(Locale.ROOT).contains(projectQuery.toLowerCase(Locale.ROOT)));
+        visibleProjectLayers = items.stream().filter(item -> item.kind.equals("layer")).map(ProjectEntry::id).toList();
         int start = y + 91, visible = Math.max(1, (p.bottom() - start - 21) / 19);
         projectScroll = Math.min(projectScroll, Math.max(0, items.size() - visible));
         for (int i = projectScroll; i < Math.min(items.size(), projectScroll + visible); i++) {
@@ -253,7 +264,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             g.enableScissor(v.x(), v.y(), v.right(), v.bottom());
             for (String idSelected : scene.selectedIds()) {
                 var node = scene.find(idSelected); if (node == null) continue;
-                var c = calibration.get(node.kind());
+                var c = nodeCalibration(node.kind());
                 int left = sx(c.proxyX(node.x(), node.width()) - c.proxyWidth(node.width()) / 2);
                 int right = sx(c.proxyX(node.x(), node.width()) + c.proxyWidth(node.width()) / 2);
                 int top = sy(c.proxyY(node.y(), node.height()) + c.proxyHeight(node.height()) / 2);
@@ -367,7 +378,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 case "file"->commandItems("save","mcp","close");
                 case "edit"->commandItems("undo","redo","cut","copy","paste","duplicate","split","delete","select-all","deselect","command-search");
                 case "composition"->commandItems("settings","first-frame","last-frame","work-start","work-end");
-                case "layer"->commandItems("new-text","new-rectangle","new-gif","new-group","group","ungroup","duplicate","split","rename","lock","unlock-all","raise","lower","to-front","to-back","layer-settings");
+                case "layer"->layerItems();
                 case "animation"->commandItems("add-key","cue","marker","auto-key","ease","ease-in","ease-out","linear","hold","auto-bezier","previous-key","next-key");
                 case "view"->commandItems("fit","actual-size","guides","safe-guides","timeline","value-graph","speed-graph","zoom-in","zoom-out","fit-graph");
                 case "window"->commandItems("assets","expand-all","collapse-all","reset-workspace");
@@ -382,7 +393,42 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     }
     @Override public void timelineCommand(String action) {workspaceCommand(action);}
     @Override public void timelineSearchFocus(EditBox field) {setFocused(field);}
-    private void layerMenu(double x,double y) {openedMenu="";popup.open((int)x,(int)y,commandItems("rename","cut","copy","paste","duplicate","split","group","ungroup","lock","raise","lower","to-front","to-back","layer-settings","delete"));}
+    private List<EffectPopup.Item> layerItems() { return commandItems(EffectCommands.layerMenu().toArray(String[]::new)); }
+    private void layerMenu(double x,double y) { openedMenu=""; popup.open((int)x,(int)y,layerItems()); }
+    @Override public void timelineLayerMenu(double x, double y) { layerMenu(x, y); }
+    @Override public void timelineEmptyMenu(double x, double y) { emptyMenu(x, y); }
+    @Override public void beginLayerDrag(String id, double x, double y, boolean exclusiveClick) {
+        hierarchyDrag = EffectHierarchy.roots(scene, scene.selectedIds());
+        hierarchyStartX = x; hierarchyStartY = y; hierarchyDragging = false;
+        hierarchyDrop = null; hierarchyClick = exclusiveClick ? id : "";
+    }
+    private EffectHierarchy.Drop hierarchyDropAt(double x, double y) {
+        if (timeline.hierarchyArea(x, y)) return timeline.hierarchyDrop(hierarchyDrag, x, y);
+        var panel = panels.project();
+        if (!projectTab.equals("project") || !panel.contains(x, y) || y < panel.y() + 121 || y >= panel.bottom() - 16) return null;
+        for (var entry : entries) if (entry.rect.contains(x, y)) {
+            if (entry.kind.equals("layer")) return EffectHierarchy.drop(scene, hierarchyDrag, new EffectHierarchy.Row(entry.id, entry.rect), y);
+            if (!entry.kind.equals("composition")) return null;
+        }
+        return EffectHierarchy.canMove(scene, hierarchyDrag, "", "")
+                ? new EffectHierarchy.Drop("", "", new EditorLayout.Rect(panel.x() + 3, (int)y, panel.width() - 6, 2), false) : null;
+    }
+    private void cancelHierarchyDrag() { hierarchyDrag = List.of(); hierarchyDrop = null; hierarchyDragging = false; hierarchyClick = ""; }
+    private void moveLayers(List<String> ids, String parent, String before) {
+        if (!EffectHierarchy.canMove(scene, ids, parent, before)) return;
+        scene.expanded().add(parent);
+        if (ids.stream().allMatch(id -> scene.find(id).parentId().equals(parent)))
+            ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, ids, before));
+        else ArcMenuEditorClient.send(new EditorProtocol.ReparentPacket(scene.snapshot().revision(), ids, parent, before));
+    }
+    private void chooseParent() {
+        var ids = EffectHierarchy.roots(scene, scene.selectedIds());
+        var choices = new ArrayList<EffectPopup.Item>();
+        for (var node : scene.nodes()) if (node.kind() == EditorProtocol.KIND_GROUP && EffectHierarchy.canMove(scene, ids, node.id(), ""))
+            choices.add(new EffectPopup.Item(node.id(), "", () -> moveLayers(ids, node.id(), "")));
+        openedMenu = "";
+        popup.open((int)lastMouseX, (int)lastMouseY, choices);
+    }
     private void emptyMenu(double x,double y) {openedMenu="";popup.open((int)x,(int)y,commandItems("new-text","new-rectangle","new-gif","new-group","paste","settings","cue","marker","expand-all","collapse-all"));}
 
     @Override public boolean mouseClicked(MouseButtonEvent e, boolean doubleClick) {
@@ -426,9 +472,11 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 var node=scene.find(entry.id);
                 if(e.button()==GLFW.GLFW_MOUSE_BUTTON_RIGHT) {if(!scene.selected(entry.id))select(entry.id);layerMenu(e.x(),e.y());return true;}
                 if(node!=null&&node.kind()==EditorProtocol.KIND_GROUP&&e.x()<panels.project().x()+19+Math.min(panels.project().width()/3,depth(node)*8)) {if(!scene.expanded().remove(node.id()))scene.expanded().add(node.id());return true;}
-                if(shift()&&!projectAnchor.isEmpty()) {List<String> ids=scene.nodes().stream().map(EditorProtocol.NodeSnapshot::id).toList();int a=ids.indexOf(projectAnchor),b=ids.indexOf(entry.id);if(a>=0&&b>=0)scene.selectAll(ids.subList(Math.min(a,b),Math.max(a,b)+1));rebuildWidgets();}
-                else if(control()){scene.toggleSelection(entry.id);rebuildWidgets();}else {entry.action.run();projectAnchor=entry.id;}
-                if(doubleClick)workspaceCommand("rename");
+                if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return true;
+                EffectHierarchy.select(scene, visibleProjectLayers, entry.id, false, e.hasShiftDown(), e.hasControlDown());
+                rebuildWidgets();
+                if (doubleClick) workspaceCommand("rename");
+                else if (scene.selected(entry.id)) beginLayerDrag(entry.id, e.x(), e.y(), !e.hasShiftDown() && !e.hasControlDown());
             } else if(e.button()==GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
                 var options=new ArrayList<EffectPopup.Item>();options.add(new EffectPopup.Item(EffectUi.label(entry.kind.equals("composition")?"settings":"add_asset"),"",entry.kind.equals("composition")?()->workspaceCommand("settings"):entry.action));
                 if(entry.kind.equals("template"))options.add(new EffectPopup.Item(EffectUi.label("delete"),"",()->ArcMenuEditorClient.send(new EditorProtocol.DeleteTemplatePacket(scene.snapshot().revision(),entry.id))));
@@ -449,7 +497,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             if(!scene.selected(node.id()))scene.selectOnly(node.id());rebuildWidgets();
             if(scene.locked(node.id())||node.locked())return true;
             if(tool.equals("rotate")){rotationTarget=node.id();rotationOrigin=Math.atan2(menuY(e.y())-node.y(),menuX(e.x())-node.x());rotationBase=rotationValue=EffectTransforms.number(node,"rotation.z",0);return true;}
-            dragging=node.id(); var c=calibration.get(node.kind());
+            dragging=node.id(); var c=nodeCalibration(node.kind());
             resizing=Math.abs(e.x()-sx(c.proxyX(node.x(),node.width())+c.proxyWidth(node.width())/2))<7&&Math.abs(e.y()-sy(c.proxyY(node.y(),node.height())-c.proxyHeight(node.height())/2))<7;
             grabX=menuX(e.x())-node.x(); grabY=menuY(e.y())-node.y(); gesture=nextGesture++; released=false; awaiting=false; finalSent=false; pending=null; sent=null;
             return true;
@@ -458,6 +506,11 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     }
     @Override public boolean mouseDragged(MouseButtonEvent e,double dx,double dy) {
         if (deferredPointer) { queuePointer(new DeferredInput(1, e, false, dx, dy)); return true; }
+        if (!hierarchyDrag.isEmpty()) {
+            hierarchyDragging |= Math.hypot(e.x() - hierarchyStartX, e.y() - hierarchyStartY) >= 4;
+            if (hierarchyDragging) hierarchyDrop = hierarchyDropAt(e.x(), e.y());
+            return true;
+        }
         if(divider!=0) { if(divider==1) geometry.left=(int)e.x(); if(divider==2) geometry.right=width-(int)e.x(); if(divider==3) geometry.bottom=height-(int)e.y(); rebuildWidgets(); return true; }
         if(!rotationTarget.isEmpty()){var n=scene.find(rotationTarget);if(n!=null){double angle=Math.atan2(menuY(e.y())-n.y(),menuX(e.x())-n.x());rotationValue=rotationBase+Math.toDegrees(Math.atan2(Math.sin(angle-rotationOrigin),Math.cos(angle-rotationOrigin)));if(shift())rotationValue=Math.rint(rotationValue/15)*15;scene.status(EditorI18n.text("arcmenu_editor.workspace.rotation_preview",formatNumber(rotationValue)));}return true;}
         if(scrubField!=null) {double step=shift()?.1:control()?10:1,value=scrubValue+(e.x()-scrubStartX)*step;if(scrubField.property.type()==EditorProtocol.PROPERTY_INTEGER)value=Math.rint(value);if(scrubField.box!=null)scrubField.box.setValue(formatNumber(value));return true;}
@@ -470,6 +523,13 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     }
     @Override public boolean mouseReleased(MouseButtonEvent e) {
         if (deferredPointer) { queuePointer(new DeferredInput(2, e, false, 0, 0)); return true; }
+        if (!hierarchyDrag.isEmpty()) {
+            if (hierarchyDragging) {
+                var drop = hierarchyDropAt(e.x(), e.y());
+                if (drop != null) moveLayers(hierarchyDrag, drop.parent(), drop.before());
+            } else if (!hierarchyClick.isEmpty()) { scene.selectOnly(hierarchyClick); rebuildWidgets(); }
+            cancelHierarchyDrag(); return true;
+        }
         if(divider!=0) { divider=0; return true; }
         if(!rotationTarget.isEmpty()){String id=rotationTarget;rotationTarget="";var root=new JsonObject();var changes=new JsonArray();var c=new JsonObject();c.addProperty("target",id);c.addProperty("property","rotation.z");c.addProperty("value",formatNumber(rotationValue));changes.add(c);root.add("changes",changes);effect.submit("properties","","",(int)effect.playhead(),0,root.toString(),"linear",0,0,0,0);return true;}
         if(scrubField!=null){var f=scrubField;scrubField=null;if(f.box!=null)property(f,f.box.getValue());return true;}
@@ -496,6 +556,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         return super.mouseScrolled(x,y,horizontal,vertical);
     }
     @Override public boolean keyPressed(KeyEvent e) {
+        if (e.isEscape() && !hierarchyDrag.isEmpty()) { cancelHierarchyDrag(); return true; }
         if(e.isEscape()&&deferredPointer){deferredPointer=false;deferredPointerEvents.clear();deferredUI.clear();return true;}
         if(popup.active()){if(e.isEscape()||e.isConfirmation())openedMenu="";return popup.key(e.key()==GLFW.GLFW_KEY_DOWN?1:e.key()==GLFW.GLFW_KEY_UP?-1:0,e.isConfirmation(),e.isEscape());}
         if(projectSearch!=null&&projectSearch.isFocused()) {if(e.isEscape()){setFocused(null);return true;}return super.keyPressed(e);}
@@ -515,8 +576,22 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     }
     public static String keyName(int key){return switch(key){case GLFW.GLFW_KEY_A->"A";case GLFW.GLFW_KEY_B->"B";case GLFW.GLFW_KEY_C->"C";case GLFW.GLFW_KEY_D->"D";case GLFW.GLFW_KEY_E->"E";case GLFW.GLFW_KEY_F->"F";case GLFW.GLFW_KEY_G->"G";case GLFW.GLFW_KEY_H->"H";case GLFW.GLFW_KEY_I->"I";case GLFW.GLFW_KEY_J->"J";case GLFW.GLFW_KEY_K->"K";case GLFW.GLFW_KEY_L->"L";case GLFW.GLFW_KEY_M->"M";case GLFW.GLFW_KEY_N->"N";case GLFW.GLFW_KEY_O->"O";case GLFW.GLFW_KEY_P->"P";case GLFW.GLFW_KEY_Q->"Q";case GLFW.GLFW_KEY_R->"R";case GLFW.GLFW_KEY_S->"S";case GLFW.GLFW_KEY_T->"T";case GLFW.GLFW_KEY_U->"U";case GLFW.GLFW_KEY_V->"V";case GLFW.GLFW_KEY_W->"W";case GLFW.GLFW_KEY_X->"X";case GLFW.GLFW_KEY_Y->"Y";case GLFW.GLFW_KEY_Z->"Z";case GLFW.GLFW_KEY_ENTER->"Enter";case GLFW.GLFW_KEY_ESCAPE->"Esc";case GLFW.GLFW_KEY_DELETE->"Delete";case GLFW.GLFW_KEY_F2->"F2";case GLFW.GLFW_KEY_F3->"F3";case GLFW.GLFW_KEY_SLASH->"/";case GLFW.GLFW_KEY_APOSTROPHE->"\'";case GLFW.GLFW_KEY_UP->"Up";case GLFW.GLFW_KEY_DOWN->"Down";default->"";};}
     public boolean commandEnabled(String id) {
-        if(!effect.active())return false;
-        if(Set.of("delete","duplicate","split","rename","copy","cut","group","group-layers","ungroup","lock","raise","lower","to-front","to-back","layer-settings").contains(id))return !selection().isEmpty();
+        if(!effect.active() || scene.snapshot() == null)return false;
+        var ids = EffectHierarchy.roots(scene, scene.selectedIds());
+        boolean editable = EffectHierarchy.editable(scene, ids);
+        if (Set.of("group", "group-layers").contains(id)) return EffectHierarchy.canGroup(scene);
+        if (id.equals("ungroup")) return editable && scene.selectedIds().size() == 1 && scene.find(ids.getFirst()).kind() == EditorProtocol.KIND_GROUP;
+        if (Set.of("rename", "layer-settings").contains(id)) return scene.selectedIds().size() == 1 && (id.equals("layer-settings") || editable);
+        if (Set.of("raise", "lower", "to-front", "to-back").contains(id)) return editable && EffectHierarchy.sameParent(scene, ids);
+        if (id.equals("move-into")) return scene.nodes().stream().anyMatch(n -> n.kind() == EditorProtocol.KIND_GROUP && EffectHierarchy.canMove(scene, ids, n.id(), ""));
+        if (id.equals("move-root")) return editable && ids.stream().anyMatch(target -> !scene.find(target).parentId().isEmpty());
+        if (id.equals("move-out")) return editable && EffectHierarchy.sameParent(scene, ids) && !scene.find(ids.getFirst()).parentId().isEmpty();
+        if (Set.of("delete", "duplicate", "split", "cut", "visibility", "solo", "trim-start", "trim-end").contains(id)) return editable;
+        if (Set.of("copy", "lock").contains(id)) return !ids.isEmpty();
+        if (id.startsWith("new-")) {
+            String parent = EffectHierarchy.creationParent(scene);
+            return parent.isEmpty() || EffectHierarchy.editable(scene, List.of(parent));
+        }
         if(id.equals("paste"))return !copied.isEmpty()&&copiedProject.equals(scene.snapshot().menuId());
         if(Set.of("ease","ease-in","ease-out").contains(id))return timeline.easingAvailable();
         if(Set.of("linear","hold","auto-bezier","delete-keys","reverse-keys").contains(id))return timeline.selectedKeyCount()>0;
@@ -533,7 +608,15 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             case "deselect"->{scene.clearSelection();timeline.command("deselect-keys");rebuildWidgets();}
             case "rename"->{propertyScroll=0;rebuildWidgets();fields.stream().filter(f->f.box!=null&&f.property.key().equals("id")).findFirst().ifPresent(f->{setFocused(f.box);f.box.setCursorPosition(0);f.box.setHighlightPos(f.box.getValue().length());});}
             case "group","group-layers"->group();case "focus-properties"->{fields.stream().filter(f->f.box!=null&&!f.property.key().equals("id")).findFirst().ifPresent(f->setFocused(f.box));}case "ungroup"->effect.submit("ungroup-layer",scene.selectedId(),"",0,0,"","linear",0,0,0,0);
-            case "lock"->{for(String target:selection()){scene.toggleLocked(target);}}
+            case "lock"->{boolean lock = selection().stream().anyMatch(target -> !scene.locked(target));for(String target:selection())if(scene.locked(target)!=lock)scene.toggleLocked(target);}
+            case "visibility", "solo", "trim-start", "trim-end" -> timeline.command(id);
+            case "move-into" -> chooseParent();
+            case "move-root" -> moveLayers(EffectHierarchy.roots(scene, scene.selectedIds()), "", "");
+            case "move-out" -> {
+                var ids = EffectHierarchy.roots(scene, scene.selectedIds());
+                var parent = scene.find(scene.find(ids.getFirst()).parentId());
+                if (parent != null) moveLayers(ids, parent.parentId(), parent.id());
+            }
             case "unlock-all"->scene.unlockAll();
             case "raise","lower","to-front","to-back"->arrange(id);
             case "settings"->effectDialog("settings","","",0,null,null);case "layer-settings"->effectDialog("layer",scene.selectedId(),"",0,null,null);
@@ -565,8 +648,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             try{var delta=EffectTransforms.localDelta(n,scene.nodes(),x,y);double[] values={delta.x,delta.y,delta.z};String[] axes={"offset.x","offset.y","offset.z"};for(int i=0;i<3;i++)if(Math.abs(values[i])>1e-9){var c=new JsonObject();c.addProperty("target",id);c.addProperty("property",axes[i]);c.addProperty("value",formatNumber(EffectTransforms.number(n,axes[i],0)+values[i]));changes.add(c);}}
             catch(IllegalArgumentException invalid){scene.error(invalid.getMessage());return;}
         }if(changes.isEmpty())return;data.add("changes",changes);effect.submit("properties","","",(int)effect.playhead(),0,data.toString(),"linear",0,0,0,0);}
-    private void ungroup(){var group=scene.find(scene.selectedId());if(group==null||group.kind()!=EditorProtocol.KIND_GROUP)return;List<String> children=scene.nodes().stream().filter(n->n.parentId().equals(group.id())).map(EditorProtocol.NodeSnapshot::id).toList();if(!children.isEmpty())ArcMenuEditorClient.send(new EditorProtocol.ReparentPacket(scene.snapshot().revision(),children,group.parentId(),group.id()));}
-    private void arrange(String action){var chosen=selection();if(chosen.isEmpty())return;var parent=scene.find(chosen.getFirst()).parentId();if(chosen.stream().anyMatch(id->!scene.find(id).parentId().equals(parent)))return;var siblings=scene.nodes().stream().filter(n->n.parentId().equals(parent)).map(EditorProtocol.NodeSnapshot::id).toList();var rest=new ArrayList<>(siblings);rest.removeAll(chosen);int first=siblings.indexOf(chosen.getFirst()),index=action.equals("to-front")?rest.size():action.equals("to-back")?0:action.equals("raise")?Math.min(rest.size(),first+1):Math.max(0,first-1);String before=index<rest.size()?rest.get(index):"";ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(scene.snapshot().revision(),EditorProtocol.TAB_FRONTEND,chosen,before));}
+    private void arrange(String action) {
+        var ids = EffectHierarchy.roots(scene, scene.selectedIds());
+        if (!EffectHierarchy.editable(scene, ids) || !EffectHierarchy.sameParent(scene, ids)) return;
+        ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND,
+                ids, EffectHierarchy.reorderBefore(scene, ids, action)));
+    }
     private void createShape(){if(scene.snapshot()==null)return;double x1=menuX(marqueeX),x2=menuX(marqueeEndX),y1=menuY(marqueeY),y2=menuY(marqueeEndY);byte kind=switch(tool){case "frame"->EditorProtocol.KIND_FRAME;case "text"->EditorProtocol.KIND_TEXT;case "line"->EditorProtocol.KIND_LINE;default->EditorProtocol.KIND_RECTANGLE;};double w=Math.max(1,Math.abs(x2-x1)),h=Math.max(1,Math.abs(y2-y1));var initial=new JsonObject();initial.addProperty("type",tool);var offset=new JsonObject();offset.addProperty("x",(x1+x2)/2);offset.addProperty("y",(y1+y2)/2);initial.add("offset",offset);initial.addProperty("width",w);initial.addProperty("height",h);if(kind==EditorProtocol.KIND_TEXT)initial.addProperty("content","Text");var selected=scene.find(scene.selectedId());ArcMenuEditorClient.send(new EditorProtocol.CreatePacket(scene.snapshot().revision(),EditorProtocol.TAB_FRONTEND,kind,selected!=null&&selected.kind()==0?selected.id():"",initial.toString()));tool="select";}
     public JsonObject workspaceMetadata() {
         var json=new Gson();var result=new JsonObject();result.add("panels",json.toJsonTree(panels));result.addProperty("popupOpen",popup.active());result.addProperty("tool",tool);result.addProperty("fit",fitView);result.addProperty("zoom",viewZoom);result.addProperty("selectedKeys",timeline.selectedKeyCount());
@@ -596,11 +683,11 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     private void saveWorkspace(){var preferences=new Properties();preferences.setProperty("left",Integer.toString(geometry.left));preferences.setProperty("right",Integer.toString(geometry.right));preferences.setProperty("bottom",Integer.toString(geometry.bottom));try{Files.createDirectories(workspaceFile().getParent());try(var out=Files.newOutputStream(workspaceFile())){preferences.store(out,"Effect workspace panel layout");}}catch(IOException ignored){}}
     private void sceneUndo(boolean redo) { if(scene.snapshot()!=null) ArcMenuEditorClient.send(redo?new EditorProtocol.RedoPacket(scene.snapshot().revision()):new EditorProtocol.UndoPacket(scene.snapshot().revision())); }
     private void select(String id) { scene.selectOnly(id); propertyScroll=0; rebuildWidgets(); }
-    private void create(byte kind,String source) { if(scene.snapshot()==null) return; var selected=scene.find(scene.selectedId()); String parent=selected!=null&&selected.kind()==0?selected.id():""; ArcMenuEditorClient.send(new EditorProtocol.CreatePacket(scene.snapshot().revision(),EditorProtocol.TAB_FRONTEND,kind,parent,source)); }
+    private void create(byte kind,String source) { if(scene.snapshot()==null) return; String parent=EffectHierarchy.creationParent(scene); ArcMenuEditorClient.send(new EditorProtocol.CreatePacket(scene.snapshot().revision(),EditorProtocol.TAB_FRONTEND,kind,parent,source)); }
     private List<String> selection() { return scene.nodes().stream().map(EditorProtocol.NodeSnapshot::id).filter(scene::selected).toList(); }
     private void delete() { if(scene.snapshot()!=null&&!selection().isEmpty()) ArcMenuEditorClient.send(new EditorProtocol.DeleteManyPacket(scene.snapshot().revision(),EditorProtocol.TAB_FRONTEND,selection())); }
     private void duplicate() { if(scene.snapshot()!=null&&!selection().isEmpty()) ArcMenuEditorClient.send(new EditorProtocol.DuplicatePacket(scene.snapshot().revision(),EditorProtocol.TAB_FRONTEND,selection(),"",true)); }
-    private void group() { if(scene.snapshot()!=null&&!selection().isEmpty()) ArcMenuEditorClient.send(new EditorProtocol.GroupPacket(scene.snapshot().revision(),selection())); }
+    private void group() { if(scene.snapshot()!=null&&!selection().isEmpty()) ArcMenuEditorClient.send(new EditorProtocol.GroupPacket(scene.snapshot().revision(),EffectHierarchy.roots(scene, scene.selectedIds()))); }
     private void copySelection(String action){copied=selection();copiedProject=scene.snapshot()==null?"":scene.snapshot().menuId();var data=new JsonObject();data.add("targets",new Gson().toJsonTree(copied));effect.submit(action,scene.selectedId(),"",0,0,data.toString(),"linear",0,0,0,0);}
     private void copy(){copySelection("copy-layers");}
     private void paste(){if(scene.snapshot()!=null&&copiedProject.equals(scene.snapshot().menuId())&&!copied.isEmpty())effect.submit("paste-layers","","",(int)effect.playhead(),0,"","linear",0,0,0,0);}
@@ -637,7 +724,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         for(char c:value.toCharArray()) { if(escape) { if(c=='n') out.append('\n'); else if(c=='\\') out.append('\\'); else out.append('\\').append(c); escape=false; } else if(c=='\\') escape=true; else out.append(c); }
         if(escape) out.append('\\'); return out.toString();
     }
-    private EditorProtocol.NodeSnapshot hit(double x,double y) { return scene.nodes().stream().filter(n->{ var c=calibration.get(n.kind()); double px=c.proxyX(n.x(),n.width()),py=c.proxyY(n.y(),n.height()); return n.visible()&&Math.abs(menuX(x)-px)<=c.proxyWidth(n.width())/2&&Math.abs(menuY(y)-py)<=c.proxyHeight(n.height())/2; }).max(Comparator.comparingInt(n->scene.nodes().indexOf(n))).orElse(null); }
+    private ElementSelectionCalibration.Calibration nodeCalibration(byte kind) { var s=scene.snapshot(); return calibration.forNode(kind, s!=null&&s.exactRectangles()); }
+    private EditorProtocol.NodeSnapshot hit(double x,double y) { return scene.nodes().stream().filter(n->{ var c=nodeCalibration(n.kind()); double px=c.proxyX(n.x(),n.width()),py=c.proxyY(n.y(),n.height()); return n.visible()&&Math.abs(menuX(x)-px)<=c.proxyWidth(n.width())/2&&Math.abs(menuY(y)-py)<=c.proxyHeight(n.height())/2; }).max(Comparator.comparingInt(n->scene.nodes().indexOf(n))).orElse(null); }
     private int previewZoom() {
         var window = minecraft.getWindow();
         var source = EditorViewport.sourceFrame(window.getWidth(), window.getHeight());
@@ -667,7 +755,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         var aperture=panels.viewport(); x=Math.max(aperture.x(),Math.min(aperture.right()-.001,x)); y=Math.max(aperture.y(),Math.min(aperture.bottom()-.001,y));
         var v=virtualScreen(); double px=Math.max(-scene.snapshot().canvasWidth()*1.9,Math.min(scene.snapshot().canvasWidth()*1.9,menuX(x)));
         double py=Math.max(-scene.snapshot().canvasHeight()*1.9,Math.min(scene.snapshot().canvasHeight()*1.9,menuY(y)));
-        var n=scene.find(dragging); if(resizing&&n!=null) { var c=calibration.get(n.kind()); px=c.serverRightX(n.x(),px); py=c.serverBottomY(n.y(),py); }
+        var n=scene.find(dragging); if(resizing&&n!=null) { var c=nodeCalibration(n.kind()); px=c.serverRightX(n.x(),px); py=c.serverBottomY(n.y(),py); }
         x=v.x()+(px+scene.snapshot().canvasWidth()/2)/scene.snapshot().canvasWidth()*v.width();
         y=v.y()+(scene.snapshot().canvasHeight()/2-py)/scene.snapshot().canvasHeight()*v.height();
         return new EditorProtocol.Pointer(x,y,v.x(),v.y(),v.width(),v.height(),px,py);

@@ -2,6 +2,8 @@ package com.fentai.arcmenu.editor.mixin;
 
 import com.fentai.arcmenu.editor.EditorScreen;
 import com.fentai.arcmenu.editor.EditorWorldCompositor;
+import com.fentai.arcmenu.editor.VisionCursorClient;
+import com.fentai.arcmenu.editor.VisionSceneClient;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -24,6 +26,10 @@ abstract class GameRendererMixin {
     @Redirect(method = "render", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/gui/Gui;render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V"))
     private void arcmenu$hideVanillaHudInEditor(Gui gui, GuiGraphics graphics, DeltaTracker tracker) {
-        if (!(EditorScreen.isEditor(Minecraft.getInstance().screen))) gui.render(graphics, tracker);
+        if (!(EditorScreen.isEditor(Minecraft.getInstance().screen))) {
+            VisionSceneClient.extract(graphics);
+            gui.render(graphics, tracker);
+        }
+        VisionCursorClient.render(graphics);
     }
 }

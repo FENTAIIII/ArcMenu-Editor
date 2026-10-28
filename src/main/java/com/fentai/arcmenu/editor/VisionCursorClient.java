@@ -2,9 +2,10 @@ package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.editor.net.VisionPayload;
 import com.fentai.arcmenu.protocol.VisionProtocol;
+import com.fentai.arcmenu.protocol.VisionVisuals;
 import com.google.gson.JsonObject;
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -13,34 +14,26 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
 import org.joml.Matrix4f;
 
-import java.io.IOException;
-
-/** A local cursor for explicitly enabled Vision sessions; ordinary gameplay keeps vanilla input. */
+/** Vision uses the OS pointer without capturing it inside the game window. */
 public final class VisionCursorClient {
-    private static final Identifier IDLE = Identifier.parse("arcmenu:textures/gui/vision_cursor.png");
-    private static final Identifier CHOOSE = Identifier.parse("arcmenu:textures/gui/vision_cursor_choose.png");
-    private static final Identifier FALLBACK_IDLE = Identifier.parse("arcmenu_editor:textures/gui/vision_cursor.png");
-    private static final Identifier FALLBACK_CHOOSE = Identifier.parse("arcmenu_editor:textures/gui/vision_cursor_choose.png");
     private static VisionProtocol.State state;
     private static VisionCursorMath.Point cursor = new VisionCursorMath.Point(0, 0);
     private static VisionCursorMath.Aim lastAim;
     private static int viewportWidth;
     private static int viewportHeight;
-    private static boolean hudSaved;
-    private static boolean hudHiddenBefore;
+    private static boolean inputPrepared;
     private static boolean pendingMove;
-    private static int[] idleSize;
-    private static int[] chooseSize;
+    private static long lastMoveNanos;
+    private static boolean restoreMouseCapture;
+    private static boolean pointerInside;
+    private static Boolean sentPresence;
     private static final VisionInputKeys INPUT_KEYS = new VisionInputKeys();
 
     private VisionCursorClient() {}
 
     public static void initialize() {
-        VisionSceneClient.initialize();
         PayloadTypeRegistry.serverboundPlay().register(VisionPayload.TYPE, VisionPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(VisionPayload.TYPE, VisionPayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(VisionPayload.TYPE, (payload, context) ->
@@ -49,15 +42,14 @@ public final class VisionCursorClient {
                     catch (IllegalArgumentException ignored) { /* Ignore incompatible or malformed runtime packets. */ }
                 }));
         ClientPlayConnectionEvents.JOIN.register((listener, sender, client) -> {
-            clear();
+            clear(false);
             VisionSceneClient.clearPreview();
             INPUT_KEYS.reset();
             hello();
         });
-        ClientPlayConnectionEvents.DISCONNECT.register((listener, client) -> { clear(); VisionSceneClient.clearPreview(); });
+        ClientPlayConnectionEvents.DISCONNECT.register((listener, client) -> { clear(false); VisionSceneClient.clearPreview(); });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!controlling()) { VisionTextClient.tick(); restoreHud(client); return; }
-            prepare(client);
+            sampleMouse();
             VisionTextClient.tick();
             send(VisionProtocol.MOVE, false);
         });
@@ -70,6 +62,8 @@ public final class VisionCursorClient {
     }
 
     private static void receive(VisionProtocol.Packet packet) {
+        if (packet instanceof VisionVisuals.Hover hover) { VisionVisualClient.receive(hover); return; }
+        if (packet instanceof VisionVisuals.Follow follow) { VisionVisualClient.receive(follow); return; }
         if (packet instanceof VisionProtocol.Hello) hello();
         if (packet instanceof VisionProtocol.PreviewScene preview) {
             VisionSceneClient.receivePreview(preview);
@@ -84,7 +78,7 @@ public final class VisionCursorClient {
             return;
         }
         if (!(packet instanceof VisionProtocol.State next)) return;
-        if (!next.active()) { clear(); return; }
+        if (!next.active()) { clear(true); return; }
         boolean opening = state == null || state.sessionId() != next.sessionId();
         state = next;
         if (opening) {
@@ -93,7 +87,8 @@ public final class VisionCursorClient {
             var client = Minecraft.getInstance();
             viewportWidth = Math.max(1, client.getWindow().getScreenWidth());
             viewportHeight = Math.max(1, client.getWindow().getScreenHeight());
-            cursor = new VisionCursorMath.Point(viewportWidth / 2.0, viewportHeight / 2.0);
+            sentPresence = null;
+            sampleMouse();
             pendingMove = true;
         }
     }
@@ -107,22 +102,17 @@ public final class VisionCursorClient {
                 && client.screen == null && client.isWindowActive();
     }
 
-    /** Called from vanilla's accumulated raw movement, before it would rotate the player. */
-    public static boolean move(double dx, double dy) {
-        if (!controlling()) return false;
-        var client = Minecraft.getInstance();
-        prepare(client);
-        if (dx == 0 && dy == 0) return true;
-        cursor = VisionCursorMath.move(cursor, dx, dy, viewportWidth, viewportHeight,
-                state.sensitivityX(), state.sensitivityY());
-        pendingMove = true;
-        return true;
+    /** Called before movement processing and button dispatch, including between game ticks. */
+    public static void sampleMouse() {
+        if (controlling()) prepare(Minecraft.getInstance());
+        else { pointerInside = false; inputPrepared = false; }
     }
 
     public static boolean button(int button, int action, int modifiers) {
         if (!controlling()) return false;
+        sampleMouse();
         byte operation = VisionMouseInput.action(button);
-        if (action == InputConstants.PRESS && operation != VisionMouseInput.NO_ACTION) {
+        if (pointerInside && action == InputConstants.PRESS && operation != VisionMouseInput.NO_ACTION) {
             VisionTextClient.finish();
             send(operation, VisionMouseInput.shift(modifiers));
         }
@@ -138,7 +128,7 @@ public final class VisionCursorClient {
         KeyMapping.set(InputConstants.getKey(event), false);
         client.options.keyJump.setDown(false);
         if (decision == VisionInputKeys.Action.TEXT) VisionTextClient.key(event, action);
-        if (decision == VisionInputKeys.Action.CLOSE) { send(VisionProtocol.CLOSE, false); clear(); }
+        if (decision == VisionInputKeys.Action.CLOSE) { send(VisionProtocol.CLOSE, false); clear(true); }
         if (decision == VisionInputKeys.Action.JUMP) send(VisionProtocol.JUMP, false);
         return true;
     }
@@ -159,28 +149,43 @@ public final class VisionCursorClient {
     private static void prepare(Minecraft client) {
         int width = Math.max(1, client.getWindow().getScreenWidth());
         int height = Math.max(1, client.getWindow().getScreenHeight());
-        if (width != viewportWidth || height != viewportHeight) {
-            cursor = new VisionCursorMath.Point(cursor.x() * width / viewportWidth, cursor.y() * height / viewportHeight);
-            viewportWidth = width;
-            viewportHeight = height;
-            pendingMove = true;
-        }
-        if (!hudSaved) {
-            hudHiddenBefore = hudHidden(client);
-            hudSaved = true;
+        if (width != viewportWidth || height != viewportHeight) pendingMove = true;
+        viewportWidth = width;
+        viewportHeight = height;
+        if (!inputPrepared) {
+            inputPrepared = true;
             client.options.keyAttack.setDown(false);
             client.options.keyUse.setDown(false);
             client.options.keyPickItem.setDown(false);
             client.options.keyJump.setDown(false);
             while (client.options.keyJump.consumeClick()) { /* Drop jump clicks queued before capture. */ }
         }
-        hudHidden(client, true);
-        if (!client.mouseHandler.isMouseGrabbed()) client.mouseHandler.grabMouse();
+        if (client.mouseHandler.isMouseGrabbed()) {
+            restoreMouseCapture = true;
+            client.mouseHandler.releaseMouse();
+        }
+        var next = new VisionCursorMath.Point(client.mouseHandler.xpos(), client.mouseHandler.ypos());
+        if (!next.equals(cursor)) pendingMove = true;
+        cursor = next;
+        boolean inside = VisionNativeCursor.insideWindow(client.getWindow()) && VisionCursorMath.inside(cursor, width, height);
+        if (inside != pointerInside) pendingMove = true;
+        pointerInside = inside;
     }
 
     private static void send(byte action, boolean shift) {
         var client = Minecraft.getInstance();
-        if (!controlling() || !ClientPlayNetworking.canSend(VisionPayload.TYPE)) return;
+        if (!active() || !ClientPlayNetworking.canSend(VisionPayload.TYPE) || !VisionSceneClient.ready()) return;
+        if (action == VisionProtocol.MOVE && !pointerInside) {
+            if (!Boolean.FALSE.equals(sentPresence)) {
+                ClientPlayNetworking.send(new VisionPayload(VisionProtocol.encode(new VisionProtocol.Input(
+                        state.sessionId(), 0, 0, VisionProtocol.LEAVE, false))));
+                sentPresence = false;
+            }
+            return;
+        }
+        if (!controlling()) return;
+        long now = System.nanoTime();
+        if (action == VisionProtocol.MOVE && Boolean.TRUE.equals(sentPresence) && now - lastMoveNanos < 16_666_667L) return;
         Matrix4f projection = VisionSceneClient.viewProjection(viewportWidth, viewportHeight);
         if (projection == null) return;
         var aim = VisionCursorMath.aim(cursor, viewportWidth, viewportHeight,
@@ -191,64 +196,52 @@ public final class VisionCursorClient {
         ClientPlayNetworking.send(new VisionPayload(VisionProtocol.encode(new VisionProtocol.Input(
                 state.sessionId(), lastAim.yaw(), lastAim.pitch(), action, shift))));
         pendingMove = false;
+        lastMoveNanos = now;
+        sentPresence = true;
+    }
+
+    /** Sample and flush before extracting the GUI scene, independently of the 20 Hz game tick. */
+    public static VisionCursorMath.Aim frameAim() {
+        sampleMouse();
+        send(VisionProtocol.MOVE, false);
+        if (!pointerInside) return null;
+        var projection = VisionSceneClient.viewProjection(viewportWidth, viewportHeight);
+        return projection == null ? null : VisionCursorMath.aim(cursor, viewportWidth, viewportHeight, projection);
     }
 
     public static void render(GuiGraphicsExtractor graphics) {
-        VisionSceneClient.extract(graphics);
         if (!controlling()) return;
-        var client = Minecraft.getInstance();
-        prepare(client);
+        sampleMouse();
         VisionTextClient.render(graphics);
-        Identifier texture = state.choosing() ? CHOOSE : IDLE;
-        if (client.getResourceManager().getResource(texture).isEmpty()) texture = state.choosing() ? FALLBACK_CHOOSE : FALLBACK_IDLE;
-        int[] dimensions = state.choosing() ? chooseSize : idleSize;
-        if (dimensions == null) {
-            dimensions = textureSize(client, texture);
-            if (state.choosing()) chooseSize = dimensions; else idleSize = dimensions;
-        }
-        int x = Math.min(client.getWindow().getGuiScaledWidth() - 1,
-                (int) Math.round(cursor.x() * client.getWindow().getGuiScaledWidth() / viewportWidth));
-        int y = Math.min(client.getWindow().getGuiScaledHeight() - 1,
-                (int) Math.round(cursor.y() * client.getWindow().getGuiScaledHeight() / viewportHeight));
-        int height = Math.max(1, (int) Math.round(VisionCursorMath.spriteHeight(state.cursorSize(),
-                state.canvasProjection(), client.getWindow().getGuiScaledHeight(), VisionSceneClient.verticalFov())));
-        int width = Math.max(1, (int) Math.round(height * dimensions[0] / (double) dimensions[1]));
-        graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0f, 0f,
-                width, height, dimensions[0], dimensions[1], dimensions[0], dimensions[1]);
+        graphics.requestCursor(pointerInside && VisionVisualClient.choosing(state.choosing()) ? CursorTypes.POINTING_HAND : CursorTypes.ARROW);
     }
 
-    private static int[] textureSize(Minecraft client, Identifier texture) {
-        try {
-            var resource = client.getResourceManager().getResource(texture);
-            if (resource.isPresent()) try (var stream = resource.get().open(); var image = NativeImage.read(stream)) {
-                return new int[]{image.getWidth(), image.getHeight()};
-            }
-        } catch (IOException ignored) { /* The texture manager displays its missing-texture fallback. */ }
-        return new int[]{16, 16};
-    }
-
-    public static void resourcesReloaded() { idleSize = null; chooseSize = null; }
-
-    private static void clear() {
-        restoreHud(Minecraft.getInstance());
+    private static void clear(boolean restoreCapture) {
+        boolean restore = restoreCapture && restoreMouseCapture;
+        restoreMouseCapture = false;
+        inputPrepared = false;
         state = null;
         VisionTextClient.clear();
         VisionSceneClient.clear();
         lastAim = null;
         pendingMove = false;
+        lastMoveNanos = 0;
+        pointerInside = false;
+        sentPresence = null;
+        var client = Minecraft.getInstance();
+        if (restore && client.player != null && client.level != null && client.screen == null && client.isWindowActive()
+                && !client.mouseHandler.isMouseGrabbed()) {
+            client.mouseHandler.handleAccumulatedMovement();
+            client.mouseHandler.grabMouse();
+        }
     }
-
-    private static void restoreHud(Minecraft client) {
-        if (hudSaved) { hudHidden(client, hudHiddenBefore); hudSaved = false; }
-    }
-
-    private static boolean hudHidden(Minecraft client) { return client.options.hideGui; }
-    private static void hudHidden(Minecraft client, boolean value) { client.options.hideGui=value; }
 
     public static JsonObject metadata() {
         var result = new JsonObject();
         result.addProperty("active", active());
         result.addProperty("controlling", controlling());
+        result.addProperty("nativePointer", true);
+        result.addProperty("pointerInside", pointerInside);
         result.addProperty("sessionId", state == null ? 0 : state.sessionId());
         result.addProperty("isolatedScene", VisionSceneClient.ready());
         result.addProperty("isolatedEditorPreview", VisionSceneClient.previewReady());

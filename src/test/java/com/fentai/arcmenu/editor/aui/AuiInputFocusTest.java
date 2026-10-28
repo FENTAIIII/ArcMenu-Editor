@@ -6,9 +6,29 @@ import com.fentai.arcmenu.editor.aui.internal.init.Document;
 import com.fentai.arcmenu.editor.aui.internal.init.Element;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class AuiInputFocusTest {
+    @Test void theWorkspaceSearchFieldAndItsIconFocusTheSingleEditableSearchInput() throws Exception {
+        var root=body();
+        try(var resource=getClass().getResourceAsStream("/assets/arcmenu_editor/workspace/workspace.html")) {
+            assertNotNull(resource);
+            String html=new String(resource.readAllBytes(),StandardCharsets.UTF_8);
+            root.setInnerHTML(html.substring(html.indexOf("<body>")+6,html.indexOf("</body>")));
+        }
+        var input=root.document.getElementById("search");
+        var field=input.parentElement;
+        assertEquals(1,root.querySelectorAll("input[type=search]").size());
+        assertSame(input,AuiInputFocus.control(field));
+        assertSame(input,AuiInputFocus.control(field.querySelector("svg")));
+        var clear=root.document.getElementById("search_clear");
+        clear.removeAttribute("class");
+        assertSame(clear,AuiInputFocus.control(clear.querySelector("svg")));
+        assertTrue(AuiInputFocus.editable(input));
+    }
+
     private static Body body() {
         AuiElements.register();var document=new Document("input-focus-test",false);
         return document.body=new Body(document);

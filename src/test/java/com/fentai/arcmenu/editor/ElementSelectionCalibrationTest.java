@@ -44,6 +44,15 @@ class ElementSelectionCalibrationTest {
     }
 
     @Test
+    void exactMenusDrawRectanglesWithoutTheLegacyCorrection() {
+        ElementSelectionCalibration values = new ElementSelectionCalibration();
+        assertEquals(ElementSelectionCalibration.IDENTITY, values.forNode(EditorProtocol.KIND_RECTANGLE, true));
+        assertEquals(values.get(EditorProtocol.KIND_RECTANGLE), values.forNode(EditorProtocol.KIND_RECTANGLE, false));
+        assertEquals(values.get(EditorProtocol.KIND_LINE), values.forNode(EditorProtocol.KIND_LINE, true));
+        assertEquals(values.get(EditorProtocol.KIND_REGION), values.forNode(EditorProtocol.KIND_REGION, true));
+    }
+
+    @Test
     void releaseDefaultsMatchTheValidatedClientCalibration() {
         ElementSelectionCalibration values = new ElementSelectionCalibration();
         assertEquals(new ElementSelectionCalibration.Calibration(0.0, -0.03, 1.0, 0.9),

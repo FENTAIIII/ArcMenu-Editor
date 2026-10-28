@@ -481,6 +481,11 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         toolContentHeight = Math.max(0, y + toolsScroll - contentTop);
     }
 
+    private ElementSelectionCalibration.Calibration nodeCalibration(EditorProtocol.NodeSnapshot node) {
+        EditorProtocol.SnapshotPacket snapshot = state.snapshot();
+        return selectionCalibration.forNode(node.kind(), snapshot != null && snapshot.exactRectangles());
+    }
+
     private void drawViewport(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (captureClean) return;
         var view = currentLayout.viewport();
@@ -495,7 +500,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         List<EditorProtocol.NodeSnapshot> nodes = new ArrayList<>(state.nodes());
         for (EditorProtocol.NodeSnapshot node : nodes) {
             if (state.activeTab() == EditorProtocol.TAB_FRONTEND && !state.selected(node.id())) continue;
-            ElementSelectionCalibration.Calibration calibration = selectionCalibration.get(node.kind());
+            ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
             double drawX = calibration.proxyX(node.x(), node.width());
             double drawY = calibration.proxyY(node.y(), node.height());
             double drawWidth = calibration.proxyWidth(node.width());
@@ -1767,7 +1772,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
 
     private EditorProtocol.NodeSnapshot hitNode(double x, double y) {
         return state.nodes().stream().filter(node -> {
-            ElementSelectionCalibration.Calibration calibration = selectionCalibration.get(node.kind());
+            ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
             double width = calibration.proxyWidth(node.width());
             double height = calibration.proxyHeight(node.height());
             double left = calibration.proxyX(node.x(), node.width()) - width / 2;
@@ -1780,7 +1785,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
     }
 
     private boolean resizeHandleHit(EditorProtocol.NodeSnapshot node, double screenX, double screenY) {
-        ElementSelectionCalibration.Calibration calibration = selectionCalibration.get(node.kind());
+        ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
         int handleX = screenX(calibration.proxyX(node.x(), node.width()) + calibration.proxyWidth(node.width()) / 2);
         int handleY = screenY(calibration.proxyY(node.y(), node.height()) - calibration.proxyHeight(node.height()) / 2);
         return Math.abs(screenX - handleX) <= 8 && Math.abs(screenY - handleY) <= 8;
@@ -1803,7 +1808,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         var view = virtualScreen();
         EditorProtocol.NodeSnapshot node = state.find(draggingNode);
         ElementSelectionCalibration.Calibration calibration = node == null
-                ? ElementSelectionCalibration.IDENTITY : selectionCalibration.get(node.kind());
+                ? ElementSelectionCalibration.IDENTITY : nodeCalibration(node);
         double nodeX = node == null ? 0.0 : node.x();
         double nodeY = node == null ? 0.0 : node.y();
         double correctedMenuX = calibration.serverRightX(nodeX, menuX(mouseX));

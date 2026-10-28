@@ -5,7 +5,8 @@ import java.util.*;
 
 /** Server-owned catalogue and a separate, deterministic project selection. */
 public final class WorkspaceState {
-    static double defaultPixelsPerBlock(String type) { return "effect".equals(type) ? 100.0 : 42.7; }
+    /** New menus and effects start from the same canvas as the server's bundled default menus. */
+    static final double DEFAULT_WIDTH = 320, DEFAULT_HEIGHT = 180, DEFAULT_PIXELS_PER_BLOCK = 42.7, DEFAULT_DISTANCE = 3;
     public record Project(String type, String id, String path, double width, double height,
                           double pixelsPerBlock, double distance, String permission, String rootId, int nodeCount, String depthMode) {
         public Project(String type,String id,String path,double width,double height,double pixelsPerBlock,double distance,String permission,String rootId,int nodeCount) {
@@ -21,7 +22,7 @@ public final class WorkspaceState {
         public String openAction() { return previewOnly() ? "preview-open" : "open"; }
         static Project from(JsonObject p) {
             String id=string(p,"id",""),type=string(p,"type","menu");
-            return new Project(type,id,string(p,"path",id+".yml"),number(p,"width",800),number(p,"height",450),number(p,"pixelsPerBlock",defaultPixelsPerBlock(type)),number(p,"distance",2),string(p,"permission",""),string(p,"rootId",""),(int)number(p,"nodeCount",0),string(p,"depthMode","perspective"));
+            return new Project(type,id,string(p,"path",id+".yml"),number(p,"width",DEFAULT_WIDTH),number(p,"height",DEFAULT_HEIGHT),number(p,"pixelsPerBlock",DEFAULT_PIXELS_PER_BLOCK),number(p,"distance",DEFAULT_DISTANCE),string(p,"permission",""),string(p,"rootId",""),(int)number(p,"nodeCount",0),string(p,"depthMode","perspective"));
         }
     }
     static String depthMode(String value) {

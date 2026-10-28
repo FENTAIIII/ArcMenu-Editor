@@ -14,8 +14,8 @@ import java.nio.charset.StandardCharsets;
 /** Versioned, dependency-free protocol shared by Paper and every Fabric adapter. */
 public final class EditorProtocol {
     public static final String CHANNEL = "arcmenu:editor";
-    public static final int VERSION = 10;
-    public static final String EDITOR_VERSION = "3.1.0";
+    public static final int VERSION = 11;
+    public static final String EDITOR_VERSION = "3.4.0";
     public static final int MAX_PACKET_BYTES = 1_048_576;
     public static final int MAX_STRING_BYTES = 262_144;
     public static final int MAX_FRAME_DATA = 28_000;
@@ -94,7 +94,7 @@ public final class EditorProtocol {
     private EditorProtocol() {}
 
     public static boolean supportsClient(String clientVersion) {
-        return EDITOR_VERSION.equals(clientVersion) || "3.0.6".equals(clientVersion) || "3.0.5".equals(clientVersion) || "3.0.4".equals(clientVersion) || "3.0.3".equals(clientVersion) || "3.0.2".equals(clientVersion) || "3.0.1".equals(clientVersion) || "3.0.0".equals(clientVersion) || "1.2.1".equals(clientVersion) || "1.2.0".equals(clientVersion) || "1.1.0".equals(clientVersion) || "1.0.1".equals(clientVersion) || "1.0.0".equals(clientVersion);
+        return EDITOR_VERSION.equals(clientVersion) || "3.1.0".equals(clientVersion) || "3.0.6".equals(clientVersion) || "3.0.5".equals(clientVersion) || "3.0.4".equals(clientVersion) || "3.0.3".equals(clientVersion) || "3.0.2".equals(clientVersion) || "3.0.1".equals(clientVersion) || "3.0.0".equals(clientVersion) || "1.2.1".equals(clientVersion) || "1.2.0".equals(clientVersion) || "1.1.0".equals(clientVersion) || "1.0.1".equals(clientVersion) || "1.0.0".equals(clientVersion);
     }
 
     /** Separate from malformed packets so the server can notify old editors through vanilla chat. */
@@ -313,7 +313,8 @@ public final class EditorProtocol {
     public record SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight,
                                  boolean dirty, boolean saved, String serverVersion,
                                  List<NodeSnapshot> frontend, List<NodeSnapshot> backend,
-                                 List<ImageSnapshot> images, List<TemplateSnapshot> templates) implements Packet {
+                                 List<ImageSnapshot> images, List<TemplateSnapshot> templates,
+                                 boolean exactRectangles) implements Packet {
         public SnapshotPacket {
             frontend = List.copyOf(frontend);
             backend = List.copyOf(backend);
@@ -324,7 +325,15 @@ public final class EditorProtocol {
                               boolean dirty, boolean saved, String serverVersion,
                               List<NodeSnapshot> frontend, List<NodeSnapshot> backend) {
             this(revision, menuId, canvasWidth, canvasHeight, dirty, saved, serverVersion,
-                    frontend, backend, List.of(), List.of());
+                    frontend, backend, List.of(), List.of(), false);
+        }
+        /** Snapshot of a menu using the legacy rectangle sizing. */
+        public SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight,
+                              boolean dirty, boolean saved, String serverVersion,
+                              List<NodeSnapshot> frontend, List<NodeSnapshot> backend,
+                              List<ImageSnapshot> images, List<TemplateSnapshot> templates) {
+            this(revision, menuId, canvasWidth, canvasHeight, dirty, saved, serverVersion,
+                    frontend, backend, images, templates, false);
         }
     }
     public record AckPacket(byte operation, long revision, String nodeId,
@@ -412,6 +421,7 @@ public final class EditorProtocol {
                     out.writeBoolean(value.dirty()); out.writeBoolean(value.saved()); writeString(out, value.serverVersion());
                     writeNodes(out, value.frontend(), TAB_FRONTEND); writeNodes(out, value.backend(), TAB_BACKEND);
                     writeImages(out, value.images()); writeTemplates(out, value.templates());
+                    out.writeBoolean(value.exactRectangles());
                 }
                 case AckPacket value -> {
                     out.writeByte(ACK); out.writeByte(value.operation()); out.writeLong(value.revision());
@@ -463,7 +473,8 @@ public final class EditorProtocol {
                 case INSTANTIATE_TEMPLATE -> new InstantiateTemplatePacket(in.readLong(), readString(in));
                 case DELETE_TEMPLATE -> new DeleteTemplatePacket(in.readLong(), readString(in));
                 case SNAPSHOT -> new SnapshotPacket(in.readLong(), readString(in), in.readDouble(), in.readDouble(),
-                        in.readBoolean(), in.readBoolean(), readString(in), readNodes(in), readNodes(in), readImages(in), readTemplates(in));
+                        in.readBoolean(), in.readBoolean(), readString(in), readNodes(in), readNodes(in), readImages(in), readTemplates(in),
+                        in.readBoolean());
                 case ACK -> new AckPacket(in.readByte(), in.readLong(), readString(in), in.readDouble(), in.readDouble(),
                         in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(), readString(in),
                         in.readBoolean(), in.readBoolean(), readString(in));

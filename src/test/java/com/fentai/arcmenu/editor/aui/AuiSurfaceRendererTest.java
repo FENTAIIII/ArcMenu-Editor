@@ -5,6 +5,7 @@ import com.fentai.arcmenu.editor.aui.internal.render.Mask;
 import com.fentai.arcmenu.editor.aui.internal.spi.AuiServices;
 import com.fentai.arcmenu.editor.aui.internal.spi.MeshFormat;
 import com.fentai.arcmenu.editor.aui.internal.spi.MeshMode;
+import com.fentai.arcmenu.editor.aui.internal.spi.RenderHandle;
 import org.joml.Matrix4f;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +16,56 @@ import java.awt.font.FontRenderContext;
 import java.awt.image.BufferedImage;
 
 class AuiSurfaceRendererTest {
+    @Test void physicalGlyphPixelsSurviveFractionalDocumentScalesAndPositions() {
+        var atlas = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) atlas.setRGB(x, y, 0xffff00ff);
+        for (int y = 0; y < 11; y++) for (int x = 0; x < 7; x++) {
+            int alpha = x == 1 || x == 5 || y == 5 ? 255 : x == 2 || x == 4 ? 96 : 0;
+            atlas.setRGB(x + 3, y + 2, (alpha << 24) | 0xffffff);
+        }
+        for (float scale : new float[]{0.5f, 0.75f, 1, 1.25f, 4f / 3f, 1.5f, 2, 2.25f, 3}) {
+            for (int tint : new int[]{0xffffffff, 0xff2846bd, 0x802846bd}) {
+                for (int deviceX : new int[]{12, 13, 17}) {
+                    var renderer = new AuiSurfaceRenderer();
+                    renderer.begin(64, 40, scale);
+                    var render = RenderHandle.of("font/glyph-test");
+                    renderer.service().registerTexture(new AuiSurfaceRenderer.SurfaceTexture(atlas), "font/glyph-test");
+                    var batch = renderer.service().beginTextureBatch(render);
+                    var pose = new Matrix4f().translation(3, 2, 0).scale(scale, scale, 1);
+                    renderer.service().emitTextureQuad(batch, pose, deviceX / scale, 8 / scale, 7 / scale, 11 / scale,
+                            3f / 16, 2f / 16, 10f / 16, 13f / 16, tint);
+                    renderer.service().flushTextureBatch(batch, render);
+                    renderer.end();
+                    for (int y = 0; y < 40; y++) for (int x = 0; x < 64; x++) {
+                        int glyphX = x - deviceX - 3, glyphY = y - 10;
+                        int sourceAlpha = glyphX >= 0 && glyphX < 7 && glyphY >= 0 && glyphY < 11
+                                ? atlas.getRGB(glyphX + 3, glyphY + 2) >>> 24 : 0;
+                        int expectedAlpha = sourceAlpha * (tint >>> 24) / 255;
+                        assertEquals(expectedAlpha, renderer.image().getRGB(x, y) >>> 24,
+                                "Glyph pixels changed at scale " + scale + " and physical x " + deviceX + " pixel " + x + "," + y);
+                        if (expectedAlpha == 255) assertEquals(tint, renderer.image().getRGB(x, y));
+                    }
+                }
+            }
+        }
+    }
+
+    @Test void clippedTextureWindowsKeepTheirOriginalFractionalDestinationMapping() {
+        var image = new BufferedImage(4, 4, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++) image.setRGB(x, y, 0xffffffff);
+        var renderer = new AuiSurfaceRenderer();
+        renderer.begin(16, 16, 1.25);
+        var render = RenderHandle.of("clipped-image");
+        renderer.service().registerTexture(new AuiSurfaceRenderer.SurfaceTexture(image), "clipped-image");
+        var batch = renderer.service().beginTextureBatch(render);
+        renderer.service().emitTextureQuad(batch, new Matrix4f().scale(1.25f, 1.25f, 1),
+                4 / 1.25f, 4 / 1.25f, 6 / 1.25f, 6 / 1.25f, -.25f, -.25f, 1.25f, 1.25f, 0xff2846bd);
+        renderer.service().flushTextureBatch(batch, render);
+        renderer.end();
+        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++)
+            assertEquals(x >= 5 && x < 9 && y >= 5 && y < 9 ? 0xff2846bd : 0, renderer.image().getRGB(x, y));
+    }
+
     @Test void editingResetsTheCaretToTheVisiblePhaseAndIdleTimeContinuesBlinking() {
         var blink = new AuiCaret.Blink();
         blink.interact(750);

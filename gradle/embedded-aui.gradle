@@ -56,17 +56,9 @@ tasks.matching { it.name == 'sourcesJar' }.configureEach { dependsOn prepareAui 
 tasks.named('prepareVersionSources', Sync) {
     if (auiTarget == '26.3') {
         exclude { details -> details.file.path.replace('\\', '/').contains('/src/main/java/') && details.name in ['AuiTextInput.java', 'AuiKeyCodes.java'] }
-        from('src/compat/26.3/java')
-    }
-    filesMatching('**/aui/ApricityWorkspaceView.java') {
-        filter { String line ->
-            if (auiTarget.startsWith('1.') && auiTarget.tokenize('.')[2].toInteger() <= 4) line = line.replace('new DynamicTexture(()->"ArcMenu marketplace preview",nativeImage)', 'new DynamicTexture(nativeImage)')
-            return line
-        }
     }
     filesMatching('**/aui/AuiPixels.java') {
         filter { String line ->
-            if (auiTarget == '1.21.1') line = line.replace('return image.getPixel(x,y);', 'return swap(image.getPixelRGBA(x,y));').replace('image.setPixel(x,y,color);', 'image.setPixelRGBA(x,y,swap(color));').replace('return image.getPixels();', 'int[] pixels=image.getPixelsRGBA();for(int i=0;i<pixels.length;i++)pixels[i]=swap(pixels[i]);return pixels;')
             if (auiTarget.startsWith('1.') && line.contains('MemoryUtil.memIntBuffer(image.getPointer()')) return '        for(int y=0,i=0;y<image.getHeight();y++)for(int x=0;x<image.getWidth();x++)write(image,x,y,swap(pixels[i++]));'
             return line
         }

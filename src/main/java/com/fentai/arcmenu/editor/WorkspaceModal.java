@@ -31,8 +31,8 @@ final class WorkspaceModal {
         }
     }
     private void geometry(WorkspaceState.Project project) {
-        values.put("width",number(project==null?800:project.width()));values.put("height",number(project==null?450:project.height()));
-        values.put("pixelsPerBlock",number(project==null?WorkspaceState.defaultPixelsPerBlock(mode.equals("new_effect")?"effect":"menu"):project.pixelsPerBlock()));values.put("distance",number(project==null?2:project.distance()));
+        values.put("width",number(project==null?WorkspaceState.DEFAULT_WIDTH:project.width()));values.put("height",number(project==null?WorkspaceState.DEFAULT_HEIGHT:project.height()));
+        values.put("pixelsPerBlock",number(project==null?WorkspaceState.DEFAULT_PIXELS_PER_BLOCK:project.pixelsPerBlock()));values.put("distance",number(project==null?WorkspaceState.DEFAULT_DISTANCE:project.distance()));
         values.put("depthMode",project==null?"perspective":project.depthMode());
     }
     private static String number(double n){return n==Math.rint(n)?Long.toString((long)n):Double.toString(n);}

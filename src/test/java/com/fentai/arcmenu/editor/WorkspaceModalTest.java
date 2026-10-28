@@ -24,10 +24,11 @@ class WorkspaceModalTest {
             assertEquals(mode.equals("new_menu") ? "menu" : "effect", parameters.get("type").getAsString());
             assertEquals("new-project", parameters.get("id").getAsString());
             assertEquals("addon/templates", parameters.get("folder").getAsString());
-            assertEquals(800, parameters.get("width").getAsDouble());
-            assertEquals(450, parameters.get("height").getAsDouble());
-            assertEquals(mode.equals("new_menu") ? 42.7 : 100, parameters.get("pixelsPerBlock").getAsDouble());
-            assertEquals(2, parameters.get("distance").getAsDouble());
+            // Menus and effects start from the same canvas as the server's bundled default menus.
+            assertEquals(320, parameters.get("width").getAsDouble());
+            assertEquals(180, parameters.get("height").getAsDouble());
+            assertEquals(42.7, parameters.get("pixelsPerBlock").getAsDouble());
+            assertEquals(3, parameters.get("distance").getAsDouble());
             assertEquals("perspective", parameters.get("depthMode").getAsString());
         }
     }

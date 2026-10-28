@@ -10,10 +10,8 @@ public final class VisionCursorMath {
     public record Point(double x, double y) {}
     public record Aim(float yaw, float pitch) {}
 
-    public static Point move(Point point, double dx, double dy, int width, int height,
-                             double sensitivityX, double sensitivityY) {
-        return new Point(Math.clamp(point.x() + dx * sensitivityX, 0, Math.max(0, width - 1)),
-                Math.clamp(point.y() + dy * sensitivityY, 0, Math.max(0, height - 1)));
+    public static boolean inside(Point point, int width, int height) {
+        return point.x() >= 0 && point.x() < width && point.y() >= 0 && point.y() < height;
     }
 
     public static Aim aim(Point point, int width, int height, Matrix4f viewProjection) {
@@ -24,7 +22,4 @@ public final class VisionCursorMath {
                 (float) -Math.toDegrees(Math.atan2(direction.y, Math.hypot(direction.x, direction.z))));
     }
 
-    public static double spriteHeight(double size, double projection, int viewportHeight, double verticalFov) {
-        return size * viewportHeight / (2 * projection * Math.tan(Math.toRadians(verticalFov) / 2));
-    }
 }
