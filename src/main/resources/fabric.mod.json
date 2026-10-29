@@ -14,7 +14,7 @@
   "entrypoints": {
     "client": ["com.fentai.arcmenu.editor.ArcMenuEditorClient"]
   },
-  "mixins": ["arcmenu-editor.mixins.json"],
+  "mixins": ["arcmenu-editor.mixins.json", "arcmenu-editor.jade.mixins.json"],
   "depends": {
     "fabricloader": "*",
     "minecraft": "=${minecraft}",

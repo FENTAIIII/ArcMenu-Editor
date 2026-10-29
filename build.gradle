@@ -52,7 +52,7 @@ processResources {
     filesMatching('fabric.mod.json') {
         expand version: editorVersion, minecraft: project.minecraft_version, java: targetJavaVersion
     }
-    filesMatching('arcmenu-editor.mixins.json') {
+    filesMatching('arcmenu-editor*.mixins.json') {
         expand java: targetJavaVersion
         if (usesModernRenderer) filter { it.replace('"GameRendererMixin"', '"GameRendererMixin", "HudMixin"') }
         filter { it.replace('"GameRendererMixin"', '"' + (project.minecraft_version == '26.3' ? 'VisionLevelExtractorMixin' : 'VisionEntityRenderDispatcherMixin') + '", "GameRendererMixin"') }

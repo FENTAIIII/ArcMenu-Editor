@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 public final class EditorProtocol {
     public static final String CHANNEL = "arcmenu:editor";
     public static final int VERSION = 11;
-    public static final String EDITOR_VERSION = "3.4.0";
+    public static final String EDITOR_VERSION = "3.4.1";
     public static final int MAX_PACKET_BYTES = 1_048_576;
     public static final int MAX_STRING_BYTES = 262_144;
     public static final int MAX_FRAME_DATA = 28_000;

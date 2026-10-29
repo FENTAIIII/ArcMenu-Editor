@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "com.fentai.arcmenu.editor.mixin",
+  "compatibilityLevel": "JAVA_${java}",
+  "client": ["VisionJadeOverlayMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

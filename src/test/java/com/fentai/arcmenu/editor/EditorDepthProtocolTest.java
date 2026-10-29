@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class EditorDepthProtocolTest {
     @Test void releaseAndHandshakeUseTheSameVersion() {
-        assertEquals("3.4.0", ArcMenuEditorClient.CLIENT_VERSION);
+        assertEquals("3.4.1", ArcMenuEditorClient.CLIENT_VERSION);
         assertTrue(EditorProtocol.supportsClient(ArcMenuEditorClient.CLIENT_VERSION));
         assertTrue(EditorProtocol.supportsClient("3.1.0"));
         assertTrue(EditorProtocol.supportsClient("3.0.6"));
