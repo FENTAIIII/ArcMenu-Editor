@@ -42,7 +42,8 @@ final class MaintainedFeaturesTest {
             var mixins = JsonParser.parseReader(reader).getAsJsonObject().getAsJsonArray("client")
                     .asList().stream().map(value -> value.getAsString()).toList();
             for (String hook : List.of("VisionMouseMixin", "VisionKeyboardMixin", "VisionHudMixin", "VisionTextKeyboardMixin",
-                    "VisionGraphicsAccessor", "VisionGuiRendererMixin", "VisionEditorScreenMixin", "VisionWorkspacePreviewMixin", "VisionItemLightingMixin")) {
+                    "VisionGraphicsAccessor", "VisionGuiRendererMixin", "VisionEditorScreenMixin", "VisionWorkspacePreviewMixin", "VisionItemLightingMixin",
+                    "VisionItemLayerLightingMixin")) {
                 assertTrue(mixins.contains(hook), hook);
                 assertNotNull(jar.getJarEntry("com/fentai/arcmenu/editor/mixin/" + hook + ".class"), hook);
             }

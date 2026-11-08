@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor;
 
 import org.joml.Matrix3f;
+import org.joml.Matrix3fc;
 import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 
@@ -20,6 +21,19 @@ public final class VisionItemMath {
 
     public static Matrix3f guiNormals(Matrix3f normal, double squash) {
         if (!(squash > 0) || !Double.isFinite(squash)) return normal;
-        return new Matrix3f(BLOCK_NORMALS).scale(1, -1, (float) (1 / squash)).mul(normal);
+        // Preserve the established lighting reference without thickening the actual model.
+        // Post-scaling the normal matrix is the inverse transpose of the former local Z scale.
+        double reference = Math.min(squash, 8);
+        var referenceNormals = new Matrix3f(normal).scale(1, 1, (float) (reference / squash));
+        return new Matrix3f(BLOCK_NORMALS).scale(1, -1, (float) (1 / reference)).mul(referenceNormals);
+    }
+
+    /** A lighting-only correction, reapplied after each item's GUI and local model transforms. */
+    public static Matrix3f lightingCorrection(Matrix3fc normal, double squash) {
+        if (!(squash > 0) || !Double.isFinite(squash) || !normal.isFinite()) return null;
+        var inverse = new Matrix3f(normal).invert();
+        if (!inverse.isFinite()) return null;
+        var corrected = guiNormals(new Matrix3f(normal), squash).mul(inverse);
+        return corrected.isFinite() ? corrected : null;
     }
 }

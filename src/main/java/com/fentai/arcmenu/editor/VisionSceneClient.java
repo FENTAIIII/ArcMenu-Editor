@@ -96,7 +96,6 @@ public final class VisionSceneClient {
                 if (entity instanceof Display.ItemDisplay item && item.itemRenderState() != null
                         && item.itemRenderState().itemTransform() == ItemDisplayContext.GUI
                         && state instanceof ItemDisplayEntityRenderState itemState && itemState.item.usesBlockLight()) {
-                    VisionItemLighting.prepare(displayState);
                     guiItems.add(state);
                 }
             }

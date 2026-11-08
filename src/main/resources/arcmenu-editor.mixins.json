@@ -10,6 +10,7 @@
     "VisionGraphicsAccessor",
     "VisionGuiRendererMixin",
     "VisionItemLightingMixin",
+    "VisionItemLayerLightingMixin",
     "VisionTextKeyboardMixin",
     "VisionEditorScreenMixin",
     "VisionWorkspacePreviewMixin",

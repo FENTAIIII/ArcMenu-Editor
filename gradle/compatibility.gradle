@@ -17,7 +17,7 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
     into generated
     from('src/main/java') {
         if (old || usesModernRenderer) exclude '**/EditorWorldCompositor.java'
-        if (old) exclude '**/mixin/CameraMixin.java', '**/mixin/GameRendererMixin.java'
+        if (old) exclude '**/mixin/CameraMixin.java', '**/mixin/GameRendererMixin.java', '**/mixin/VisionItemLayerLightingMixin.java'
         if (target == '26.3') exclude '**/VisionTextInput.java'
         if (usesModernRenderer) exclude '**/mixin/GameRendererMixin.java'
         filter { String line ->
