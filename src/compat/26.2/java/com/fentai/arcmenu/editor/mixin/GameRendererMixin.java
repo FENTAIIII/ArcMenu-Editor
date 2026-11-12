@@ -8,10 +8,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
-abstract class GameRendererMixin {
-    @Inject(method = "render", at = @At(value = "INVOKE",
-            target = "Lcom/mojang/blaze3d/systems/CommandEncoder;clearDepthTexture(Lcom/mojang/blaze3d/textures/GpuTexture;D)V"))
-    private void arcmenu$composeEditorWorld(CallbackInfo info) {
+abstract class GameRendererMixin
+{
+    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/CommandEncoder;clearDepthTexture(Lcom/mojang/blaze3d/textures/GpuTexture;D)V"))
+    private void arcmenu$composeEditorWorld(CallbackInfo info)
+    {
         EditorWorldCompositor.compose();
     }
 }

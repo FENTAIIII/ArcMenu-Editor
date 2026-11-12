@@ -9,9 +9,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ItemStackRenderState.LayerRenderState.class)
-abstract class VisionItemLayerLightingMixin {
+abstract class VisionItemLayerLightingMixin
+{
     @Inject(method = "applyTransform", at = @At("RETURN"))
-    private void arcmenu$layerNormals(PoseStack.Pose pose, CallbackInfo info) {
+    private void arcmenu$layerNormals(PoseStack.Pose pose, CallbackInfo info)
+    {
         VisionItemLighting.applyLayer(pose);
     }
 }

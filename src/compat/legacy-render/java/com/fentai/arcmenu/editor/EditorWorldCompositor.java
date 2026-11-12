@@ -7,21 +7,34 @@ import org.lwjgl.opengl.GL30;
 import com.mojang.blaze3d.opengl.GlTexture;
 
 /** Framebuffer compositor for the OpenGL-only 1.21 renderers. */
-public final class EditorWorldCompositor {
-    private static int copyTexture, readFramebuffer, copyFramebuffer;
-    private static int width, height;
+public final class EditorWorldCompositor
+{
+    private static int copyTexture;
+    private static int readFramebuffer;
+    private static int copyFramebuffer;
+    private static int width;
+    private static int height;
 
-    private EditorWorldCompositor() {}
+    private EditorWorldCompositor()
+    {}
 
-    public static void initialize() {}
+    public static void initialize()
+    {}
 
-    public static void compose() {
+    public static void compose()
+    {
         var minecraft = Minecraft.getInstance();
         var view = EditorViewport.physical(minecraft.getWindow());
-        if (view == null || !(EditorScreen.isEditor(minecraft.screen))) return;
+        if (view == null || !(EditorScreen.isEditor(minecraft.screen)))
+        {
+            return;
+        }
         RenderSystem.assertOnRenderThread();
         var main = minecraft.getMainRenderTarget();
-        if (main.width < 1 || main.height < 1) return;
+        if (main.width < 1 || main.height < 1)
+        {
+            return;
+        }
         int texture = ((GlTexture) main.getColorTexture()).glId();
         int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
         int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
@@ -29,57 +42,74 @@ public final class EditorWorldCompositor {
         boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
         float[] clearColor = new float[4];
         GL11.glGetFloatv(GL11.GL_COLOR_CLEAR_VALUE, clearColor);
-        try {
-            if (copyTexture == 0) {
+        try
+        {
+            if (copyTexture == 0)
+            {
                 copyTexture = GL11.glGenTextures();
                 readFramebuffer = GL30.glGenFramebuffers();
                 copyFramebuffer = GL30.glGenFramebuffers();
             }
-            if (width != main.width || height != main.height) {
+            if (width != main.width || height != main.height)
+            {
                 width = main.width;
                 height = main.height;
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, copyTexture);
-                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0,
-                        GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, 0L);
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA,
+                        GL11.GL_UNSIGNED_BYTE, 0L);
             }
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
-            GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
-                    GL11.GL_TEXTURE_2D, texture, 0);
+            GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D,
+                    texture, 0);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, copyFramebuffer);
-            GL30.glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
-                    GL11.GL_TEXTURE_2D, copyTexture, 0);
-            GL30.glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
-                    GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
+            GL30.glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D,
+                    copyTexture, 0);
+            GL30.glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, readFramebuffer);
             GL11.glClearColor(16 / 255f, 19 / 255f, 26 / 255f, 1);
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, copyFramebuffer);
             var source = EditorViewport.sourceFrame(width, height);
             GL30.glBlitFramebuffer(source == null ? 0 : source.x(), source == null ? 0 : source.y(),
-                    source == null ? width : source.right(), source == null ? height : source.bottom(),
-                    view.x(), view.y(), view.x() + view.width(), view.y() + view.height(),
-                    GL11.GL_COLOR_BUFFER_BIT, GL11.GL_LINEAR);
-        } finally {
+                    source == null ? width : source.right(), source == null ? height : source.bottom(), view.x(),
+                    view.y(), view.x() + view.width(), view.y() + view.height(), GL11.GL_COLOR_BUFFER_BIT,
+                    GL11.GL_LINEAR);
+        }
+        finally
+        {
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, readFramebuffer);
-            GL30.glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
-                    GL11.GL_TEXTURE_2D, 0, 0);
+            GL30.glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, previousTexture);
             GL11.glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
-            if (scissor) GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            if (scissor)
+            {
+                GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            }
         }
     }
 
-    public static void release() {
-        if (!RenderSystem.isOnRenderThread()) {
+    public static void release()
+    {
+        if (!RenderSystem.isOnRenderThread())
+        {
             Minecraft.getInstance().execute(EditorWorldCompositor::release);
             return;
         }
-        if (copyTexture != 0) GL11.glDeleteTextures(copyTexture);
-        if (readFramebuffer != 0) GL30.glDeleteFramebuffers(readFramebuffer);
-        if (copyFramebuffer != 0) GL30.glDeleteFramebuffers(copyFramebuffer);
+        if (copyTexture != 0)
+        {
+            GL11.glDeleteTextures(copyTexture);
+        }
+        if (readFramebuffer != 0)
+        {
+            GL30.glDeleteFramebuffers(readFramebuffer);
+        }
+        if (copyFramebuffer != 0)
+        {
+            GL30.glDeleteFramebuffers(copyFramebuffer);
+        }
         copyTexture = readFramebuffer = copyFramebuffer = width = height = 0;
     }
 }

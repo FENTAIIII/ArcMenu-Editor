@@ -20,15 +20,20 @@ import java.io.UncheckedIOException;
 
 /** Exercises the game's live language rather than selecting an editor-specific locale. */
 @ResourceLock("minecraft-language")
-final class EditorI18nTest {
+final class EditorI18nTest
+{
     private final Language original = Language.getInstance();
 
-    @AfterEach void restoreLanguage() {
+    @AfterEach
+    void restoreLanguage()
+    {
         Language.inject(original);
         EditorI18n.languageVersion();
     }
 
-    @Test void stringsAndExistingComponentsFollowTheActiveGameLanguage() {
+    @Test
+    void stringsAndExistingComponentsFollowTheActiveGameLanguage()
+    {
         Language.inject(language("en_us", Map.of()));
         var title = EditorI18n.component("arcmenu_editor.projects.default_pack_title");
         assertEquals("Configuration pack", title.getString());
@@ -41,7 +46,9 @@ final class EditorI18nTest {
         assertEquals("帧必须是整数", EditorI18n.text("arcmenu_editor.effect.validation.integer", "帧"));
     }
 
-    @Test void unbundledGameLanguagesRetainEnglishFallbackAndResourceOverrides() {
+    @Test
+    void unbundledGameLanguagesRetainEnglishFallbackAndResourceOverrides()
+    {
         // Minecraft loads en_us before the selected locale and higher-priority packs.
         Language.inject(language("fr_fr", Map.of("arcmenu_editor.aui.copy", "Copier")));
         assertEquals("Copier", EditorI18n.text("arcmenu_editor.aui.copy"));
@@ -50,7 +57,9 @@ final class EditorI18nTest {
         assertEquals("missing.translation", EditorI18n.text("missing.translation"));
     }
 
-    @Test void languageVersionChangesOnReloadWithoutChangingTheSelectedLocale() {
+    @Test
+    void languageVersionChangesOnReloadWithoutChangingTheSelectedLocale()
+    {
         Language first = language("en_us", Map.of());
         Language.inject(first);
         long before = EditorI18n.languageVersion();
@@ -65,14 +74,18 @@ final class EditorI18nTest {
         assertEquals(after, EditorI18n.languageVersion());
     }
 
-    @Test void embeddedLibraryAccessibilityTextUsesTheGameLanguageWithoutASeparateMod() {
+    @Test
+    void embeddedLibraryAccessibilityTextUsesTheGameLanguageWithoutASeparateMod()
+    {
         Language.inject(language("zh_cn", Map.of()));
         assertEquals("没有匹配的文件", UiTranslations.translate("file_picker.apricityui.empty"));
         Language.inject(language("en_us", Map.of("file_picker.apricityui.empty", "No resources match")));
         assertEquals("No resources match", UiTranslations.translate("file_picker.apricityui.empty"));
     }
 
-    @Test void propertyLabelsFollowTranslationsAndPreserveUnknownExtensionNames() {
+    @Test
+    void propertyLabelsFollowTranslationsAndPreserveUnknownExtensionNames()
+    {
         Language.inject(language("en_us", Map.of("arcmenu_editor.property.extension_alpha", "Extension opacity")));
         assertEquals("Extension opacity", EditorI18n.property("extension.alpha"));
         assertEquals("Extension opacity", EditorI18n.property("extension-alpha"));
@@ -81,7 +94,9 @@ final class EditorI18nTest {
         assertEquals("扩展透明度", EditorI18n.property("extension.alpha"));
     }
 
-    @Test void hoverEventLabelsAndHelpFollowTheGameLanguageAndResourceOverrides() {
+    @Test
+    void hoverEventLabelsAndHelpFollowTheGameLanguageAndResourceOverrides()
+    {
         Language.inject(language("en_us", Map.of()));
         assertEquals("On hover", EditorI18n.property("on-hover"));
         assertEquals("On leave", EditorI18n.property("on-leave"));
@@ -101,7 +116,9 @@ final class EditorI18nTest {
         assertEquals("On leave", EditorI18n.property("on-leave"));
     }
 
-    @Test void arcitxInspectorLabelsAndInputGuidanceFollowTheGameLanguage() {
+    @Test
+    void arcitxInspectorLabelsAndInputGuidanceFollowTheGameLanguage()
+    {
         Language.inject(language("en_us", Map.of()));
         assertEquals("Submit region", EditorI18n.property("arcitx-submit"));
         assertTrue(EditorI18n.propertyHint("arcitx-submit").contains("Closing the editor only keeps a draft"));
@@ -123,7 +140,9 @@ final class EditorI18nTest {
         assertEquals("Input text", EditorI18n.property("arcitx-text"));
     }
 
-    @Test void effectChoicesAndMarketplaceReasonsChangeLanguageWithoutChangingProjectDataOrDiagnostics() {
+    @Test
+    void effectChoicesAndMarketplaceReasonsChangeLanguageWithoutChangingProjectDataOrDiagnostics()
+    {
         String diagnostic = "Dependency entries must contain at most 2048 UTF-16 code units";
         var failure = new MarketClient.RequestException(400, "invalid_manifest", diagnostic);
         String target = "menu.banner";
@@ -149,25 +168,57 @@ final class EditorI18nTest {
         assertEquals("invalid_manifest", failure.code());
     }
 
-    private Language language(String locale, Map<String, String> overrides) {
+    private Language language(String locale, Map<String, String> overrides)
+    {
         Map<String, String> values = new HashMap<>();
         load("en_us", values);
-        if (!locale.equals("en_us")) load(locale, values);
+        if (!locale.equals("en_us"))
+        {
+            load(locale, values);
+        }
         values.putAll(overrides);
-        return new Language() {
-            @Override public String getOrDefault(String key, String fallback) { return values.getOrDefault(key, fallback); }
-            @Override public boolean has(String key) { return values.containsKey(key); }
-            @Override public boolean isDefaultRightToLeft() { return false; }
-            @Override public FormattedCharSequence getVisualOrder(FormattedText text) { return FormattedCharSequence.EMPTY; }
+        return new Language()
+        {
+            @Override
+            public String getOrDefault(String key, String fallback)
+            {
+                return values.getOrDefault(key, fallback);
+            }
+
+            @Override
+            public boolean has(String key)
+            {
+                return values.containsKey(key);
+            }
+
+            @Override
+            public boolean isDefaultRightToLeft()
+            {
+                return false;
+            }
+
+            @Override
+            public FormattedCharSequence getVisualOrder(FormattedText text)
+            {
+                return FormattedCharSequence.EMPTY;
+            }
         };
     }
 
-    private void load(String locale, Map<String, String> values) {
+    private void load(String locale, Map<String, String> values)
+    {
         var stream = getClass().getResourceAsStream("/assets/arcmenu_editor/lang/" + locale + ".json");
-        if (stream == null) return;
-        try (var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
-            JsonParser.parseReader(reader).getAsJsonObject().entrySet().forEach(entry -> values.put(entry.getKey(), entry.getValue().getAsString()));
-        } catch (IOException failure) {
+        if (stream == null)
+        {
+            return;
+        }
+        try (var reader = new InputStreamReader(stream, StandardCharsets.UTF_8))
+        {
+            JsonParser.parseReader(reader).getAsJsonObject().entrySet()
+                    .forEach(entry -> values.put(entry.getKey(), entry.getValue().getAsString()));
+        }
+        catch (IOException failure)
+        {
             throw new UncheckedIOException(failure);
         }
     }

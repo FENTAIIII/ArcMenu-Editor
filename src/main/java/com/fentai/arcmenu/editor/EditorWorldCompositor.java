@@ -21,24 +21,34 @@ import java.util.Objects;
  * performs a filtered framebuffer blit into the exact aperture. GUI rendering
  * happens afterwards and remains full-window.</p>
  */
-public final class EditorWorldCompositor {
+public final class EditorWorldCompositor
+{
     private static final int WORKSPACE_COLOR = 0xFF10131A;
     private static TextureTarget worldCopy;
     private static int readFramebuffer;
     private static int drawFramebuffer;
 
-    private EditorWorldCompositor() {}
+    private EditorWorldCompositor()
+    {}
 
-    public static void initialize() {}
+    public static void initialize()
+    {}
 
-    public static void compose() {
+    public static void compose()
+    {
         Minecraft minecraft = Minecraft.getInstance();
         EditorViewport.Physical viewport = EditorViewport.physical(minecraft.getWindow());
-        if (viewport == null || !(EditorScreen.isEditor(minecraft.screen))) return;
+        if (viewport == null || !(EditorScreen.isEditor(minecraft.screen)))
+        {
+            return;
+        }
 
         RenderSystem.assertOnRenderThread();
         RenderTarget main = minecraft.getMainRenderTarget();
-        if (main.width < 1 || main.height < 1) return;
+        if (main.width < 1 || main.height < 1)
+        {
+            return;
+        }
         ensureResources(main.width, main.height);
 
         GpuTexture mainColor = Objects.requireNonNull(main.getColorTexture(), "Minecraft main color texture");
@@ -53,65 +63,85 @@ public final class EditorWorldCompositor {
                 EditorViewport.sourceFrame(main.width, main.height));
     }
 
-    private static void ensureResources(int width, int height) {
-        if (worldCopy == null) {
+    private static void ensureResources(int width, int height)
+    {
+        if (worldCopy == null)
+        {
             worldCopy = new TextureTarget("ArcMenu editor world frame", width, height, false);
-        } else if (worldCopy.width != width || worldCopy.height != height) {
+        }
+        else if (worldCopy.width != width || worldCopy.height != height)
+        {
             worldCopy.resize(width, height);
         }
-        if (readFramebuffer == 0) readFramebuffer = GlStateManager.glGenFramebuffers();
-        if (drawFramebuffer == 0) drawFramebuffer = GlStateManager.glGenFramebuffers();
+        if (readFramebuffer == 0)
+        {
+            readFramebuffer = GlStateManager.glGenFramebuffers();
+        }
+        if (drawFramebuffer == 0)
+        {
+            drawFramebuffer = GlStateManager.glGenFramebuffers();
+        }
     }
 
     private static void blit(GlTexture source, GlTexture destination, int sourceWidth, int sourceHeight,
-                             EditorViewport.Physical viewport, EditorLayout.Rect sourceRect) {
+            EditorViewport.Physical viewport, EditorLayout.Rect sourceRect)
+    {
         int previousRead = GlStateManager.getFrameBuffer(GL30.GL_READ_FRAMEBUFFER);
         int previousDraw = GlStateManager.getFrameBuffer(GL30.GL_DRAW_FRAMEBUFFER);
-        try {
+        try
+        {
             GlStateManager._disableScissorTest();
             GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
-            GlStateManager._glFramebufferTexture2D(
-                    GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, source.glId(), 0);
+            GlStateManager._glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                    GL11.GL_TEXTURE_2D, source.glId(), 0);
             GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
-            GlStateManager._glFramebufferTexture2D(
-                    GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, destination.glId(), 0);
-            GlStateManager._glBlitFrameBuffer(
-                    sourceRect == null ? 0 : sourceRect.x(), sourceRect == null ? 0 : sourceRect.y(),
-                    sourceRect == null ? sourceWidth : sourceRect.right(), sourceRect == null ? sourceHeight : sourceRect.bottom(),
-                    viewport.x(), viewport.y(), viewport.x() + viewport.width(), viewport.y() + viewport.height(),
-                    GL11.GL_COLOR_BUFFER_BIT, GL11.GL_LINEAR);
-        } finally {
+            GlStateManager._glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                    GL11.GL_TEXTURE_2D, destination.glId(), 0);
+            GlStateManager._glBlitFrameBuffer(sourceRect == null ? 0 : sourceRect.x(),
+                    sourceRect == null ? 0 : sourceRect.y(), sourceRect == null ? sourceWidth : sourceRect.right(),
+                    sourceRect == null ? sourceHeight : sourceRect.bottom(), viewport.x(), viewport.y(),
+                    viewport.x() + viewport.width(), viewport.y() + viewport.height(), GL11.GL_COLOR_BUFFER_BIT,
+                    GL11.GL_LINEAR);
+        }
+        finally
+        {
             // Do not retain texture references in our FBOs; Minecraft may
             // replace the main target on a window resize.
             GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
-            GlStateManager._glFramebufferTexture2D(
-                    GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
+            GlStateManager._glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                    GL11.GL_TEXTURE_2D, 0, 0);
             GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
-            GlStateManager._glFramebufferTexture2D(
-                    GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, 0, 0);
+            GlStateManager._glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                    GL11.GL_TEXTURE_2D, 0, 0);
             GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
             GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
         }
     }
 
-    public static void release() {
-        if (!RenderSystem.isOnRenderThread()) {
+    public static void release()
+    {
+        if (!RenderSystem.isOnRenderThread())
+        {
             Minecraft.getInstance().execute(EditorWorldCompositor::releaseNow);
             return;
         }
         releaseNow();
     }
 
-    private static void releaseNow() {
-        if (worldCopy != null) {
+    private static void releaseNow()
+    {
+        if (worldCopy != null)
+        {
             worldCopy.destroyBuffers();
             worldCopy = null;
         }
-        if (readFramebuffer != 0) {
+        if (readFramebuffer != 0)
+        {
             GlStateManager._glDeleteFramebuffers(readFramebuffer);
             readFramebuffer = 0;
         }
-        if (drawFramebuffer != 0) {
+        if (drawFramebuffer != 0)
+        {
             GlStateManager._glDeleteFramebuffers(drawFramebuffer);
             drawFramebuffer = 0;
         }

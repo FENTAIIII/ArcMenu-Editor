@@ -13,25 +13,28 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.joml.Matrix4f;
 
 @Mixin(GameRenderer.class)
-abstract class CameraMixin {
+abstract class CameraMixin
+{
     @Inject(method = "getProjectionMatrix", at = @At("RETURN"))
-    private void arcmenu$recordEffectFov(CallbackInfoReturnable<Matrix4f> result) {
+    private void arcmenu$recordEffectFov(CallbackInfoReturnable<Matrix4f> result)
+    {
         var client = Minecraft.getInstance();
-        if (client.screen instanceof EffectEditorScreen) {
+        if (client.screen instanceof EffectEditorScreen)
+        {
             EditorViewport.verticalFov(Math.toDegrees(2 * Math.atan(1.0 / result.getReturnValue().m11())));
         }
     }
 
-    @Redirect(method = "getProjectionMatrix", at = @At(value = "INVOKE",
-            target = "Lcom/mojang/blaze3d/platform/Window;getWidth()I"))
-    private int arcmenu$projectionWidth(Window window) {
+    @Redirect(method = "getProjectionMatrix", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/Window;getWidth()I"))
+    private int arcmenu$projectionWidth(Window window)
+    {
         var viewport = EditorViewport.physical(window);
         return viewport == null ? window.getWidth() : viewport.width();
     }
 
-    @Redirect(method = "getProjectionMatrix", at = @At(value = "INVOKE",
-            target = "Lcom/mojang/blaze3d/platform/Window;getHeight()I"))
-    private int arcmenu$projectionHeight(Window window) {
+    @Redirect(method = "getProjectionMatrix", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/Window;getHeight()I"))
+    private int arcmenu$projectionHeight(Window window)
+    {
         var viewport = EditorViewport.physical(window);
         return viewport == null ? window.getHeight() : viewport.height();
     }

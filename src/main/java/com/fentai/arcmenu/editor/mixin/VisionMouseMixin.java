@@ -10,27 +10,40 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(MouseHandler.class)
-abstract class VisionMouseMixin {
-    @Shadow private double accumulatedDX;
-    @Shadow private double accumulatedDY;
+abstract class VisionMouseMixin
+{
+    @Shadow
+    private double accumulatedDX;
+    @Shadow
+    private double accumulatedDY;
 
     @Inject(method = "handleAccumulatedMovement", at = @At("HEAD"))
-    private void arcmenu$sampleNativePointer(CallbackInfo info) {
+    private void arcmenu$sampleNativePointer(CallbackInfo info)
+    {
         VisionCursorClient.sampleMouse();
     }
 
     @Inject(method = "grabMouse", at = @At("HEAD"), cancellable = true)
-    private void arcmenu$keepVisionPointerFree(CallbackInfo info) {
-        if (VisionCursorClient.active()) info.cancel();
+    private void arcmenu$keepVisionPointerFree(CallbackInfo info)
+    {
+        if (VisionCursorClient.active())
+        {
+            info.cancel();
+        }
     }
 
     @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
-    private void arcmenu$clickVisionCursor(long window, MouseButtonInfo button, int action, CallbackInfo info) {
-        if (VisionCursorClient.controlling()) {
+    private void arcmenu$clickVisionCursor(long window, MouseButtonInfo button, int action, CallbackInfo info)
+    {
+        if (VisionCursorClient.controlling())
+        {
             VisionCursorClient.sampleMouse();
             accumulatedDX = 0;
             accumulatedDY = 0;
         }
-        if (VisionCursorClient.button(button.button(), action, button.modifiers())) info.cancel();
+        if (VisionCursorClient.button(button.button(), action, button.modifiers()))
+        {
+            info.cancel();
+        }
     }
 }

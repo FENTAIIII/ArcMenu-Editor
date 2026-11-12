@@ -18,11 +18,16 @@ import java.util.Map;
 import java.util.HashMap;
 
 @Mixin(GuiRenderer.class)
-abstract class VisionGuiRendererMixin {
-    @Shadow @Final @Mutable private Map<Class<? extends PictureInPictureRenderState>, PictureInPictureRenderer<?>> pictureInPictureRenderers;
+abstract class VisionGuiRendererMixin
+{
+    @Shadow
+    @Final
+    @Mutable
+    private Map<Class<? extends PictureInPictureRenderState>, PictureInPictureRenderer<?>> pictureInPictureRenderers;
 
     @Inject(method = "<init>", at = @At("RETURN"))
-    private void arcmenu$registerMenuRenderer(CallbackInfo info) {
+    private void arcmenu$registerMenuRenderer(CallbackInfo info)
+    {
         var renderers = new HashMap<>(pictureInPictureRenderers);
         renderers.put(VisionSceneRenderState.class,
                 new VisionSceneRenderer(Minecraft.getInstance().getEntityRenderDispatcher()));

@@ -8,32 +8,36 @@ import net.minecraft.resources.Identifier;
 
 import java.util.Arrays;
 
-public record EditorPayload(byte[] data) implements CustomPacketPayload {
+public record EditorPayload(byte[] data) implements CustomPacketPayload
+{
     public static final Type<EditorPayload> TYPE = new Type<>(Identifier.parse(EditorProtocol.CHANNEL));
-    public static final StreamCodec<RegistryFriendlyByteBuf, EditorPayload> CODEC = StreamCodec.of(
-            (buffer, payload) -> buffer.writeBytes(payload.data),
-            buffer -> {
+    public static final StreamCodec<RegistryFriendlyByteBuf, EditorPayload> CODEC = StreamCodec
+            .of((buffer, payload) -> buffer.writeBytes(payload.data), buffer ->
+            {
                 int size = buffer.readableBytes();
-                if (size < 1 || size > EditorProtocol.MAX_PACKET_BYTES) {
+                if (size < 1 || size > EditorProtocol.MAX_PACKET_BYTES)
+                {
                     throw new IllegalArgumentException("invalid ArcMenu editor payload size: " + size);
                 }
                 byte[] data = new byte[size];
                 buffer.readBytes(data);
                 return new EditorPayload(data);
-            }
-    );
+            });
 
-    public EditorPayload {
+    public EditorPayload
+    {
         data = Arrays.copyOf(data, data.length);
     }
 
     @Override
-    public byte[] data() {
+    public byte[] data()
+    {
         return Arrays.copyOf(data, data.length);
     }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
+    public Type<? extends CustomPacketPayload> type()
+    {
         return TYPE;
     }
 }

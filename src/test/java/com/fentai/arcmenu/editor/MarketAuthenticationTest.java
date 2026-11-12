@@ -13,8 +13,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class MarketAuthenticationTest {
-    @Test void successfulSignInDoesNotRetry() {
+class MarketAuthenticationTest
+{
+    @Test
+    void successfulSignInDoesNotRetry()
+    {
         var queue = new Tasks();
         var response = new JsonObject();
         var result = MarketAuthentication.retry(() -> CompletableFuture.completedFuture(response),
@@ -24,7 +27,9 @@ class MarketAuthenticationTest {
         assertTrue(queue.isEmpty());
     }
 
-    @Test void rejectedCredentialsPreserveTheirCauseWithoutRetrying() {
+    @Test
+    void rejectedCredentialsPreserveTheirCauseWithoutRetrying()
+    {
         var queue = new Tasks();
         var rejected = new IllegalStateException("Session rejected");
         var result = MarketAuthentication.retry(() -> CompletableFuture.failedFuture(new CompletionException(rejected)),
@@ -33,13 +38,16 @@ class MarketAuthenticationTest {
         assertTrue(queue.isEmpty());
     }
 
-    @Test void transientFailuresHaveExactlyOneDelayedRetryAndKeepTheFinalCause() {
+    @Test
+    void transientFailuresHaveExactlyOneDelayedRetryAndKeepTheFinalCause()
+    {
         var queue = new Tasks();
         var attempts = new AtomicInteger();
         var retryStages = new AtomicInteger();
         var firstFailure = new IOException("Temporary session outage");
         var secondFailure = new IOException("Still unavailable");
-        var result = MarketAuthentication.retry(() -> CompletableFuture.failedFuture(
+        var result = MarketAuthentication.retry(
+                () -> CompletableFuture.failedFuture(
                         new CompletionException(attempts.incrementAndGet() == 1 ? firstFailure : secondFailure)),
                 error -> error instanceof IOException, retryStages::incrementAndGet, queue);
         assertFalse(result.isDone());
@@ -52,36 +60,50 @@ class MarketAuthenticationTest {
         assertTrue(queue.isEmpty());
     }
 
-    @Test void retryCanSucceedAfterASynchronouslyThrownTransientFailure() {
+    @Test
+    void retryCanSucceedAfterASynchronouslyThrownTransientFailure()
+    {
         var queue = new Tasks();
         var attempts = new AtomicInteger();
         var response = new JsonObject();
-        var result = MarketAuthentication.retry(() -> {
-            if (attempts.incrementAndGet() == 1) throw new CompletionException(new IOException("Temporary outage"));
+        var result = MarketAuthentication.retry(() ->
+        {
+            if (attempts.incrementAndGet() == 1)
+            {
+                throw new CompletionException(new IOException("Temporary outage"));
+            }
             return CompletableFuture.completedFuture(response);
-        }, error -> error instanceof IOException, () -> {}, queue);
+        }, error -> error instanceof IOException, () ->
+        {}, queue);
         queue.runNext();
         assertSame(response, result.join());
         assertEquals(2, attempts.get());
     }
 
-    @Test void cancellationStopsTheCurrentAuthenticationRequest() {
+    @Test
+    void cancellationStopsTheCurrentAuthenticationRequest()
+    {
         var queue = new Tasks();
         var source = new CompletableFuture<JsonObject>();
-        var result = MarketAuthentication.retry(() -> source, error -> true, () -> {}, queue);
+        var result = MarketAuthentication.retry(() -> source, error -> true, () ->
+        {}, queue);
         assertTrue(result.cancel(true));
         assertTrue(source.isCancelled());
         assertTrue(result.isCancelled());
         assertTrue(queue.isEmpty());
     }
 
-    @Test void cancellationDuringTheRetryDelayPreventsAnotherRequest() {
+    @Test
+    void cancellationDuringTheRetryDelayPreventsAnotherRequest()
+    {
         var queue = new Tasks();
         var attempts = new AtomicInteger();
-        var result = MarketAuthentication.retry(() -> {
+        var result = MarketAuthentication.retry(() ->
+        {
             attempts.incrementAndGet();
             return CompletableFuture.failedFuture(new IOException("Temporary outage"));
-        }, error -> true, () -> {}, queue);
+        }, error -> true, () ->
+        {}, queue);
         result.cancel(true);
         queue.runNext();
         assertEquals(1, attempts.get());
@@ -89,13 +111,16 @@ class MarketAuthenticationTest {
         assertTrue(queue.isEmpty());
     }
 
-    @Test void cancellationAlsoStopsAnAlreadyRunningSecondAttempt() {
+    @Test
+    void cancellationAlsoStopsAnAlreadyRunningSecondAttempt()
+    {
         var queue = new Tasks();
         var attempts = new AtomicInteger();
         var second = new CompletableFuture<JsonObject>();
         var result = MarketAuthentication.retry(() -> attempts.incrementAndGet() == 1
-                ? CompletableFuture.failedFuture(new IOException("Temporary outage")) : second,
-                error -> true, () -> {}, queue);
+                ? CompletableFuture.failedFuture(new IOException("Temporary outage"))
+                : second, error -> true, () ->
+                {}, queue);
         queue.runNext();
         result.cancel(true);
         assertTrue(second.isCancelled());
@@ -103,27 +128,52 @@ class MarketAuthenticationTest {
         assertEquals(2, attempts.get());
     }
 
-    @Test void lateUncancellableResultsCannotChangeCancelledAuthentication() {
+    @Test
+    void lateUncancellableResultsCannotChangeCancelledAuthentication()
+    {
         var queue = new Tasks();
-        var source = new CompletableFuture<JsonObject>() {
-            @Override public boolean cancel(boolean mayInterruptIfRunning) { return false; }
+        var source = new CompletableFuture<JsonObject>()
+        {
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning)
+            {
+                return false;
+            }
         };
-        var result = MarketAuthentication.retry(() -> source, error -> true, () -> {}, queue);
+        var result = MarketAuthentication.retry(() -> source, error -> true, () ->
+        {}, queue);
         result.cancel(true);
         source.complete(new JsonObject());
         assertTrue(result.isCancelled());
         assertTrue(queue.isEmpty());
     }
 
-    @Test void retryDelayCannotBeNegative() {
-        assertThrows(IllegalArgumentException.class, () -> MarketAuthentication.retry(
-                () -> CompletableFuture.completedFuture(new JsonObject()), error -> true, () -> {}, Duration.ofMillis(-1)));
+    @Test
+    void retryDelayCannotBeNegative()
+    {
+        assertThrows(IllegalArgumentException.class, () -> MarketAuthentication
+                .retry(() -> CompletableFuture.completedFuture(new JsonObject()), error -> true, () ->
+                {}, Duration.ofMillis(-1)));
     }
 
-    private static final class Tasks implements Executor {
+    private static final class Tasks implements Executor
+    {
         private final ArrayDeque<Runnable> pending = new ArrayDeque<>();
-        @Override public void execute(Runnable task) { pending.add(task); }
-        boolean isEmpty() { return pending.isEmpty(); }
-        void runNext() { pending.remove().run(); }
+
+        @Override
+        public void execute(Runnable task)
+        {
+            pending.add(task);
+        }
+
+        boolean isEmpty()
+        {
+            return pending.isEmpty();
+        }
+
+        void runNext()
+        {
+            pending.remove().run();
+        }
     }
 }

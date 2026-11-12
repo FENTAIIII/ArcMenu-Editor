@@ -4,8 +4,11 @@ import com.fentai.arcmenu.protocol.EffectProtocol;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class EffectPlaybackInputTest {
-    @Test void onlyAnActivePlaybackCapturesShiftSwap() {
+class EffectPlaybackInputTest
+{
+    @Test
+    void onlyAnActivePlaybackCapturesShiftSwap()
+    {
         var input = new EffectPlaybackInput();
         assertNull(input.poll(true, true, true));
         input.update(new EffectProtocol.Playback(17));
@@ -18,7 +21,9 @@ class EffectPlaybackInputTest {
         assertNull(input.poll(true, true, true));
     }
 
-    @Test void typingAndUnfocusedKeysCannotExitPlayback() {
+    @Test
+    void typingAndUnfocusedKeysCannotExitPlayback()
+    {
         var input = new EffectPlaybackInput();
         input.update(new EffectProtocol.Playback(9));
         input.poll(true, false, false);
@@ -31,7 +36,9 @@ class EffectPlaybackInputTest {
         assertEquals(new EffectProtocol.Exit(9), input.poll(true, true, true));
     }
 
-    @Test void replacementAndDisconnectDiscardOldPlaybackCapture() {
+    @Test
+    void replacementAndDisconnectDiscardOldPlaybackCapture()
+    {
         var input = new EffectPlaybackInput();
         input.update(new EffectProtocol.Playback(2));
         input.poll(true, true, false);

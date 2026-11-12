@@ -8,9 +8,11 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class EditorLayoutTest {
+class EditorLayoutTest
+{
     @Test
-    void releaseDefaultsMatchTheValidatedFullScreenLayout() {
+    void releaseDefaultsMatchTheValidatedFullScreenLayout()
+    {
         EditorLayout layout = new EditorLayout();
         assertEquals(92, layout.toolsWidth());
         assertEquals(240, layout.inspectorWidth());
@@ -21,7 +23,8 @@ class EditorLayoutTest {
     }
 
     @Test
-    void gameOpeningRemainsExact16By9AcrossDockSizes() {
+    void gameOpeningRemainsExact16By9AcrossDockSizes()
+    {
         EditorLayout layout = new EditorLayout();
         assertExactAndContained(layout.calculate(1920, 1080));
 
@@ -32,7 +35,8 @@ class EditorLayoutTest {
     }
 
     @Test
-    void projectPreviewUsesTheSameCenteredSixteenByNineAperture() {
+    void projectPreviewUsesTheSameCenteredSixteenByNineAperture()
+    {
         assertEquals(new EditorLayout.Rect(5, 3, 416, 234),
                 EditorLayout.fit16By9(new EditorLayout.Rect(0, 0, 427, 241)));
         assertEquals(new EditorLayout.Rect(0, 0, 1280, 720),
@@ -40,7 +44,8 @@ class EditorLayoutTest {
     }
 
     @Test
-    void virtualScreenUsesUniformScaleAndIndependentOffsets() {
+    void virtualScreenUsesUniformScaleAndIndependentOffsets()
+    {
         EditorLayout editor = new EditorLayout();
         EditorLayout.Layout layout = editor.calculate(1920, 1080);
         editor.virtualScreenScale(0.427);
@@ -50,14 +55,15 @@ class EditorLayoutTest {
         EditorLayout.ScreenRect screen = editor.virtualScreen(layout);
         assertEquals(screen.width() * 9.0, screen.height() * 16.0, 1e-9);
         assertEquals(layout.viewport().width() * 0.427, screen.width(), 1e-9);
-        assertEquals(layout.viewport().x() + layout.viewport().width() / 2.0 + 3.25,
-                screen.x() + screen.width() / 2.0, 1e-9);
-        assertEquals(layout.viewport().y() + layout.viewport().height() / 2.0 + 2.5,
-                screen.y() + screen.height() / 2.0, 1e-9);
+        assertEquals(layout.viewport().x() + layout.viewport().width() / 2.0 + 3.25, screen.x() + screen.width() / 2.0,
+                1e-9);
+        assertEquals(layout.viewport().y() + layout.viewport().height() / 2.0 + 2.5, screen.y() + screen.height() / 2.0,
+                1e-9);
     }
 
     @Test
-    void virtualScreenCalibrationPersists(@TempDir Path directory) {
+    void virtualScreenCalibrationPersists(@TempDir Path directory)
+    {
         Path file = directory.resolve("arcmenu-editor.properties");
         EditorLayout saved = new EditorLayout();
         saved.virtualScreenScale(0.43125);
@@ -72,7 +78,8 @@ class EditorLayoutTest {
         assertEquals(2.125, loaded.virtualScreenOffsetY(), 1e-12);
     }
 
-    private static void assertExactAndContained(EditorLayout.Layout layout) {
+    private static void assertExactAndContained(EditorLayout.Layout layout)
+    {
         EditorLayout.Rect view = layout.viewport();
         EditorLayout.Rect host = layout.viewportHost();
         assertEquals(0, view.width() % 16);

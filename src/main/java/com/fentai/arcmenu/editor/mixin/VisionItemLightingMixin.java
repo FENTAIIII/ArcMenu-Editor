@@ -11,10 +11,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(DisplayRenderer.ItemDisplayRenderer.class)
-abstract class VisionItemLightingMixin {
+abstract class VisionItemLightingMixin
+{
     @Inject(method = "submitInner(Lnet/minecraft/client/renderer/entity/state/ItemDisplayEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;IF)V", at = @At("HEAD"))
-    private void arcmenu$inventoryNormals(ItemDisplayEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector,
-                                         int light, float progress, CallbackInfo info) {
+    private void arcmenu$inventoryNormals(ItemDisplayEntityRenderState state, PoseStack poseStack,
+            SubmitNodeCollector collector, int light, float progress, CallbackInfo info)
+    {
         VisionItemLighting.capture(state, poseStack);
     }
 }

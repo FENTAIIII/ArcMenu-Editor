@@ -6,10 +6,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-final class VisionSceneMathTest {
-    @Test void centerRayMatchesFixedCameraAtAnyRotation() {
-        for (float yaw : new float[]{-170, -90, 0, 65, 170}) {
-            for (float pitch : new float[]{-60, 0, 40}) {
+final class VisionSceneMathTest
+{
+    @Test
+    void centerRayMatchesFixedCameraAtAnyRotation()
+    {
+        for (float yaw : new float[] { -170, -90, 0, 65, 170 })
+        {
+            for (float pitch : new float[] { -60, 0, 40 })
+            {
                 var matrix = VisionSceneMath.viewProjection(yaw, pitch, 70, 427, 241);
                 var aim = VisionCursorMath.aim(new VisionCursorMath.Point(640.5, 360.5), 1281, 721, matrix);
                 assertEquals(yaw, aim.yaw(), .0001);
@@ -18,9 +23,14 @@ final class VisionSceneMathTest {
         }
     }
 
-    @Test void nonDivisibleGuiScaleKeepsVisibleElementAndClickOnSameRay() {
-        int width = 1281, height = 721, scale = 3;
-        int guiWidth = Math.ceilDiv(width, scale), guiHeight = Math.ceilDiv(height, scale);
+    @Test
+    void nonDivisibleGuiScaleKeepsVisibleElementAndClickOnSameRay()
+    {
+        int width = 1281;
+        int height = 721;
+        int scale = 3;
+        int guiWidth = Math.ceilDiv(width, scale);
+        int guiHeight = Math.ceilDiv(height, scale);
         var matrix = VisionSceneMath.viewProjection(0, 0, 70, guiWidth, guiHeight);
         var element = new Vector3f(25, 15, 100);
         var projected = matrix.transformProject(new Vector3f(element));
@@ -32,7 +42,9 @@ final class VisionSceneMathTest {
         assertTrue(cursor.y() < height / 2.0);
     }
 
-    @Test void fixedProjectionUsesSeventyDegreeVerticalField() {
+    @Test
+    void fixedProjectionUsesSeventyDegreeVerticalField()
+    {
         var matrix = VisionSceneMath.viewProjection(0, 0, 70, 16, 9);
         var upperEdge = VisionCursorMath.aim(new VisionCursorMath.Point(800, 0), 1600, 900, matrix);
         assertEquals(-35, upperEdge.pitch(), .0001);

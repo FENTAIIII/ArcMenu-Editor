@@ -16,17 +16,19 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
-abstract class GameRendererMixin {
-    @Inject(method = "render", at = @At(value = "INVOKE",
-            target = "Lcom/mojang/blaze3d/systems/CommandEncoder;clearDepthTexture(Lcom/mojang/blaze3d/textures/GpuTexture;D)V"))
-    private void arcmenu$composeEditorWorld(DeltaTracker tracker, boolean advanceGameTime, CallbackInfo info) {
+abstract class GameRendererMixin
+{
+    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/CommandEncoder;clearDepthTexture(Lcom/mojang/blaze3d/textures/GpuTexture;D)V"))
+    private void arcmenu$composeEditorWorld(DeltaTracker tracker, boolean advanceGameTime, CallbackInfo info)
+    {
         EditorWorldCompositor.compose();
     }
 
-    @Redirect(method = "render", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/Gui;render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V"))
-    private void arcmenu$hideVanillaHudInEditor(Gui gui, GuiGraphics graphics, DeltaTracker tracker) {
-        if (!(EditorScreen.isEditor(Minecraft.getInstance().screen))) {
+    @Redirect(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V"))
+    private void arcmenu$hideVanillaHudInEditor(Gui gui, GuiGraphics graphics, DeltaTracker tracker)
+    {
+        if (!(EditorScreen.isEditor(Minecraft.getInstance().screen)))
+        {
             VisionSceneClient.extract(graphics);
             gui.render(graphics, tracker);
         }

@@ -21,7 +21,7 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
         if (target == '26.3') exclude '**/VisionTextInput.java'
         if (usesModernRenderer) exclude '**/mixin/GameRendererMixin.java'
         filter { String line ->
-            if (usesModernRenderer) line = line.replace('return client.options.hideGui;', 'return client.gui.hud.isHidden();').replace('client.options.hideGui=value;', 'if(client.gui.hud.isHidden()!=value)client.gui.hud.toggle();').replace('import net.minecraft.client.gui.Gui;', 'import net.minecraft.client.gui.Hud;').replace('@Mixin(Gui.class)', '@Mixin(Hud.class)')
+            if (usesModernRenderer) line = line.replace('return client.options.hideGui;', 'return client.gui.hud.isHidden();').replace('client.options.hideGui = value;', 'if (client.gui.hud.isHidden() != value) { client.gui.hud.toggle(); }').replace('import net.minecraft.client.gui.Gui;', 'import net.minecraft.client.gui.Hud;').replace('@Mixin(Gui.class)', '@Mixin(Hud.class)')
             if (target == '26.3') line = line.replace('import org.lwjgl.glfw.GLFW;', 'import com.mojang.blaze3d.platform.InputConstants;').replace('GLFW.GLFW_', 'InputConstants.').replace('InputConstants.KEY_ENTER', 'InputConstants.KEY_RETURN').replace('InputConstants.KEY_EQUAL', 'InputConstants.KEY_EQUALS').replace('InputConstants.KEY_LEFT_BRACKET', 'InputConstants.KEY_LBRACKET').replace('InputConstants.KEY_RIGHT_BRACKET', 'InputConstants.KEY_RBRACKET').replace('InputConstants.KEY_PAGE_UP', 'InputConstants.KEY_PAGEUP').replace('InputConstants.KEY_PAGE_DOWN', 'InputConstants.KEY_PAGEDOWN').replace('InputConstants.KEY_KP_0', 'InputConstants.KEY_NUMPAD0').replace('InputConstants.KEY_KP_ADD', 'InputConstants.KEY_ADD').replace('InputConstants.KEY_KP_SUBTRACT', '86')
             if (target == '26.3') line = line.replace('InputConstants.isKeyDown(minecraft.getWindow(),', 'InputConstants.isKeyDown(')
             if (usesModernRenderer) line = line.replace('client.gameRenderer.getMainCamera()', 'client.gameRenderer.mainCamera()')
@@ -29,8 +29,8 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
             if (usesModernRenderer) line = line.replace('client.gameRenderer.getLighting()', 'client.gameRenderer.lighting()')
             if (target == '26.3') line = line.replace('pose.mulPose(', 'pose.rotate(')
             if (!usesModernRenderer) {
-                line = line.replace('public VisionSceneRenderer(EntityRenderDispatcher dispatcher) { this.dispatcher = dispatcher; }',
-                        'public VisionSceneRenderer(EntityRenderDispatcher dispatcher) { super(Minecraft.getInstance().renderBuffers().bufferSource()); this.dispatcher = dispatcher; }')
+                line = line.replace('        this.dispatcher = dispatcher;',
+                        '        super(Minecraft.getInstance().renderBuffers().bufferSource()); this.dispatcher = dispatcher;')
                         .replace('renderToTexture(VisionSceneRenderState state, PoseStack pose, SubmitNodeCollector collector)',
                                 'renderToTexture(VisionSceneRenderState state, PoseStack pose)')
                         .replace('        submitScene(state, pose, collector);',
@@ -53,8 +53,8 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
                     .replace('ProjectionMatrixBuffer', 'PerspectiveProjectionMatrixBuffer')
                     .replace('import net.minecraft.client.renderer.Projection;', 'import org.joml.Matrix4f;')
                     .replace('Projection projection = new Projection()', 'Matrix4f projection = new Matrix4f()')
-                    .replace('projection.setupPerspective(.05f, 1024f, scene.verticalFov(), state.viewport().width(), state.viewport().height());',
-                            'projection.setPerspective((float) Math.toRadians(scene.verticalFov()), state.viewport().width() / (float) state.viewport().height(), .05f, 1024f);')
+                    .replace('projection.setupPerspective(.05f, 1024f, scene.verticalFov(), viewport.width(), viewport.height());',
+                            'projection.setPerspective((float) Math.toRadians(scene.verticalFov()), viewport.width() / (float) viewport.height(), .05f, 1024f);')
                     .replace('addPicturesInPictureState(', 'submitPicturesInPictureState(')
                     .replace('camera.orientation.set(orientation);', 'camera.orientation = orientation;')
         }
@@ -69,7 +69,7 @@ def prepare = tasks.register('prepareVersionSources', Sync) {
     if (usesModernRenderer) from('src/compat/26.2/java') {
         filter { String line ->
             if (target != '26.3') return line
-            return line.replace('false, main.getColorTexture().getFormat()', 'main.getColorTexture().getFormat(), null')
+            return line.replace('false, colorFormat)', 'colorFormat, null)')
                     .replace('withSampler("InSampler")', 'withUniform("InSampler", UniformType.COMBINED_IMAGE_SAMPLER)')
                     .replace('pass.setPipeline(VIEWPORT_BLIT)', 'pass.setPipeline(RenderSystem.getCompiledPipeline(VIEWPORT_BLIT))')
                     .replace('pass.bindTexture(', 'pass.setUniform(')

@@ -15,17 +15,33 @@ import java.awt.Font;
 import java.awt.font.FontRenderContext;
 import java.awt.image.BufferedImage;
 
-class AuiSurfaceRendererTest {
-    @Test void physicalGlyphPixelsSurviveFractionalDocumentScalesAndPositions() {
+class AuiSurfaceRendererTest
+{
+    @Test
+    void physicalGlyphPixelsSurviveFractionalDocumentScalesAndPositions()
+    {
         var atlas = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) atlas.setRGB(x, y, 0xffff00ff);
-        for (int y = 0; y < 11; y++) for (int x = 0; x < 7; x++) {
-            int alpha = x == 1 || x == 5 || y == 5 ? 255 : x == 2 || x == 4 ? 96 : 0;
-            atlas.setRGB(x + 3, y + 2, (alpha << 24) | 0xffffff);
+        for (int y = 0; y < 16; y++)
+        {
+            for (int x = 0; x < 16; x++)
+            {
+                atlas.setRGB(x, y, 0xffff00ff);
+            }
         }
-        for (float scale : new float[]{0.5f, 0.75f, 1, 1.25f, 4f / 3f, 1.5f, 2, 2.25f, 3}) {
-            for (int tint : new int[]{0xffffffff, 0xff2846bd, 0x802846bd}) {
-                for (int deviceX : new int[]{12, 13, 17}) {
+        for (int y = 0; y < 11; y++)
+        {
+            for (int x = 0; x < 7; x++)
+            {
+                int alpha = x == 1 || x == 5 || y == 5 ? 255 : x == 2 || x == 4 ? 96 : 0;
+                atlas.setRGB(x + 3, y + 2, (alpha << 24) | 0xffffff);
+            }
+        }
+        for (float scale : new float[] { 0.5f, 0.75f, 1, 1.25f, 4f / 3f, 1.5f, 2, 2.25f, 3 })
+        {
+            for (int tint : new int[] { 0xffffffff, 0xff2846bd, 0x802846bd })
+            {
+                for (int deviceX : new int[] { 12, 13, 17 })
+                {
                     var renderer = new AuiSurfaceRenderer();
                     renderer.begin(64, 40, scale);
                     var render = RenderHandle.of("font/glyph-test");
@@ -36,37 +52,62 @@ class AuiSurfaceRendererTest {
                             3f / 16, 2f / 16, 10f / 16, 13f / 16, tint);
                     renderer.service().flushTextureBatch(batch, render);
                     renderer.end();
-                    for (int y = 0; y < 40; y++) for (int x = 0; x < 64; x++) {
-                        int glyphX = x - deviceX - 3, glyphY = y - 10;
-                        int sourceAlpha = glyphX >= 0 && glyphX < 7 && glyphY >= 0 && glyphY < 11
-                                ? atlas.getRGB(glyphX + 3, glyphY + 2) >>> 24 : 0;
-                        int expectedAlpha = sourceAlpha * (tint >>> 24) / 255;
-                        assertEquals(expectedAlpha, renderer.image().getRGB(x, y) >>> 24,
-                                "Glyph pixels changed at scale " + scale + " and physical x " + deviceX + " pixel " + x + "," + y);
-                        if (expectedAlpha == 255) assertEquals(tint, renderer.image().getRGB(x, y));
+                    for (int y = 0; y < 40; y++)
+                    {
+                        for (int x = 0; x < 64; x++)
+                        {
+                            int glyphX = x - deviceX - 3;
+                            int glyphY = y - 10;
+                            int sourceAlpha = glyphX >= 0 && glyphX < 7 && glyphY >= 0 && glyphY < 11
+                                    ? atlas.getRGB(glyphX + 3, glyphY + 2) >>> 24
+                                    : 0;
+                            int expectedAlpha = sourceAlpha * (tint >>> 24) / 255;
+                            assertEquals(expectedAlpha, renderer.image().getRGB(x, y) >>> 24,
+                                    "Glyph pixels changed at scale " + scale + " and physical x " + deviceX + " pixel "
+                                            + x + "," + y);
+                            if (expectedAlpha == 255)
+                            {
+                                assertEquals(tint, renderer.image().getRGB(x, y));
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    @Test void clippedTextureWindowsKeepTheirOriginalFractionalDestinationMapping() {
+    @Test
+    void clippedTextureWindowsKeepTheirOriginalFractionalDestinationMapping()
+    {
         var image = new BufferedImage(4, 4, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++) image.setRGB(x, y, 0xffffffff);
+        for (int y = 0; y < 4; y++)
+        {
+            for (int x = 0; x < 4; x++)
+            {
+                image.setRGB(x, y, 0xffffffff);
+            }
+        }
         var renderer = new AuiSurfaceRenderer();
         renderer.begin(16, 16, 1.25);
         var render = RenderHandle.of("clipped-image");
         renderer.service().registerTexture(new AuiSurfaceRenderer.SurfaceTexture(image), "clipped-image");
         var batch = renderer.service().beginTextureBatch(render);
-        renderer.service().emitTextureQuad(batch, new Matrix4f().scale(1.25f, 1.25f, 1),
-                4 / 1.25f, 4 / 1.25f, 6 / 1.25f, 6 / 1.25f, -.25f, -.25f, 1.25f, 1.25f, 0xff2846bd);
+        renderer.service().emitTextureQuad(batch, new Matrix4f().scale(1.25f, 1.25f, 1), 4 / 1.25f, 4 / 1.25f,
+                6 / 1.25f, 6 / 1.25f, -.25f, -.25f, 1.25f, 1.25f, 0xff2846bd);
         renderer.service().flushTextureBatch(batch, render);
         renderer.end();
-        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++)
-            assertEquals(x >= 5 && x < 9 && y >= 5 && y < 9 ? 0xff2846bd : 0, renderer.image().getRGB(x, y));
+        for (int y = 0; y < 16; y++)
+        {
+            for (int x = 0; x < 16; x++)
+            {
+                assertEquals(x >= 5 && x < 9 && y >= 5 && y < 9 ? 0xff2846bd : 0, renderer.image().getRGB(x, y));
+            }
+        }
     }
 
-    @Test void editingResetsTheCaretToTheVisiblePhaseAndIdleTimeContinuesBlinking() {
+    @Test
+    void editingResetsTheCaretToTheVisiblePhaseAndIdleTimeContinuesBlinking()
+    {
         var blink = new AuiCaret.Blink();
         blink.interact(750);
         assertEquals(0, blink.phase(750));
@@ -79,11 +120,15 @@ class AuiSurfaceRendererTest {
         assertEquals(1, blink.phase(1800));
     }
 
-    @Test void insertionCaretRemainsOpaqueAtFractionalGlyphAdvancesAndViewportScales() {
+    @Test
+    void insertionCaretRemainsOpaqueAtFractionalGlyphAdvancesAndViewportScales()
+    {
         var font = new Font(Font.SANS_SERIF, Font.PLAIN, 16);
         var fontContext = new FontRenderContext(null, true, true);
-        for (float scale : new float[]{0.25f, 0.5f, 0.75f, 1, 1.25f, 2, 3}) {
-            for (String prefix : new String[]{"", "i", "il", "ill", "Wi", "iWi", "中i"}) {
+        for (float scale : new float[] { 0.25f, 0.5f, 0.75f, 1, 1.25f, 2, 3 })
+        {
+            for (String prefix : new String[] { "", "i", "il", "ill", "Wi", "iWi", "中i" })
+            {
                 float x = 20.31f + (float) font.getStringBounds(prefix, fontContext).getWidth();
                 var renderer = new AuiSurfaceRenderer();
                 AuiServices.setRender(renderer.service());
@@ -97,56 +142,123 @@ class AuiSurfaceRendererTest {
                 int expectedWidth = Math.max(1, Math.round(0.7f * scale));
                 int row = (int) Math.floor(pose.m11() * 16 + pose.m31());
                 for (int column = expectedRight - expectedWidth; column < expectedRight; column++)
+                {
                     assertTrue((renderer.image().getRGB(column, row) >>> 24) >= 250,
                             "Caret must retain an opaque device pixel at scale " + scale + " after " + prefix);
+                }
                 assertEquals(0, renderer.image().getRGB(expectedRight, row));
             }
         }
     }
 
-    @Test void paintsActualAuiMeshAndPreservesPaintOrder() {
-        var renderer=new AuiSurfaceRenderer();AuiServices.setRender(renderer.service());renderer.begin(64,64,1);
-        var red=renderer.service().beginMesh(MeshMode.QUADS,MeshFormat.POSITION_COLOR);
-        for(float[] p:new float[][]{{4,4},{4,48},{48,48},{48,4}})red.vertex(new Matrix4f(),p[0],p[1],0xffff0000);
+    @Test
+    void paintsActualAuiMeshAndPreservesPaintOrder()
+    {
+        var renderer = new AuiSurfaceRenderer();
+        AuiServices.setRender(renderer.service());
+        renderer.begin(64, 64, 1);
+        var red = renderer.service().beginMesh(MeshMode.QUADS, MeshFormat.POSITION_COLOR);
+        for (float[] p : new float[][] { { 4, 4 }, { 4, 48 }, { 48, 48 }, { 48, 4 } })
+        {
+            red.vertex(new Matrix4f(), p[0], p[1], 0xffff0000);
+        }
         red.submit();
-        var blue=renderer.service().beginMesh(MeshMode.QUADS,MeshFormat.POSITION_COLOR);
-        for(float[] p:new float[][]{{20,20},{20,56},{56,56},{56,20}})blue.vertex(new Matrix4f(),p[0],p[1],0xff0000ff);
-        blue.submit();renderer.end();
-        assertEquals(0xffff0000,renderer.image().getRGB(10,10));assertEquals(0xff0000ff,renderer.image().getRGB(30,30));
-        assertEquals(0,renderer.image().getRGB(60,60));
+        var blue = renderer.service().beginMesh(MeshMode.QUADS, MeshFormat.POSITION_COLOR);
+        for (float[] p : new float[][] { { 20, 20 }, { 20, 56 }, { 56, 56 }, { 56, 20 } })
+        {
+            blue.vertex(new Matrix4f(), p[0], p[1], 0xff0000ff);
+        }
+        blue.submit();
+        renderer.end();
+        assertEquals(0xffff0000, renderer.image().getRGB(10, 10));
+        assertEquals(0xff0000ff, renderer.image().getRGB(30, 30));
+        assertEquals(0, renderer.image().getRGB(60, 60));
     }
-    @Test void cssScissorKeepsOutsidePixelsUntouched() {
-        var renderer=new AuiSurfaceRenderer();AuiServices.setRender(renderer.service());renderer.begin(64,64,2);
-        renderer.clip(new AABB(8,8,8,8));
-        var mesh=renderer.service().beginMesh(MeshMode.QUADS,MeshFormat.POSITION_COLOR);
-        for(float[] p:new float[][]{{0,0},{0,64},{64,64},{64,0}})mesh.vertex(new Matrix4f(),p[0],p[1],0xff227744);
-        mesh.submit();renderer.end();assertEquals(0xff227744,renderer.image().getRGB(20,20));
-        assertEquals(0,renderer.image().getRGB(8,8));assertEquals(0,renderer.image().getRGB(40,40));
+
+    @Test
+    void cssScissorKeepsOutsidePixelsUntouched()
+    {
+        var renderer = new AuiSurfaceRenderer();
+        AuiServices.setRender(renderer.service());
+        renderer.begin(64, 64, 2);
+        renderer.clip(new AABB(8, 8, 8, 8));
+        var mesh = renderer.service().beginMesh(MeshMode.QUADS, MeshFormat.POSITION_COLOR);
+        for (float[] p : new float[][] { { 0, 0 }, { 0, 64 }, { 64, 64 }, { 64, 0 } })
+        {
+            mesh.vertex(new Matrix4f(), p[0], p[1], 0xff227744);
+        }
+        mesh.submit();
+        renderer.end();
+        assertEquals(0xff227744, renderer.image().getRGB(20, 20));
+        assertEquals(0, renderer.image().getRGB(8, 8));
+        assertEquals(0, renderer.image().getRGB(40, 40));
     }
-    @Test void retainedSurfaceIsReusedAtTheSameDimensionsAndCleared() {
-        var renderer=new AuiSurfaceRenderer();renderer.begin(32,24,1);var image=renderer.image();renderer.end();
-        image.setRGB(4,4,0xffabcdef);renderer.begin(32,24,1);assertSame(image,renderer.image());assertEquals(0,image.getRGB(4,4));renderer.end();
-        renderer.begin(48,24,1);assertNotSame(image,renderer.image());renderer.end();
+
+    @Test
+    void retainedSurfaceIsReusedAtTheSameDimensionsAndCleared()
+    {
+        var renderer = new AuiSurfaceRenderer();
+        renderer.begin(32, 24, 1);
+        var image = renderer.image();
+        renderer.end();
+        image.setRGB(4, 4, 0xffabcdef);
+        renderer.begin(32, 24, 1);
+        assertSame(image, renderer.image());
+        assertEquals(0, image.getRGB(4, 4));
+        renderer.end();
+        renderer.begin(48, 24, 1);
+        assertNotSame(image, renderer.image());
+        renderer.end();
     }
-    @Test void documentPoseScaleIsNotAppliedTwiceToOverflowMasks() {
-        var renderer=new AuiSurfaceRenderer();AuiServices.setRender(renderer.service());renderer.begin(128,128,2);
-        var pose=new PoseStack();pose.scale(2,2,1);
-        Mask.testScissorSink=renderer::clip;Mask.pushScissorScale(2,pose);
-        try {
-            Mask.resetDepth(64,64);Mask.pushMask(pose,8,8,16,16,new float[4]);
-            var mesh=renderer.service().beginMesh(MeshMode.QUADS,MeshFormat.POSITION_COLOR);
-            for(float[] p:new float[][]{{0,0},{0,64},{64,64},{64,0}})mesh.vertex(pose.last().pose(),p[0],p[1],0xff227744);
-            mesh.submit();assertEquals(0xff227744,renderer.image().getRGB(20,20));
-            assertEquals(0xff227744,renderer.image().getRGB(45,45));assertEquals(0,renderer.image().getRGB(50,50));
-            Mask.popMask(pose,8,8,16,16,new float[4]);
-        } finally {Mask.popScissorScale();Mask.testScissorSink=null;renderer.end();}
+
+    @Test
+    void documentPoseScaleIsNotAppliedTwiceToOverflowMasks()
+    {
+        var renderer = new AuiSurfaceRenderer();
+        AuiServices.setRender(renderer.service());
+        renderer.begin(128, 128, 2);
+        var pose = new PoseStack();
+        pose.scale(2, 2, 1);
+        Mask.testScissorSink = renderer::clip;
+        Mask.pushScissorScale(2, pose);
+        try
+        {
+            Mask.resetDepth(64, 64);
+            Mask.pushMask(pose, 8, 8, 16, 16, new float[4]);
+            var mesh = renderer.service().beginMesh(MeshMode.QUADS, MeshFormat.POSITION_COLOR);
+            for (float[] p : new float[][] { { 0, 0 }, { 0, 64 }, { 64, 64 }, { 64, 0 } })
+            {
+                mesh.vertex(pose.last().pose(), p[0], p[1], 0xff227744);
+            }
+            mesh.submit();
+            assertEquals(0xff227744, renderer.image().getRGB(20, 20));
+            assertEquals(0xff227744, renderer.image().getRGB(45, 45));
+            assertEquals(0, renderer.image().getRGB(50, 50));
+            Mask.popMask(pose, 8, 8, 16, 16, new float[4]);
+        }
+        finally
+        {
+            Mask.popScissorScale();
+            Mask.testScissorSink = null;
+            renderer.end();
+        }
     }
-    @Test void manyFontColorsKeepCacheBoundedWithoutMutatingDuringCompute() {
-        var image=new BufferedImage(4,4,BufferedImage.TYPE_INT_ARGB);image.setRGB(2,1,0xffffffff);
-        var texture=new AuiSurfaceRenderer.SurfaceTexture(image);
-        for(int i=0;i<2200;i++)assertNotNull(texture.tinted(0xff000000|i));
-        assertEquals(2048,texture.tinted.size());assertEquals(0xff123456,texture.tinted(0xff123456).getRGB(2,1));
-        var cropped=texture.tintedRegion(0xff765432,2,1,1,1);assertEquals(1,cropped.getWidth());assertEquals(0xff765432,cropped.getRGB(0,0));
-        assertSame(cropped,texture.tintedRegion(0xff765432,2,1,1,1));
+
+    @Test
+    void manyFontColorsKeepCacheBoundedWithoutMutatingDuringCompute()
+    {
+        var image = new BufferedImage(4, 4, BufferedImage.TYPE_INT_ARGB);
+        image.setRGB(2, 1, 0xffffffff);
+        var texture = new AuiSurfaceRenderer.SurfaceTexture(image);
+        for (int i = 0; i < 2200; i++)
+        {
+            assertNotNull(texture.tinted(0xff000000 | i));
+        }
+        assertEquals(2048, texture.tinted.size());
+        assertEquals(0xff123456, texture.tinted(0xff123456).getRGB(2, 1));
+        var cropped = texture.tintedRegion(0xff765432, 2, 1, 1, 1);
+        assertEquals(1, cropped.getWidth());
+        assertEquals(0xff765432, cropped.getRGB(0, 0));
+        assertSame(cropped, texture.tintedRegion(0xff765432, 2, 1, 1, 1));
     }
 }

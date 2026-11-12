@@ -9,9 +9,14 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(KeyboardHandler.class)
-abstract class VisionKeyboardMixin {
+abstract class VisionKeyboardMixin
+{
     @Inject(method = "keyPress", at = @At("HEAD"), cancellable = true)
-    private void arcmenu$closeVisionCursor(long window, int action, KeyEvent event, CallbackInfo info) {
-        if (VisionCursorClient.key(event, action)) info.cancel();
+    private void arcmenu$closeVisionCursor(long window, int action, KeyEvent event, CallbackInfo info)
+    {
+        if (VisionCursorClient.key(event, action))
+        {
+            info.cancel();
+        }
     }
 }

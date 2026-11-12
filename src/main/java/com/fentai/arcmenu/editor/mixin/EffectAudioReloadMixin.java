@@ -9,9 +9,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Pack replacements invalidate decoded audio. */
 @Mixin(SoundManager.class)
-abstract class EffectAudioReloadMixin {
-    @Inject(method = {"apply", "reload"}, at = @At("RETURN"))
-    private void arcmenu$invalidateEffectAudio(CallbackInfo info) {
+abstract class EffectAudioReloadMixin
+{
+    @Inject(method = { "apply", "reload" }, at = @At("RETURN"))
+    private void arcmenu$invalidateEffectAudio(CallbackInfo info)
+    {
         EffectAudioAssets.INSTANCE.invalidate();
     }
 }

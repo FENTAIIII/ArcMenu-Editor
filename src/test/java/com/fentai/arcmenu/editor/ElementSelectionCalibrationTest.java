@@ -10,9 +10,11 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ElementSelectionCalibrationTest {
+class ElementSelectionCalibrationTest
+{
     @Test
-    void persistsFourAxesPerKindAndKeepsKindsIndependent(@TempDir Path directory) {
+    void persistsFourAxesPerKindAndKeepsKindsIndependent(@TempDir Path directory)
+    {
         Path file = directory.resolve("selection-calibration.properties");
         ElementSelectionCalibration saved = new ElementSelectionCalibration();
         saved.set(EditorProtocol.KIND_TEXT, 2.5, -1.25, 0.8, 1.15);
@@ -30,11 +32,13 @@ class ElementSelectionCalibrationTest {
     }
 
     @Test
-    void writesACompleteDeveloperEditableSettingsFile(@TempDir Path directory) throws Exception {
+    void writesACompleteDeveloperEditableSettingsFile(@TempDir Path directory) throws Exception
+    {
         Path file = directory.resolve("selection-calibration.properties");
         new ElementSelectionCalibration().save(file);
         String content = Files.readString(file);
-        for (byte kind : ElementSelectionCalibration.KINDS) {
+        for (byte kind : ElementSelectionCalibration.KINDS)
+        {
             String prefix = ElementSelectionCalibration.key(kind);
             assertTrue(content.contains(prefix + ".offset-ratio-x"));
             assertTrue(content.contains(prefix + ".offset-ratio-y"));
@@ -44,7 +48,8 @@ class ElementSelectionCalibrationTest {
     }
 
     @Test
-    void exactMenusDrawRectanglesWithoutTheLegacyCorrection() {
+    void exactMenusDrawRectanglesWithoutTheLegacyCorrection()
+    {
         ElementSelectionCalibration values = new ElementSelectionCalibration();
         assertEquals(ElementSelectionCalibration.IDENTITY, values.forNode(EditorProtocol.KIND_RECTANGLE, true));
         assertEquals(values.get(EditorProtocol.KIND_RECTANGLE), values.forNode(EditorProtocol.KIND_RECTANGLE, false));
@@ -53,7 +58,8 @@ class ElementSelectionCalibrationTest {
     }
 
     @Test
-    void releaseDefaultsMatchTheValidatedClientCalibration() {
+    void releaseDefaultsMatchTheValidatedClientCalibration()
+    {
         ElementSelectionCalibration values = new ElementSelectionCalibration();
         assertEquals(new ElementSelectionCalibration.Calibration(0.0, -0.03, 1.0, 0.9),
                 values.get(EditorProtocol.KIND_RECTANGLE));
@@ -68,7 +74,8 @@ class ElementSelectionCalibrationTest {
     }
 
     @Test
-    void clampsInvalidScaleWithoutDamagingOtherKindSettings() {
+    void clampsInvalidScaleWithoutDamagingOtherKindSettings()
+    {
         ElementSelectionCalibration values = new ElementSelectionCalibration();
         values.set(EditorProtocol.KIND_TEXT, Double.NaN, 3.0, 0.0, Double.POSITIVE_INFINITY);
         assertEquals(new ElementSelectionCalibration.Calibration(0.0, 3.0, 0.01, 1.0),
@@ -77,9 +84,10 @@ class ElementSelectionCalibrationTest {
     }
 
     @Test
-    void proportionalOffsetTracksEachElementSize() {
-        ElementSelectionCalibration.Calibration value =
-                new ElementSelectionCalibration.Calibration(0.1, -0.25, 1.0, 1.0);
+    void proportionalOffsetTracksEachElementSize()
+    {
+        ElementSelectionCalibration.Calibration value = new ElementSelectionCalibration.Calibration(0.1, -0.25, 1.0,
+                1.0);
 
         assertEquals(30.0, value.proxyX(10.0, 200.0), 1.0e-12);
         assertEquals(12.0, value.proxyX(10.0, 20.0), 1.0e-12);
@@ -88,9 +96,10 @@ class ElementSelectionCalibrationTest {
     }
 
     @Test
-    void resizeInverseRemovesBothOffsetRatioAndAxisScale() {
-        ElementSelectionCalibration.Calibration value =
-                new ElementSelectionCalibration.Calibration(0.2, -0.15, 1.25, 0.75);
+    void resizeInverseRemovesBothOffsetRatioAndAxisScale()
+    {
+        ElementSelectionCalibration.Calibration value = new ElementSelectionCalibration.Calibration(0.2, -0.15, 1.25,
+                0.75);
         double nodeX = 20.0;
         double nodeY = -10.0;
         double width = 40.0;

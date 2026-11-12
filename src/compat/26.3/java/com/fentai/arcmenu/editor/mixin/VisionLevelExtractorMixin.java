@@ -10,10 +10,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LevelExtractor.class)
-abstract class VisionLevelExtractorMixin {
+abstract class VisionLevelExtractorMixin
+{
     @Inject(method = "isEntityVisible", at = @At("HEAD"), cancellable = true)
     private void arcmenu$excludeVisionMenu(Entity entity, Frustum frustum, double x, double y, double z,
-                                          float partialTick, long fadeDuration, CallbackInfoReturnable<Boolean> info) {
-        if (VisionSceneClient.owns(entity)) info.setReturnValue(false);
+            float partialTick, long fadeDuration, CallbackInfoReturnable<Boolean> info)
+    {
+        if (VisionSceneClient.owns(entity))
+        {
+            info.setReturnValue(false);
+        }
     }
 }

@@ -4,47 +4,73 @@ import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
 
 /** Shares the docked game rectangle with render mixins without changing GUI dimensions. */
-public final class EditorViewport {
+public final class EditorViewport
+{
     private static volatile EditorLayout.Rect guiRect;
     private static volatile double verticalFov = 70;
 
-    private EditorViewport() {}
+    private EditorViewport()
+    {}
 
-    public static void update(EditorLayout.Rect rect) {
+    public static void update(EditorLayout.Rect rect)
+    {
         guiRect = rect;
     }
 
-    public static double verticalFov() {
+    public static double verticalFov()
+    {
         return verticalFov;
     }
 
-    public static void verticalFov(double value) {
-        if (Double.isFinite(value) && value > 0 && value < 180) verticalFov = value;
+    public static void verticalFov(double value)
+    {
+        if (Double.isFinite(value) && value > 0 && value < 180)
+        {
+            verticalFov = value;
+        }
     }
 
     /** Optional Effect composition crop; ordinary menu editors retain the full source frame. */
-    public static EditorLayout.Rect sourceFrame(int sourceWidth, int sourceHeight) {
+    public static EditorLayout.Rect sourceFrame(int sourceWidth, int sourceHeight)
+    {
         var client = Minecraft.getInstance();
-        if (!(client.screen instanceof EffectEditorScreen screen)) return null;
+        if (!(client.screen instanceof EffectEditorScreen screen))
+        {
+            return null;
+        }
         var plane = ArcMenuEditorClient.EFFECT.viewport();
         var scene = ArcMenuEditorClient.state().snapshot();
         var viewport = guiRect;
-        if (plane == null || scene == null || viewport == null || sourceWidth < 1 || sourceHeight < 1) return null;
-        var base = screen.fitView() ? EffectProjection.fitCrop(sourceWidth, sourceHeight, viewport.width() / (double) viewport.height(),
-                scene.canvasWidth(), scene.canvasHeight(), plane.pixelsPerBlock(), plane.distance(),
-                plane.offsetX(), plane.offsetY(), verticalFov()) : new EditorLayout.Rect(0,0,sourceWidth,sourceHeight);
-        if (!screen.fitView() && screen.viewZoom()==1 && screen.viewPanX()==0 && screen.viewPanY()==0) return null;
-        return EffectViewNavigation.crop(base,sourceWidth,sourceHeight,screen.viewZoom(),screen.viewPanX(),screen.viewPanY());
+        if (plane == null || scene == null || viewport == null || sourceWidth < 1 || sourceHeight < 1)
+        {
+            return null;
+        }
+        var base = screen.fitView()
+                ? EffectProjection.fitCrop(sourceWidth, sourceHeight, viewport.width() / (double) viewport.height(),
+                        scene.canvasWidth(), scene.canvasHeight(), plane.pixelsPerBlock(), plane.distance(),
+                        plane.offsetX(), plane.offsetY(), verticalFov())
+                : new EditorLayout.Rect(0, 0, sourceWidth, sourceHeight);
+        if (!screen.fitView() && screen.viewZoom() == 1 && screen.viewPanX() == 0 && screen.viewPanY() == 0)
+        {
+            return null;
+        }
+        return EffectViewNavigation.crop(base, sourceWidth, sourceHeight, screen.viewZoom(), screen.viewPanX(),
+                screen.viewPanY());
     }
 
-    public static void clear() {
+    public static void clear()
+    {
         guiRect = null;
         EditorWorldCompositor.release();
     }
 
-    public static Physical physical(Window window) {
+    public static Physical physical(Window window)
+    {
         EditorLayout.Rect rect = guiRect;
-        if (rect == null || window.getGuiScaledWidth() < 1 || window.getGuiScaledHeight() < 1) return null;
+        if (rect == null || window.getGuiScaledWidth() < 1 || window.getGuiScaledHeight() < 1)
+        {
+            return null;
+        }
 
         double scaleX = window.getWidth() / (double) window.getGuiScaledWidth();
         double scaleY = window.getHeight() / (double) window.getGuiScaledHeight();
@@ -62,9 +88,11 @@ public final class EditorViewport {
         return new Physical(x, y, width, height);
     }
 
-    private static int clamp(int value, int min, int max) {
+    private static int clamp(int value, int min, int max)
+    {
         return Math.max(min, Math.min(value, max));
     }
 
-    public record Physical(int x, int y, int width, int height) {}
+    public record Physical(int x, int y, int width, int height)
+    {}
 }

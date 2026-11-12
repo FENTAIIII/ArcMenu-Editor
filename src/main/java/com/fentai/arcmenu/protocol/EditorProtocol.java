@@ -12,7 +12,8 @@ import java.util.Map;
 import java.nio.charset.StandardCharsets;
 
 /** Versioned, dependency-free protocol shared by Paper and every Fabric adapter. */
-public final class EditorProtocol {
+public final class EditorProtocol
+{
     public static final String CHANNEL = "arcmenu:editor";
     public static final int VERSION = 11;
     public static final String EDITOR_VERSION = "3.4.1";
@@ -91,526 +92,950 @@ public final class EditorProtocol {
     private static final byte ACK = 65;
     private static final byte ERROR = 66;
 
-    private EditorProtocol() {}
+    private EditorProtocol()
+    {}
 
-    public static boolean supportsClient(String clientVersion) {
-        return EDITOR_VERSION.equals(clientVersion) || "3.1.0".equals(clientVersion) || "3.0.6".equals(clientVersion) || "3.0.5".equals(clientVersion) || "3.0.4".equals(clientVersion) || "3.0.3".equals(clientVersion) || "3.0.2".equals(clientVersion) || "3.0.1".equals(clientVersion) || "3.0.0".equals(clientVersion) || "1.2.1".equals(clientVersion) || "1.2.0".equals(clientVersion) || "1.1.0".equals(clientVersion) || "1.0.1".equals(clientVersion) || "1.0.0".equals(clientVersion);
+    public static boolean supportsClient(String clientVersion)
+    {
+        return EDITOR_VERSION.equals(clientVersion) || "3.1.0".equals(clientVersion) || "3.0.6".equals(clientVersion)
+                || "3.0.5".equals(clientVersion) || "3.0.4".equals(clientVersion) || "3.0.3".equals(clientVersion)
+                || "3.0.2".equals(clientVersion) || "3.0.1".equals(clientVersion) || "3.0.0".equals(clientVersion)
+                || "1.2.1".equals(clientVersion) || "1.2.0".equals(clientVersion) || "1.1.0".equals(clientVersion)
+                || "1.0.1".equals(clientVersion) || "1.0.0".equals(clientVersion);
     }
 
     /** Separate from malformed packets so the server can notify old editors through vanilla chat. */
-    public static final class ProtocolMismatchException extends IllegalArgumentException {
-        public ProtocolMismatchException(int version) {
+    public static final class ProtocolMismatchException extends IllegalArgumentException
+    {
+        public ProtocolMismatchException(int version)
+        {
             super("protocol mismatch: client=" + version + ", server=" + VERSION);
         }
     }
 
-    public static final class StringLimitException extends IllegalArgumentException {
+    public static final class StringLimitException extends IllegalArgumentException
+    {
         private final String field;
         private final int byteCount;
-        public StringLimitException(String field, int byteCount) {
-            super("Editor field " + field + " is " + byteCount + " UTF-8 bytes; maximum is " + MAX_STRING_BYTES + " bytes");
+
+        public StringLimitException(String field, int byteCount)
+        {
+            super("Editor field " + field + " is " + byteCount + " UTF-8 bytes; maximum is " + MAX_STRING_BYTES
+                    + " bytes");
             this.field = field;
             this.byteCount = byteCount;
         }
-        public String field() { return field; }
-        public int byteCount() { return byteCount; }
+
+        public String field()
+        {
+            return field;
+        }
+
+        public int byteCount()
+        {
+            return byteCount;
+        }
     }
 
-    public static final class PacketLimitException extends IllegalArgumentException {
+    public static final class PacketLimitException extends IllegalArgumentException
+    {
         private final int byteCount;
-        public PacketLimitException(int byteCount) {
+
+        public PacketLimitException(int byteCount)
+        {
             super("Editor packet is " + byteCount + " bytes; maximum is " + MAX_PACKET_BYTES + " bytes");
             this.byteCount = byteCount;
         }
-        public int byteCount() { return byteCount; }
+
+        public int byteCount()
+        {
+            return byteCount;
+        }
     }
 
-    public record WireFrame(int messageId, int index, int count, byte[] data) {
-        public WireFrame {
+    public record WireFrame(int messageId, int index, int count, byte[] data)
+    {
+        public WireFrame
+        {
             data = data.clone();
-            if (index < 0 || count < 1 || index >= count || count > 256 || data.length > MAX_FRAME_DATA) {
+            if (index < 0 || count < 1 || index >= count || count > 256 || data.length > MAX_FRAME_DATA)
+            {
                 throw new IllegalArgumentException("invalid editor frame");
             }
         }
-        @Override public byte[] data() { return data.clone(); }
+
+        @Override
+        public byte[] data()
+        {
+            return data.clone();
+        }
     }
 
     /** Splits a logical response below the conservative Bukkit plugin-message payload ceiling. */
-    public static List<byte[]> frame(int messageId, byte[] packet) {
-        if (packet.length > MAX_PACKET_BYTES) throw new PacketLimitException(packet.length);
+    public static List<byte[]> frame(int messageId, byte[] packet)
+    {
+        if (packet.length > MAX_PACKET_BYTES)
+        {
+            throw new PacketLimitException(packet.length);
+        }
         int count = Math.max(1, (packet.length + MAX_FRAME_DATA - 1) / MAX_FRAME_DATA);
-        if (count > 256) throw new IllegalArgumentException("too many editor frames");
+        if (count > 256)
+        {
+            throw new IllegalArgumentException("too many editor frames");
+        }
         var result = new ArrayList<byte[]>(count);
-        for (int index = 0; index < count; index++) {
+        for (int index = 0; index < count; index++)
+        {
             int start = index * MAX_FRAME_DATA;
             int length = Math.min(MAX_FRAME_DATA, packet.length - start);
-            try {
+            try
+            {
                 var bytes = new ByteArrayOutputStream(length + 16);
                 var out = new DataOutputStream(bytes);
-                out.writeInt(FRAME_MAGIC); out.writeByte(VERSION); out.writeInt(messageId);
-                out.writeShort(index); out.writeShort(count); out.writeShort(length); out.write(packet, start, length);
-                out.flush(); result.add(bytes.toByteArray());
-            } catch (IOException impossible) { throw new IllegalStateException(impossible); }
+                out.writeInt(FRAME_MAGIC);
+                out.writeByte(VERSION);
+                out.writeInt(messageId);
+                out.writeShort(index);
+                out.writeShort(count);
+                out.writeShort(length);
+                out.write(packet, start, length);
+                out.flush();
+                result.add(bytes.toByteArray());
+            }
+            catch (IOException impossible)
+            {
+                throw new IllegalStateException(impossible);
+            }
         }
         return result;
     }
 
-    public static WireFrame decodeFrame(byte[] bytes) {
-        try {
+    public static WireFrame decodeFrame(byte[] bytes)
+    {
+        try
+        {
             var in = new DataInputStream(new ByteArrayInputStream(bytes));
-            if (in.readInt() != FRAME_MAGIC) throw new IllegalArgumentException("invalid editor frame header");
+            if (in.readInt() != FRAME_MAGIC)
+            {
+                throw new IllegalArgumentException("invalid editor frame header");
+            }
             int version = in.readUnsignedByte();
-            if (version != VERSION) throw new ProtocolMismatchException(version);
-            int messageId = in.readInt(); int index = in.readUnsignedShort(); int count = in.readUnsignedShort(); int length = in.readUnsignedShort();
-            if (length > MAX_FRAME_DATA || length != in.available()) throw new IllegalArgumentException("invalid editor frame length");
+            if (version != VERSION)
+            {
+                throw new ProtocolMismatchException(version);
+            }
+            int messageId = in.readInt();
+            int index = in.readUnsignedShort();
+            int count = in.readUnsignedShort();
+            int length = in.readUnsignedShort();
+            if (length > MAX_FRAME_DATA || length != in.available())
+            {
+                throw new IllegalArgumentException("invalid editor frame length");
+            }
             return new WireFrame(messageId, index, count, in.readNBytes(length));
-        } catch (IOException error) { throw new IllegalArgumentException("truncated editor frame", error); }
+        }
+        catch (IOException error)
+        {
+            throw new IllegalArgumentException("truncated editor frame", error);
+        }
     }
 
-    public static boolean isFrame(byte[] bytes) {
-        return bytes != null && bytes.length >= 4 &&
-                (bytes[0] & 255) == (FRAME_MAGIC >>> 24) && (bytes[1] & 255) == (FRAME_MAGIC >>> 16 & 255) &&
-                (bytes[2] & 255) == (FRAME_MAGIC >>> 8 & 255) && (bytes[3] & 255) == (FRAME_MAGIC & 255);
+    public static boolean isFrame(byte[] bytes)
+    {
+        return bytes != null && bytes.length >= 4 && (bytes[0] & 255) == (FRAME_MAGIC >>> 24)
+                && (bytes[1] & 255) == (FRAME_MAGIC >>> 16 & 255) && (bytes[2] & 255) == (FRAME_MAGIC >>> 8 & 255)
+                && (bytes[3] & 255) == (FRAME_MAGIC & 255);
     }
 
     /** Bounded assembly is shared by client responses and large client property edits. */
-    public static final class FrameAssembler {
+    public static final class FrameAssembler
+    {
         private static final long MAX_AGE_NANOS = 10_000_000_000L;
         private final Map<Integer, Pending> pending = new HashMap<>();
 
-        public byte[] accept(byte[] bytes) {
+        public byte[] accept(byte[] bytes)
+        {
             WireFrame frame = decodeFrame(bytes);
             long now = System.nanoTime();
             pending.values().removeIf(value -> now - value.startedAt > MAX_AGE_NANOS);
             Pending value = pending.get(frame.messageId());
-            if (value == null) {
-                if (pending.size() >= 4) throw new IllegalArgumentException("Too many incomplete editor messages");
+            if (value == null)
+            {
+                if (pending.size() >= 4)
+                {
+                    throw new IllegalArgumentException("Too many incomplete editor messages");
+                }
                 value = new Pending(frame.count(), now);
                 pending.put(frame.messageId(), value);
             }
-            if (value.parts.length != frame.count()) {
+            if (value.parts.length != frame.count())
+            {
                 pending.remove(frame.messageId());
                 throw new IllegalArgumentException("Editor frame count changed mid-message");
             }
-            if (value.parts[frame.index()] == null) {
+            if (value.parts[frame.index()] == null)
+            {
                 value.parts[frame.index()] = frame.data();
                 value.received++;
                 value.size += value.parts[frame.index()].length;
             }
-            if (value.size > MAX_PACKET_BYTES) {
+            if (value.size > MAX_PACKET_BYTES)
+            {
                 pending.remove(frame.messageId());
                 throw new PacketLimitException(value.size);
             }
-            if (value.received != value.parts.length) return null;
+            if (value.received != value.parts.length)
+            {
+                return null;
+            }
             pending.remove(frame.messageId());
             var output = new ByteArrayOutputStream(value.size);
-            for (byte[] part : value.parts) output.writeBytes(part);
+            for (byte[] part : value.parts)
+            {
+                output.writeBytes(part);
+            }
             return output.toByteArray();
         }
 
-        public void clear() { pending.clear(); }
+        public void clear()
+        {
+            pending.clear();
+        }
 
-        private static final class Pending {
+        private static final class Pending
+        {
             private final byte[][] parts;
             private final long startedAt;
-            private int received, size;
-            private Pending(int count, long startedAt) {
+            private int received;
+            private int size;
+
+            private Pending(int count, long startedAt)
+            {
                 this.parts = new byte[count][];
                 this.startedAt = startedAt;
             }
         }
     }
 
-    public sealed interface Packet permits HelloPacket, MovePacket, ResizePacket, SwitchTabPacket,
-            UndoPacket, RedoPacket, SavePacket, ApplyPacket, ClosePacket, ProbePacket, CreatePacket,
-            DeletePacket, DeleteManyPacket, DuplicatePacket, GroupPacket, UngroupPacket, ReorderPacket, ReparentPacket,
-            SetPropertyPacket, SaveTemplatePacket, InstantiateTemplatePacket, DeleteTemplatePacket,
-            SnapshotPacket, AckPacket, ErrorPacket {}
+    public sealed interface Packet permits HelloPacket, MovePacket, ResizePacket, SwitchTabPacket, UndoPacket,
+            RedoPacket, SavePacket, ApplyPacket, ClosePacket, ProbePacket, CreatePacket, DeletePacket, DeleteManyPacket,
+            DuplicatePacket, GroupPacket, UngroupPacket, ReorderPacket, ReparentPacket, SetPropertyPacket,
+            SaveTemplatePacket, InstantiateTemplatePacket, DeleteTemplatePacket, SnapshotPacket, AckPacket, ErrorPacket
+    {}
 
-    public record HelloPacket(String clientVersion) implements Packet {}
-    public record Pointer(double mouseX, double mouseY, double viewportX, double viewportY,
-                          double viewportWidth, double viewportHeight,
-                          double clientX, double clientY) {}
-    public record MovePacket(long revision, byte tab, String nodeId, Pointer pointer,
-                             double grabOffsetX, double grabOffsetY,
-                             long gestureId, boolean finalUpdate) implements Packet {
-        public MovePacket(long revision, byte tab, String nodeId, Pointer pointer,
-                          double grabOffsetX, double grabOffsetY) {
+    public record HelloPacket(String clientVersion) implements Packet
+    {}
+
+    public record Pointer(double mouseX, double mouseY, double viewportX, double viewportY, double viewportWidth,
+            double viewportHeight, double clientX, double clientY)
+    {}
+
+    public record MovePacket(long revision, byte tab, String nodeId, Pointer pointer, double grabOffsetX,
+            double grabOffsetY, long gestureId, boolean finalUpdate) implements Packet
+    {
+        public MovePacket(long revision, byte tab, String nodeId, Pointer pointer, double grabOffsetX,
+                double grabOffsetY)
+        {
             this(revision, tab, nodeId, pointer, grabOffsetX, grabOffsetY, 0, true);
         }
     }
-    public record ResizePacket(long revision, byte tab, String nodeId, Pointer pointer,
-                               long gestureId, boolean finalUpdate) implements Packet {
-        public ResizePacket(long revision, byte tab, String nodeId, Pointer pointer) {
+
+    public record ResizePacket(long revision, byte tab, String nodeId, Pointer pointer, long gestureId,
+            boolean finalUpdate) implements Packet
+    {
+        public ResizePacket(long revision, byte tab, String nodeId, Pointer pointer)
+        {
             this(revision, tab, nodeId, pointer, 0, true);
         }
     }
-    public record SwitchTabPacket(byte tab) implements Packet {}
-    public record UndoPacket(long revision) implements Packet {}
-    public record RedoPacket(long revision) implements Packet {}
-    public record SavePacket(long revision) implements Packet {}
-    public record ApplyPacket(long revision) implements Packet {}
-    public record ClosePacket() implements Packet {}
-    public record ProbePacket(long revision, byte tab, Pointer pointer) implements Packet {}
-    public record CreatePacket(long revision, byte tab, byte kind, String parentId, String initialSource) implements Packet {
-        public CreatePacket(long revision, byte tab, byte kind, String parentId) {
+
+    public record SwitchTabPacket(byte tab) implements Packet
+    {}
+
+    public record UndoPacket(long revision) implements Packet
+    {}
+
+    public record RedoPacket(long revision) implements Packet
+    {}
+
+    public record SavePacket(long revision) implements Packet
+    {}
+
+    public record ApplyPacket(long revision) implements Packet
+    {}
+
+    public record ClosePacket() implements Packet
+    {}
+
+    public record ProbePacket(long revision, byte tab, Pointer pointer) implements Packet
+    {}
+
+    public record CreatePacket(long revision, byte tab, byte kind, String parentId, String initialSource)
+            implements Packet
+    {
+        public CreatePacket(long revision, byte tab, byte kind, String parentId)
+        {
             this(revision, tab, kind, parentId, "");
         }
     }
-    public record DeletePacket(long revision, byte tab, String nodeId) implements Packet {}
-    public record DeleteManyPacket(long revision, byte tab, List<String> nodeIds) implements Packet {
-        public DeleteManyPacket { nodeIds = List.copyOf(nodeIds); }
+
+    public record DeletePacket(long revision, byte tab, String nodeId) implements Packet
+    {}
+
+    public record DeleteManyPacket(long revision, byte tab, List<String> nodeIds) implements Packet
+    {
+        public DeleteManyPacket
+        {
+            nodeIds = List.copyOf(nodeIds);
+        }
     }
+
     /** Duplicates selected roots. When preserveParents is false every copy is inserted in targetParentId. */
-    public record DuplicatePacket(long revision, byte tab, List<String> nodeIds,
-                                  String targetParentId, boolean preserveParents) implements Packet {
-        public DuplicatePacket { nodeIds = List.copyOf(nodeIds); }
+    public record DuplicatePacket(long revision, byte tab, List<String> nodeIds, String targetParentId,
+            boolean preserveParents) implements Packet
+    {
+        public DuplicatePacket
+        {
+            nodeIds = List.copyOf(nodeIds);
+        }
     }
-    public record GroupPacket(long revision, List<String> nodeIds) implements Packet {
-        public GroupPacket { nodeIds = List.copyOf(nodeIds); }
+
+    public record GroupPacket(long revision, List<String> nodeIds) implements Packet
+    {
+        public GroupPacket
+        {
+            nodeIds = List.copyOf(nodeIds);
+        }
     }
-    public record UngroupPacket(long revision, String nodeId) implements Packet {}
+
+    public record UngroupPacket(long revision, String nodeId) implements Packet
+    {}
+
     /** Reorders nodes inside their existing parent and inserts them immediately before beforeId, or at the end when blank. */
-    public record ReorderPacket(long revision, byte tab, List<String> nodeIds, String beforeId) implements Packet {
-        public ReorderPacket { nodeIds = List.copyOf(nodeIds); }
+    public record ReorderPacket(long revision, byte tab, List<String> nodeIds, String beforeId) implements Packet
+    {
+        public ReorderPacket
+        {
+            nodeIds = List.copyOf(nodeIds);
+        }
     }
+
     /** Moves selected frontend roots to a hierarchy level while preserving their world transforms. */
-    public record ReparentPacket(long revision, List<String> nodeIds, String targetParentId,
-                                 String beforeId) implements Packet {
-        public ReparentPacket { nodeIds = List.copyOf(nodeIds); }
+    public record ReparentPacket(long revision, List<String> nodeIds, String targetParentId, String beforeId)
+            implements Packet
+    {
+        public ReparentPacket
+        {
+            nodeIds = List.copyOf(nodeIds);
+        }
     }
-    public record SetPropertyPacket(long revision, byte tab, String nodeId, String key, String value,
-                                    long gestureId, boolean finalUpdate) implements Packet {
-        public SetPropertyPacket(long revision, byte tab, String nodeId, String key, String value) {
+
+    public record SetPropertyPacket(long revision, byte tab, String nodeId, String key, String value, long gestureId,
+            boolean finalUpdate) implements Packet
+    {
+        public SetPropertyPacket(long revision, byte tab, String nodeId, String key, String value)
+        {
             this(revision, tab, nodeId, key, value, 0, true);
         }
     }
-    public record SaveTemplatePacket(long revision, String nodeId, String templateId) implements Packet {}
-    public record InstantiateTemplatePacket(long revision, String templateId) implements Packet {}
-    public record DeleteTemplatePacket(long revision, String templateId) implements Packet {}
 
-    public record PropertySnapshot(String key, byte type, String value, List<String> choices) {
-        public PropertySnapshot {
+    public record SaveTemplatePacket(long revision, String nodeId, String templateId) implements Packet
+    {}
+
+    public record InstantiateTemplatePacket(long revision, String templateId) implements Packet
+    {}
+
+    public record DeleteTemplatePacket(long revision, String templateId) implements Packet
+    {}
+
+    public record PropertySnapshot(String key, byte type, String value, List<String> choices)
+    {
+        public PropertySnapshot
+        {
             choices = List.copyOf(choices);
         }
-        public PropertySnapshot(String key, byte type, String value) { this(key, type, value, List.of()); }
+
+        public PropertySnapshot(String key, byte type, String value)
+        {
+            this(key, type, value, List.of());
+        }
     }
 
-    public record NodeSnapshot(String id, String parentId, byte kind, double x, double y,
-                               double width, double height, double rotationZ,
-                               boolean visible, boolean locked, List<PropertySnapshot> properties) {
-        public NodeSnapshot {
+    public record NodeSnapshot(String id, String parentId, byte kind, double x, double y, double width, double height,
+            double rotationZ, boolean visible, boolean locked, List<PropertySnapshot> properties)
+    {
+        public NodeSnapshot
+        {
             properties = List.copyOf(properties);
         }
-        public NodeSnapshot(String id, String parentId, byte kind, double x, double y,
-                            double width, double height, double rotationZ,
-                            boolean visible, boolean locked) {
+
+        public NodeSnapshot(String id, String parentId, byte kind, double x, double y, double width, double height,
+                double rotationZ, boolean visible, boolean locked)
+        {
             this(id, parentId, kind, x, y, width, height, rotationZ, visible, locked, List.of());
         }
     }
-    public record ImageSnapshot(String path, int width, int height) {}
-    public record TemplateSnapshot(String id, String rootId, int nodeCount) {}
-    public record SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight,
-                                 boolean dirty, boolean saved, String serverVersion,
-                                 List<NodeSnapshot> frontend, List<NodeSnapshot> backend,
-                                 List<ImageSnapshot> images, List<TemplateSnapshot> templates,
-                                 boolean exactRectangles) implements Packet {
-        public SnapshotPacket {
+
+    public record ImageSnapshot(String path, int width, int height)
+    {}
+
+    public record TemplateSnapshot(String id, String rootId, int nodeCount)
+    {}
+
+    public record SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight, boolean dirty,
+            boolean saved, String serverVersion, List<NodeSnapshot> frontend, List<NodeSnapshot> backend,
+            List<ImageSnapshot> images, List<TemplateSnapshot> templates, boolean exactRectangles) implements Packet
+    {
+        public SnapshotPacket
+        {
             frontend = List.copyOf(frontend);
             backend = List.copyOf(backend);
             images = List.copyOf(images);
             templates = List.copyOf(templates);
         }
-        public SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight,
-                              boolean dirty, boolean saved, String serverVersion,
-                              List<NodeSnapshot> frontend, List<NodeSnapshot> backend) {
-            this(revision, menuId, canvasWidth, canvasHeight, dirty, saved, serverVersion,
-                    frontend, backend, List.of(), List.of(), false);
+
+        public SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight, boolean dirty,
+                boolean saved, String serverVersion, List<NodeSnapshot> frontend, List<NodeSnapshot> backend)
+        {
+            this(revision, menuId, canvasWidth, canvasHeight, dirty, saved, serverVersion, frontend, backend, List.of(),
+                    List.of(), false);
         }
+
         /** Snapshot of a menu using the legacy rectangle sizing. */
-        public SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight,
-                              boolean dirty, boolean saved, String serverVersion,
-                              List<NodeSnapshot> frontend, List<NodeSnapshot> backend,
-                              List<ImageSnapshot> images, List<TemplateSnapshot> templates) {
-            this(revision, menuId, canvasWidth, canvasHeight, dirty, saved, serverVersion,
-                    frontend, backend, images, templates, false);
+        public SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight, boolean dirty,
+                boolean saved, String serverVersion, List<NodeSnapshot> frontend, List<NodeSnapshot> backend,
+                List<ImageSnapshot> images, List<TemplateSnapshot> templates)
+        {
+            this(revision, menuId, canvasWidth, canvasHeight, dirty, saved, serverVersion, frontend, backend, images,
+                    templates, false);
         }
     }
-    public record AckPacket(byte operation, long revision, String nodeId,
-                            double x, double y, double width, double height,
-                            double serverX, double serverY, String hitId,
-                            boolean dirty, boolean saved, String message) implements Packet {}
-    public record ErrorPacket(long revision, String message) implements Packet {}
 
-    public static byte[] encode(Packet packet) {
-        try {
+    public record AckPacket(byte operation, long revision, String nodeId, double x, double y, double width,
+            double height, double serverX, double serverY, String hitId, boolean dirty, boolean saved, String message)
+            implements Packet
+    {}
+
+    public record ErrorPacket(long revision, String message) implements Packet
+    {}
+
+    public static byte[] encode(Packet packet)
+    {
+        try
+        {
             var bytes = new ByteArrayOutputStream();
             var out = new DataOutputStream(bytes);
             out.writeInt(MAGIC);
             out.writeByte(VERSION);
-            switch (packet) {
-                case HelloPacket value -> { out.writeByte(HELLO); writeString(out, value.clientVersion()); }
-                case MovePacket value -> {
-                    out.writeByte(MOVE); out.writeLong(value.revision()); out.writeByte(value.tab());
-                    writeString(out, value.nodeId()); writePointer(out, value.pointer());
-                    out.writeDouble(value.grabOffsetX()); out.writeDouble(value.grabOffsetY());
-                    out.writeLong(value.gestureId()); out.writeBoolean(value.finalUpdate());
-                }
-                case ResizePacket value -> {
-                    out.writeByte(RESIZE); out.writeLong(value.revision()); out.writeByte(value.tab());
-                    writeString(out, value.nodeId()); writePointer(out, value.pointer());
-                    out.writeLong(value.gestureId()); out.writeBoolean(value.finalUpdate());
-                }
-                case SwitchTabPacket value -> { out.writeByte(SWITCH_TAB); out.writeByte(value.tab()); }
-                case UndoPacket value -> { out.writeByte(UNDO); out.writeLong(value.revision()); }
-                case RedoPacket value -> { out.writeByte(REDO); out.writeLong(value.revision()); }
-                case SavePacket value -> { out.writeByte(SAVE); out.writeLong(value.revision()); }
-                case ApplyPacket value -> { out.writeByte(APPLY); out.writeLong(value.revision()); }
-                case ClosePacket ignored -> out.writeByte(CLOSE);
-                case ProbePacket value -> {
-                    out.writeByte(PROBE); out.writeLong(value.revision()); out.writeByte(value.tab());
-                    writePointer(out, value.pointer());
-                }
-                case CreatePacket value -> {
-                    out.writeByte(CREATE); out.writeLong(value.revision()); out.writeByte(value.tab());
-                    out.writeByte(value.kind()); writeString(out, value.parentId()); writeString(out, value.initialSource(), "initial-source");
-                }
-                case DeletePacket value -> {
-                    out.writeByte(DELETE); out.writeLong(value.revision()); out.writeByte(value.tab()); writeString(out, value.nodeId());
-                }
-                case DeleteManyPacket value -> {
-                    out.writeByte(DELETE_MANY); out.writeLong(value.revision()); out.writeByte(value.tab()); writeStrings(out, value.nodeIds());
-                }
-                case DuplicatePacket value -> {
-                    out.writeByte(DUPLICATE); out.writeLong(value.revision()); out.writeByte(value.tab());
-                    writeStrings(out, value.nodeIds()); writeString(out, value.targetParentId()); out.writeBoolean(value.preserveParents());
-                }
-                case GroupPacket value -> {
-                    out.writeByte(GROUP); out.writeLong(value.revision()); writeStrings(out, value.nodeIds());
-                }
-                case UngroupPacket value -> {
-                    out.writeByte(UNGROUP); out.writeLong(value.revision()); writeString(out, value.nodeId());
-                }
-                case ReorderPacket value -> {
-                    out.writeByte(REORDER); out.writeLong(value.revision()); out.writeByte(value.tab());
-                    writeStrings(out, value.nodeIds()); writeString(out, value.beforeId());
-                }
-                case ReparentPacket value -> {
-                    out.writeByte(REPARENT); out.writeLong(value.revision());
-                    writeStrings(out, value.nodeIds()); writeString(out, value.targetParentId());
-                    writeString(out, value.beforeId());
-                }
-                case SetPropertyPacket value -> {
-                    out.writeByte(SET_PROPERTY); out.writeLong(value.revision()); out.writeByte(value.tab());
-                    writeString(out, value.nodeId()); writeString(out, value.key());
-                    writeString(out, value.value(), nodePath(value.tab(), value.nodeId()) + "." + value.key());
-                    out.writeLong(value.gestureId()); out.writeBoolean(value.finalUpdate());
-                }
-                case SaveTemplatePacket value -> {
-                    out.writeByte(SAVE_TEMPLATE); out.writeLong(value.revision()); writeString(out, value.nodeId()); writeString(out, value.templateId());
-                }
-                case InstantiateTemplatePacket value -> {
-                    out.writeByte(INSTANTIATE_TEMPLATE); out.writeLong(value.revision()); writeString(out, value.templateId());
-                }
-                case DeleteTemplatePacket value -> {
-                    out.writeByte(DELETE_TEMPLATE); out.writeLong(value.revision()); writeString(out, value.templateId());
-                }
-                case SnapshotPacket value -> {
-                    out.writeByte(SNAPSHOT); out.writeLong(value.revision()); writeString(out, value.menuId());
-                    out.writeDouble(value.canvasWidth()); out.writeDouble(value.canvasHeight());
-                    out.writeBoolean(value.dirty()); out.writeBoolean(value.saved()); writeString(out, value.serverVersion());
-                    writeNodes(out, value.frontend(), TAB_FRONTEND); writeNodes(out, value.backend(), TAB_BACKEND);
-                    writeImages(out, value.images()); writeTemplates(out, value.templates());
-                    out.writeBoolean(value.exactRectangles());
-                }
-                case AckPacket value -> {
-                    out.writeByte(ACK); out.writeByte(value.operation()); out.writeLong(value.revision());
-                    writeString(out, value.nodeId()); out.writeDouble(value.x()); out.writeDouble(value.y());
-                    out.writeDouble(value.width()); out.writeDouble(value.height());
-                    out.writeDouble(value.serverX()); out.writeDouble(value.serverY()); writeString(out, value.hitId());
-                    out.writeBoolean(value.dirty()); out.writeBoolean(value.saved()); writeString(out, value.message());
-                }
-                case ErrorPacket value -> { out.writeByte(ERROR); out.writeLong(value.revision()); writeString(out, value.message()); }
+            switch (packet)
+            {
+            case HelloPacket value ->
+            {
+                out.writeByte(HELLO);
+                writeString(out, value.clientVersion());
+            }
+            case MovePacket value ->
+            {
+                out.writeByte(MOVE);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                writeString(out, value.nodeId());
+                writePointer(out, value.pointer());
+                out.writeDouble(value.grabOffsetX());
+                out.writeDouble(value.grabOffsetY());
+                out.writeLong(value.gestureId());
+                out.writeBoolean(value.finalUpdate());
+            }
+            case ResizePacket value ->
+            {
+                out.writeByte(RESIZE);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                writeString(out, value.nodeId());
+                writePointer(out, value.pointer());
+                out.writeLong(value.gestureId());
+                out.writeBoolean(value.finalUpdate());
+            }
+            case SwitchTabPacket value ->
+            {
+                out.writeByte(SWITCH_TAB);
+                out.writeByte(value.tab());
+            }
+            case UndoPacket value ->
+            {
+                out.writeByte(UNDO);
+                out.writeLong(value.revision());
+            }
+            case RedoPacket value ->
+            {
+                out.writeByte(REDO);
+                out.writeLong(value.revision());
+            }
+            case SavePacket value ->
+            {
+                out.writeByte(SAVE);
+                out.writeLong(value.revision());
+            }
+            case ApplyPacket value ->
+            {
+                out.writeByte(APPLY);
+                out.writeLong(value.revision());
+            }
+            case ClosePacket ignored -> out.writeByte(CLOSE);
+            case ProbePacket value ->
+            {
+                out.writeByte(PROBE);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                writePointer(out, value.pointer());
+            }
+            case CreatePacket value ->
+            {
+                out.writeByte(CREATE);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                out.writeByte(value.kind());
+                writeString(out, value.parentId());
+                writeString(out, value.initialSource(), "initial-source");
+            }
+            case DeletePacket value ->
+            {
+                out.writeByte(DELETE);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                writeString(out, value.nodeId());
+            }
+            case DeleteManyPacket value ->
+            {
+                out.writeByte(DELETE_MANY);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                writeStrings(out, value.nodeIds());
+            }
+            case DuplicatePacket value ->
+            {
+                out.writeByte(DUPLICATE);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                writeStrings(out, value.nodeIds());
+                writeString(out, value.targetParentId());
+                out.writeBoolean(value.preserveParents());
+            }
+            case GroupPacket value ->
+            {
+                out.writeByte(GROUP);
+                out.writeLong(value.revision());
+                writeStrings(out, value.nodeIds());
+            }
+            case UngroupPacket value ->
+            {
+                out.writeByte(UNGROUP);
+                out.writeLong(value.revision());
+                writeString(out, value.nodeId());
+            }
+            case ReorderPacket value ->
+            {
+                out.writeByte(REORDER);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                writeStrings(out, value.nodeIds());
+                writeString(out, value.beforeId());
+            }
+            case ReparentPacket value ->
+            {
+                out.writeByte(REPARENT);
+                out.writeLong(value.revision());
+                writeStrings(out, value.nodeIds());
+                writeString(out, value.targetParentId());
+                writeString(out, value.beforeId());
+            }
+            case SetPropertyPacket value ->
+            {
+                out.writeByte(SET_PROPERTY);
+                out.writeLong(value.revision());
+                out.writeByte(value.tab());
+                writeString(out, value.nodeId());
+                writeString(out, value.key());
+                writeString(out, value.value(), nodePath(value.tab(), value.nodeId()) + "." + value.key());
+                out.writeLong(value.gestureId());
+                out.writeBoolean(value.finalUpdate());
+            }
+            case SaveTemplatePacket value ->
+            {
+                out.writeByte(SAVE_TEMPLATE);
+                out.writeLong(value.revision());
+                writeString(out, value.nodeId());
+                writeString(out, value.templateId());
+            }
+            case InstantiateTemplatePacket value ->
+            {
+                out.writeByte(INSTANTIATE_TEMPLATE);
+                out.writeLong(value.revision());
+                writeString(out, value.templateId());
+            }
+            case DeleteTemplatePacket value ->
+            {
+                out.writeByte(DELETE_TEMPLATE);
+                out.writeLong(value.revision());
+                writeString(out, value.templateId());
+            }
+            case SnapshotPacket value ->
+            {
+                out.writeByte(SNAPSHOT);
+                out.writeLong(value.revision());
+                writeString(out, value.menuId());
+                out.writeDouble(value.canvasWidth());
+                out.writeDouble(value.canvasHeight());
+                out.writeBoolean(value.dirty());
+                out.writeBoolean(value.saved());
+                writeString(out, value.serverVersion());
+                writeNodes(out, value.frontend(), TAB_FRONTEND);
+                writeNodes(out, value.backend(), TAB_BACKEND);
+                writeImages(out, value.images());
+                writeTemplates(out, value.templates());
+                out.writeBoolean(value.exactRectangles());
+            }
+            case AckPacket value ->
+            {
+                out.writeByte(ACK);
+                out.writeByte(value.operation());
+                out.writeLong(value.revision());
+                writeString(out, value.nodeId());
+                out.writeDouble(value.x());
+                out.writeDouble(value.y());
+                out.writeDouble(value.width());
+                out.writeDouble(value.height());
+                out.writeDouble(value.serverX());
+                out.writeDouble(value.serverY());
+                writeString(out, value.hitId());
+                out.writeBoolean(value.dirty());
+                out.writeBoolean(value.saved());
+                writeString(out, value.message());
+            }
+            case ErrorPacket value ->
+            {
+                out.writeByte(ERROR);
+                out.writeLong(value.revision());
+                writeString(out, value.message());
+            }
             }
             out.flush();
-            if (bytes.size() > MAX_PACKET_BYTES) throw new PacketLimitException(bytes.size());
+            if (bytes.size() > MAX_PACKET_BYTES)
+            {
+                throw new PacketLimitException(bytes.size());
+            }
             return bytes.toByteArray();
-        } catch (IOException impossible) {
+        }
+        catch (IOException impossible)
+        {
             throw new IllegalStateException(impossible);
         }
     }
 
-    public static Packet decode(byte[] bytes) {
-        if (bytes == null || bytes.length == 0 || bytes.length > MAX_PACKET_BYTES) throw new IllegalArgumentException("invalid editor packet size");
-        try {
+    public static Packet decode(byte[] bytes)
+    {
+        if (bytes == null || bytes.length == 0 || bytes.length > MAX_PACKET_BYTES)
+        {
+            throw new IllegalArgumentException("invalid editor packet size");
+        }
+        try
+        {
             var in = new DataInputStream(new ByteArrayInputStream(bytes));
-            if (in.readInt() != MAGIC) throw new IllegalArgumentException("invalid editor packet magic");
+            if (in.readInt() != MAGIC)
+            {
+                throw new IllegalArgumentException("invalid editor packet magic");
+            }
             int version = in.readUnsignedByte();
-            if (version != VERSION) throw new ProtocolMismatchException(version);
-            Packet result = switch (in.readUnsignedByte()) {
-                case HELLO -> new HelloPacket(readString(in));
-                case MOVE -> new MovePacket(in.readLong(), in.readByte(), readString(in), readPointer(in),
-                        in.readDouble(), in.readDouble(), in.readLong(), in.readBoolean());
-                case RESIZE -> new ResizePacket(in.readLong(), in.readByte(), readString(in), readPointer(in), in.readLong(), in.readBoolean());
-                case SWITCH_TAB -> new SwitchTabPacket(in.readByte());
-                case UNDO -> new UndoPacket(in.readLong());
-                case REDO -> new RedoPacket(in.readLong());
-                case SAVE -> new SavePacket(in.readLong());
-                case APPLY -> new ApplyPacket(in.readLong());
-                case CLOSE -> new ClosePacket();
-                case PROBE -> new ProbePacket(in.readLong(), in.readByte(), readPointer(in));
-                case CREATE -> new CreatePacket(in.readLong(), in.readByte(), in.readByte(), readString(in), readString(in));
-                case DELETE -> new DeletePacket(in.readLong(), in.readByte(), readString(in));
-                case DELETE_MANY -> new DeleteManyPacket(in.readLong(), in.readByte(), readStrings(in));
-                case DUPLICATE -> new DuplicatePacket(in.readLong(), in.readByte(), readStrings(in), readString(in), in.readBoolean());
-                case GROUP -> new GroupPacket(in.readLong(), readStrings(in));
-                case UNGROUP -> new UngroupPacket(in.readLong(), readString(in));
-                case REORDER -> new ReorderPacket(in.readLong(), in.readByte(), readStrings(in), readString(in));
-                case REPARENT -> new ReparentPacket(in.readLong(), readStrings(in), readString(in), readString(in));
-                case SET_PROPERTY -> new SetPropertyPacket(in.readLong(), in.readByte(), readString(in), readString(in), readString(in),
-                        in.readLong(), in.readBoolean());
-                case SAVE_TEMPLATE -> new SaveTemplatePacket(in.readLong(), readString(in), readString(in));
-                case INSTANTIATE_TEMPLATE -> new InstantiateTemplatePacket(in.readLong(), readString(in));
-                case DELETE_TEMPLATE -> new DeleteTemplatePacket(in.readLong(), readString(in));
-                case SNAPSHOT -> new SnapshotPacket(in.readLong(), readString(in), in.readDouble(), in.readDouble(),
-                        in.readBoolean(), in.readBoolean(), readString(in), readNodes(in), readNodes(in), readImages(in), readTemplates(in),
-                        in.readBoolean());
-                case ACK -> new AckPacket(in.readByte(), in.readLong(), readString(in), in.readDouble(), in.readDouble(),
-                        in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(), readString(in),
-                        in.readBoolean(), in.readBoolean(), readString(in));
-                case ERROR -> new ErrorPacket(in.readLong(), readString(in));
-                default -> throw new IllegalArgumentException("unknown editor packet type");
+            if (version != VERSION)
+            {
+                throw new ProtocolMismatchException(version);
+            }
+            Packet result = switch (in.readUnsignedByte())
+            {
+            case HELLO -> new HelloPacket(readString(in));
+            case MOVE -> new MovePacket(in.readLong(), in.readByte(), readString(in), readPointer(in), in.readDouble(),
+                    in.readDouble(), in.readLong(), in.readBoolean());
+            case RESIZE -> new ResizePacket(in.readLong(), in.readByte(), readString(in), readPointer(in),
+                    in.readLong(), in.readBoolean());
+            case SWITCH_TAB -> new SwitchTabPacket(in.readByte());
+            case UNDO -> new UndoPacket(in.readLong());
+            case REDO -> new RedoPacket(in.readLong());
+            case SAVE -> new SavePacket(in.readLong());
+            case APPLY -> new ApplyPacket(in.readLong());
+            case CLOSE -> new ClosePacket();
+            case PROBE -> new ProbePacket(in.readLong(), in.readByte(), readPointer(in));
+            case CREATE ->
+                new CreatePacket(in.readLong(), in.readByte(), in.readByte(), readString(in), readString(in));
+            case DELETE -> new DeletePacket(in.readLong(), in.readByte(), readString(in));
+            case DELETE_MANY -> new DeleteManyPacket(in.readLong(), in.readByte(), readStrings(in));
+            case DUPLICATE ->
+                new DuplicatePacket(in.readLong(), in.readByte(), readStrings(in), readString(in), in.readBoolean());
+            case GROUP -> new GroupPacket(in.readLong(), readStrings(in));
+            case UNGROUP -> new UngroupPacket(in.readLong(), readString(in));
+            case REORDER -> new ReorderPacket(in.readLong(), in.readByte(), readStrings(in), readString(in));
+            case REPARENT -> new ReparentPacket(in.readLong(), readStrings(in), readString(in), readString(in));
+            case SET_PROPERTY -> new SetPropertyPacket(in.readLong(), in.readByte(), readString(in), readString(in),
+                    readString(in), in.readLong(), in.readBoolean());
+            case SAVE_TEMPLATE -> new SaveTemplatePacket(in.readLong(), readString(in), readString(in));
+            case INSTANTIATE_TEMPLATE -> new InstantiateTemplatePacket(in.readLong(), readString(in));
+            case DELETE_TEMPLATE -> new DeleteTemplatePacket(in.readLong(), readString(in));
+            case SNAPSHOT -> new SnapshotPacket(in.readLong(), readString(in), in.readDouble(), in.readDouble(),
+                    in.readBoolean(), in.readBoolean(), readString(in), readNodes(in), readNodes(in), readImages(in),
+                    readTemplates(in), in.readBoolean());
+            case ACK -> new AckPacket(in.readByte(), in.readLong(), readString(in), in.readDouble(), in.readDouble(),
+                    in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(), readString(in),
+                    in.readBoolean(), in.readBoolean(), readString(in));
+            case ERROR -> new ErrorPacket(in.readLong(), readString(in));
+            default -> throw new IllegalArgumentException("unknown editor packet type");
             };
-            if (in.available() != 0) throw new IllegalArgumentException("trailing editor packet data");
+            if (in.available() != 0)
+            {
+                throw new IllegalArgumentException("trailing editor packet data");
+            }
             return result;
-        } catch (IOException error) {
+        }
+        catch (IOException error)
+        {
             throw new IllegalArgumentException("truncated editor packet", error);
         }
     }
 
-    private static void writePointer(DataOutputStream out, Pointer value) throws IOException {
-        out.writeDouble(value.mouseX()); out.writeDouble(value.mouseY());
-        out.writeDouble(value.viewportX()); out.writeDouble(value.viewportY());
-        out.writeDouble(value.viewportWidth()); out.writeDouble(value.viewportHeight());
-        out.writeDouble(value.clientX()); out.writeDouble(value.clientY());
+    private static void writePointer(DataOutputStream out, Pointer value) throws IOException
+    {
+        out.writeDouble(value.mouseX());
+        out.writeDouble(value.mouseY());
+        out.writeDouble(value.viewportX());
+        out.writeDouble(value.viewportY());
+        out.writeDouble(value.viewportWidth());
+        out.writeDouble(value.viewportHeight());
+        out.writeDouble(value.clientX());
+        out.writeDouble(value.clientY());
     }
 
-    private static Pointer readPointer(DataInputStream in) throws IOException {
-        return new Pointer(in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(),
-                in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble());
+    private static Pointer readPointer(DataInputStream in) throws IOException
+    {
+        return new Pointer(in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(),
+                in.readDouble(), in.readDouble(), in.readDouble());
     }
 
-    private static void writeNodes(DataOutputStream out, List<NodeSnapshot> nodes, byte tab) throws IOException {
-        if (nodes.size() > 10_000) throw new IllegalArgumentException("too many editor nodes");
+    private static void writeNodes(DataOutputStream out, List<NodeSnapshot> nodes, byte tab) throws IOException
+    {
+        if (nodes.size() > 10_000)
+        {
+            throw new IllegalArgumentException("too many editor nodes");
+        }
         out.writeInt(nodes.size());
-        for (var node : nodes) {
-            writeString(out, node.id()); writeString(out, node.parentId()); out.writeByte(node.kind());
-            out.writeDouble(node.x()); out.writeDouble(node.y()); out.writeDouble(node.width()); out.writeDouble(node.height());
-            out.writeDouble(node.rotationZ()); out.writeBoolean(node.visible()); out.writeBoolean(node.locked());
+        for (var node : nodes)
+        {
+            writeString(out, node.id());
+            writeString(out, node.parentId());
+            out.writeByte(node.kind());
+            out.writeDouble(node.x());
+            out.writeDouble(node.y());
+            out.writeDouble(node.width());
+            out.writeDouble(node.height());
+            out.writeDouble(node.rotationZ());
+            out.writeBoolean(node.visible());
+            out.writeBoolean(node.locked());
             writeProperties(out, node.properties(), nodePath(tab, node.id()));
         }
     }
 
-    private static List<NodeSnapshot> readNodes(DataInputStream in) throws IOException {
+    private static List<NodeSnapshot> readNodes(DataInputStream in) throws IOException
+    {
         int count = in.readInt();
-        if (count < 0 || count > 10_000) throw new IllegalArgumentException("invalid editor node count");
+        if (count < 0 || count > 10_000)
+        {
+            throw new IllegalArgumentException("invalid editor node count");
+        }
         var result = new ArrayList<NodeSnapshot>(count);
-        for (int i = 0; i < count; i++) result.add(new NodeSnapshot(
-                readString(in), readString(in), in.readByte(), in.readDouble(), in.readDouble(),
-                in.readDouble(), in.readDouble(), in.readDouble(), in.readBoolean(), in.readBoolean(), readProperties(in)));
+        for (int i = 0; i < count; i++)
+        {
+            result.add(new NodeSnapshot(readString(in), readString(in), in.readByte(), in.readDouble(), in.readDouble(),
+                    in.readDouble(), in.readDouble(), in.readDouble(), in.readBoolean(), in.readBoolean(),
+                    readProperties(in)));
+        }
         return result;
     }
 
-    private static String nodePath(byte tab, String id) {
+    private static String nodePath(byte tab, String id)
+    {
         return (tab == TAB_BACKEND ? "backend." : "frontend.") + id;
     }
 
-    private static void writeProperties(DataOutputStream out, List<PropertySnapshot> properties, String nodePath) throws IOException {
-        if (properties.size() > 256) throw new IllegalArgumentException("too many editor properties");
+    private static void writeProperties(DataOutputStream out, List<PropertySnapshot> properties, String nodePath)
+            throws IOException
+    {
+        if (properties.size() > 256)
+        {
+            throw new IllegalArgumentException("too many editor properties");
+        }
         out.writeShort(properties.size());
-        for (var property : properties) {
-            writeString(out, property.key()); out.writeByte(property.type());
+        for (var property : properties)
+        {
+            writeString(out, property.key());
+            out.writeByte(property.type());
             writeString(out, property.value(), nodePath + "." + property.key());
-            if (property.choices().size() > 256) throw new IllegalArgumentException("too many editor property choices");
+            if (property.choices().size() > 256)
+            {
+                throw new IllegalArgumentException("too many editor property choices");
+            }
             out.writeShort(property.choices().size());
-            for (String choice : property.choices()) writeString(out, choice);
+            for (String choice : property.choices())
+            {
+                writeString(out, choice);
+            }
         }
     }
 
-    private static List<PropertySnapshot> readProperties(DataInputStream in) throws IOException {
+    private static List<PropertySnapshot> readProperties(DataInputStream in) throws IOException
+    {
         int count = in.readUnsignedShort();
-        if (count > 256) throw new IllegalArgumentException("invalid editor property count");
+        if (count > 256)
+        {
+            throw new IllegalArgumentException("invalid editor property count");
+        }
         var result = new ArrayList<PropertySnapshot>(count);
-        for (int i = 0; i < count; i++) {
-            String key = readString(in); byte type = in.readByte(); String value = readString(in);
+        for (int i = 0; i < count; i++)
+        {
+            String key = readString(in);
+            byte type = in.readByte();
+            String value = readString(in);
             int choiceCount = in.readUnsignedShort();
-            if (choiceCount > 256) throw new IllegalArgumentException("invalid editor choice count");
+            if (choiceCount > 256)
+            {
+                throw new IllegalArgumentException("invalid editor choice count");
+            }
             var choices = new ArrayList<String>(choiceCount);
-            for (int choice = 0; choice < choiceCount; choice++) choices.add(readString(in));
+            for (int choice = 0; choice < choiceCount; choice++)
+            {
+                choices.add(readString(in));
+            }
             result.add(new PropertySnapshot(key, type, value, choices));
         }
         return result;
     }
 
-    private static void writeImages(DataOutputStream out, List<ImageSnapshot> images) throws IOException {
-        if (images.size() > 10_000) throw new IllegalArgumentException("too many editor images");
+    private static void writeImages(DataOutputStream out, List<ImageSnapshot> images) throws IOException
+    {
+        if (images.size() > 10_000)
+        {
+            throw new IllegalArgumentException("too many editor images");
+        }
         out.writeInt(images.size());
-        for (var image : images) { writeString(out, image.path()); out.writeInt(image.width()); out.writeInt(image.height()); }
+        for (var image : images)
+        {
+            writeString(out, image.path());
+            out.writeInt(image.width());
+            out.writeInt(image.height());
+        }
     }
 
-    private static List<ImageSnapshot> readImages(DataInputStream in) throws IOException {
+    private static List<ImageSnapshot> readImages(DataInputStream in) throws IOException
+    {
         int count = in.readInt();
-        if (count < 0 || count > 10_000) throw new IllegalArgumentException("invalid editor image count");
+        if (count < 0 || count > 10_000)
+        {
+            throw new IllegalArgumentException("invalid editor image count");
+        }
         var result = new ArrayList<ImageSnapshot>(count);
-        for (int i = 0; i < count; i++) result.add(new ImageSnapshot(readString(in), in.readInt(), in.readInt()));
+        for (int i = 0; i < count; i++)
+        {
+            result.add(new ImageSnapshot(readString(in), in.readInt(), in.readInt()));
+        }
         return result;
     }
 
-    private static void writeTemplates(DataOutputStream out, List<TemplateSnapshot> templates) throws IOException {
-        if (templates.size() > 10_000) throw new IllegalArgumentException("too many editor templates");
+    private static void writeTemplates(DataOutputStream out, List<TemplateSnapshot> templates) throws IOException
+    {
+        if (templates.size() > 10_000)
+        {
+            throw new IllegalArgumentException("too many editor templates");
+        }
         out.writeInt(templates.size());
-        for (var template : templates) { writeString(out, template.id()); writeString(out, template.rootId()); out.writeInt(template.nodeCount()); }
+        for (var template : templates)
+        {
+            writeString(out, template.id());
+            writeString(out, template.rootId());
+            out.writeInt(template.nodeCount());
+        }
     }
 
-    private static List<TemplateSnapshot> readTemplates(DataInputStream in) throws IOException {
+    private static List<TemplateSnapshot> readTemplates(DataInputStream in) throws IOException
+    {
         int count = in.readInt();
-        if (count < 0 || count > 10_000) throw new IllegalArgumentException("invalid editor template count");
+        if (count < 0 || count > 10_000)
+        {
+            throw new IllegalArgumentException("invalid editor template count");
+        }
         var result = new ArrayList<TemplateSnapshot>(count);
-        for (int i = 0; i < count; i++) result.add(new TemplateSnapshot(readString(in), readString(in), in.readInt()));
+        for (int i = 0; i < count; i++)
+        {
+            result.add(new TemplateSnapshot(readString(in), readString(in), in.readInt()));
+        }
         return result;
     }
 
-    private static void writeString(DataOutputStream out, String value) throws IOException {
+    private static void writeString(DataOutputStream out, String value) throws IOException
+    {
         writeString(out, value, "string");
     }
 
-    private static void writeString(DataOutputStream out, String value, String field) throws IOException {
+    private static void writeString(DataOutputStream out, String value, String field) throws IOException
+    {
         var bytes = (value == null ? "" : value).getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > MAX_STRING_BYTES) throw new StringLimitException(field, bytes.length);
+        if (bytes.length > MAX_STRING_BYTES)
+        {
+            throw new StringLimitException(field, bytes.length);
+        }
         out.writeInt(bytes.length);
         out.write(bytes);
     }
 
-    private static void writeStrings(DataOutputStream out, List<String> values) throws IOException {
-        if (values.isEmpty() || values.size() > 10_000) throw new IllegalArgumentException("invalid editor string list size");
+    private static void writeStrings(DataOutputStream out, List<String> values) throws IOException
+    {
+        if (values.isEmpty() || values.size() > 10_000)
+        {
+            throw new IllegalArgumentException("invalid editor string list size");
+        }
         out.writeShort(values.size());
-        for (String value : values) writeString(out, value);
+        for (String value : values)
+        {
+            writeString(out, value);
+        }
     }
 
-    private static List<String> readStrings(DataInputStream in) throws IOException {
+    private static List<String> readStrings(DataInputStream in) throws IOException
+    {
         int count = in.readUnsignedShort();
-        if (count < 1 || count > 10_000) throw new IllegalArgumentException("invalid editor string list size");
+        if (count < 1 || count > 10_000)
+        {
+            throw new IllegalArgumentException("invalid editor string list size");
+        }
         var result = new ArrayList<String>(count);
-        for (int index = 0; index < count; index++) result.add(readString(in));
+        for (int index = 0; index < count; index++)
+        {
+            result.add(readString(in));
+        }
         return result;
     }
 
-    private static String readString(DataInputStream in) throws IOException {
+    private static String readString(DataInputStream in) throws IOException
+    {
         int length = in.readInt();
-        if (length < 0) throw new IllegalArgumentException("invalid editor string byte length: " + length);
-        if (length > MAX_STRING_BYTES) throw new StringLimitException("incoming string", length);
+        if (length < 0)
+        {
+            throw new IllegalArgumentException("invalid editor string byte length: " + length);
+        }
+        if (length > MAX_STRING_BYTES)
+        {
+            throw new StringLimitException("incoming string", length);
+        }
         byte[] bytes = in.readNBytes(length);
-        if (bytes.length != length) throw new IOException("truncated editor string");
+        if (bytes.length != length)
+        {
+            throw new IOException("truncated editor string");
+        }
         return new String(bytes, StandardCharsets.UTF_8);
     }
 }

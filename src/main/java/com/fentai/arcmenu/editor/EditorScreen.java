@@ -24,12 +24,16 @@ import com.mojang.blaze3d.platform.InputConstants;
 import java.util.HashSet;
 import java.util.Optional;
 
-public final class EditorScreen extends Screen implements EffectTimeline.Host {
+public final class EditorScreen extends Screen implements EffectTimeline.Host
+{
     public static boolean captureClean;
 
-    public static boolean isEditor(Screen screen) {
-        return screen instanceof EditorScreen || screen instanceof EffectEditorScreen || screen instanceof WorkspacePreviewScreen;
+    public static boolean isEditor(Screen screen)
+    {
+        return screen instanceof EditorScreen || screen instanceof EffectEditorScreen
+                || screen instanceof WorkspacePreviewScreen;
     }
+
     private static final long LIVE_DRAG_INTERVAL_NANOS = 50_000_000L;
     private static final int PANEL = 0xFF1A1D24;
     private static final int PANEL_ALT = 0xFF232731;
@@ -98,7 +102,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
     private boolean calibrationSettingsOpen;
     private byte calibrationKind = EditorProtocol.KIND_TEXT;
 
-    public EditorScreen(EditorState state) {
+    public EditorScreen(EditorState state)
+    {
         super(EditorI18n.component("arcmenu_editor.screen.title"));
         this.state = state;
         state.activeTab(EditorProtocol.TAB_FRONTEND);
@@ -111,102 +116,153 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         this.selectionCalibration.save(calibration);
     }
 
-    public void serverStateChanged() {
+    public void serverStateChanged()
+    {
         // A full snapshot can arrive while another field is being typed into.
         PropertyField focused = propertyFields.stream().filter(field -> field.box.isFocused()).findFirst().orElse(null);
         String input = focused == null ? "" : focused.box.getValue();
         int cursor = focused == null ? 0 : focused.box.getCursorPosition();
         rebuildWidgets();
-        if (focused != null && focused.nodeId.equals(state.selectedId()) && focused.tab == state.activeTab()) {
-            propertyField(focused.property.key()).ifPresent(field -> {
+        if (focused != null && focused.nodeId.equals(state.selectedId()) && focused.tab == state.activeTab())
+        {
+            propertyField(focused.property.key()).ifPresent(field ->
+            {
                 field.box.setValue(input);
                 setFocused(field.box);
                 field.box.setCursorPosition(cursor);
                 field.box.setHighlightPos(cursor);
             });
         }
-        if (propertyDrag != null && propertyDrag.nodeId.equals(state.selectedId())) {
-            propertyField(propertyDrag.property.key()).ifPresent(field -> field.box.setValue(
-                    formatPropertyValue(propertyDrag.property, pendingPropertyValue)));
+        if (propertyDrag != null && propertyDrag.nodeId.equals(state.selectedId()))
+        {
+            propertyField(propertyDrag.property.key()).ifPresent(
+                    field -> field.box.setValue(formatPropertyValue(propertyDrag.property, pendingPropertyValue)));
         }
     }
-    public void effectStateChanged() { if (currentLayout != null) rebuildWidgets(); }
-    @Override public void timelineSearchFocus(EditBox field) {setFocused(field);}
-    public void effectDialog(String mode, String target, String property, int frame,
-                      EffectProtocol.Key key, EffectProtocol.Cue cue) {
+
+    public void effectStateChanged()
+    {
+        if (currentLayout != null)
+        {
+            rebuildWidgets();
+        }
+    }
+
+    @Override
+    public void timelineSearchFocus(EditBox field)
+    {
+        setFocused(field);
+    }
+
+    public void effectDialog(String mode, String target, String property, int frame, EffectProtocol.Key key,
+            EffectProtocol.Cue cue)
+    {
         minecraft.setScreen(new EffectDialog(this, state, mode, target, property, frame, key, cue));
     }
 
-    public void serverOperationCompleted(byte operation, long gestureId) {
+    public void serverOperationCompleted(byte operation, long gestureId)
+    {
         if (operation == EditorProtocol.OP_PROPERTY && propertyRequestInFlight && propertyDrag != null
-                && propertyDrag.gestureId == gestureId) {
+                && propertyDrag.gestureId == gestureId)
+        {
             boolean completedFinal = propertyFinalSent;
             propertyRequestInFlight = false;
             propertyFinalSent = false;
-            if (completedFinal) finishPropertyGesture();
-            else if (propertyReleased) flushPropertyDrag(true);
-            else if (Double.compare(pendingPropertyValue, sentPropertyValue) != 0) flushPropertyDrag(false);
+            if (completedFinal)
+            {
+                finishPropertyGesture();
+            }
+            else if (propertyReleased)
+            {
+                flushPropertyDrag(true);
+            }
+            else if (Double.compare(pendingPropertyValue, sentPropertyValue) != 0)
+            {
+                flushPropertyDrag(false);
+            }
             return;
         }
-        if ((operation != EditorProtocol.OP_MOVE && operation != EditorProtocol.OP_RESIZE)
-                || !dragRequestInFlight || activeGestureId != gestureId) return;
+        if ((operation != EditorProtocol.OP_MOVE && operation != EditorProtocol.OP_RESIZE) || !dragRequestInFlight
+                || activeGestureId != gestureId)
+        {
+            return;
+        }
         boolean completedFinal = finalDragSent;
         dragRequestInFlight = false;
         finalDragSent = false;
-        if (completedFinal) {
+        if (completedFinal)
+        {
             finishLiveGesture();
-        } else if (dragReleased) {
+        }
+        else if (dragReleased)
+        {
             flushLiveDrag(true);
-        } else if (pendingDragPointer != null && !pendingDragPointer.equals(lastSentDragPointer)) {
+        }
+        else if (pendingDragPointer != null && !pendingDragPointer.equals(lastSentDragPointer))
+        {
             flushLiveDrag(false);
         }
     }
 
-    public void serverOperationFailed() {
-        if (propertyRequestInFlight) {
+    public void serverOperationFailed()
+    {
+        if (propertyRequestInFlight)
+        {
             propertyRequestInFlight = false;
             propertyFinalSent = false;
             finishPropertyGesture();
         }
         dragRequestInFlight = false;
         finalDragSent = false;
-        if (dragReleased) finishLiveGesture();
+        if (dragReleased)
+        {
+            finishLiveGesture();
+        }
     }
 
     @Override
-    protected void init() {
+    protected void init()
+    {
         rebuildWidgets();
     }
 
     @Override
-    protected void rebuildWidgets() {
-        boolean restoreTimelineSearch=effectTimeline.searchFocused();
+    protected void rebuildWidgets()
+    {
+        boolean restoreTimelineSearch = effectTimeline.searchFocused();
         clearWidgets();
         propertyFields.clear();
         assetLibrary.update(state.snapshot() == null ? List.of() : state.snapshot().images());
         calibrationFields.clear();
         currentLayout = layout.calculate(width, height);
         EditorViewport.update(currentLayout.viewport());
-        if (calibrationSettingsOpen) {
+        if (calibrationSettingsOpen)
+        {
             rebuildCalibrationWidgets();
             templateNameBox = null;
             return;
         }
-        if(effectTimeline.active())addRenderableWidget(effectTimeline.rebuildSearch(font,currentLayout.templates(),restoreTimelineSearch));
+        if (effectTimeline.active())
+        {
+            addRenderableWidget(effectTimeline.rebuildSearch(font, currentLayout.templates(), restoreTimelineSearch));
+        }
         EditorProtocol.NodeSnapshot node = state.find(state.selectedId());
-        if (node != null) {
+        if (node != null)
+        {
             int fieldX = currentLayout.properties().x() + 94;
             int fieldWidth = Math.max(70, currentLayout.properties().width() - 105);
             int index = 0;
-            for (EditorProtocol.PropertySnapshot property : node.properties()) {
+            for (EditorProtocol.PropertySnapshot property : node.properties())
+            {
                 int y = currentLayout.properties().y() + 28 + index * 24 - propertyScroll;
-                if (y >= currentLayout.properties().y() + 21 && y + 19 < currentLayout.properties().bottom() - 22) {
+                if (y >= currentLayout.properties().y() + 21 && y + 19 < currentLayout.properties().bottom() - 22)
+                {
                     boolean numeric = isNumeric(property);
                     int boxInset = numeric ? 18 : 7;
-                    int boxRightInset = numeric ? 18 : property.key().equals("source") && EditorImageTypes.imageKind(node.kind()) ? 26 : 15;
+                    int boxRightInset = numeric ? 18
+                            : property.key().equals("source") && EditorImageTypes.imageKind(node.kind()) ? 26 : 15;
                     EditBox box = new EditBox(font, fieldX + boxInset, y + 6,
-                            Math.max(20, fieldWidth - boxInset - boxRightInset), 10,
-                            Component.literal(property.key()));
+                            Math.max(20, fieldWidth - boxInset - boxRightInset), 10, Component.literal(property.key()));
                     box.setMaxLength(EditorProtocol.MAX_STRING_BYTES / 2);
                     box.setValue(displayPropertyValue(property));
                     box.setBordered(false);
@@ -219,7 +275,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
                 index++;
             }
         }
-        if (!pendingTemplateNode.isBlank()) {
+        if (!pendingTemplateNode.isBlank())
+        {
             int boxWidth = 220;
             templateNameBox = new EditBox(font, (width - boxWidth) / 2, height / 2 - 3, boxWidth, 20,
                     EditorI18n.component("arcmenu_editor.templates.name"));
@@ -227,19 +284,25 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             templateNameBox.setValue(suggestTemplateId(pendingTemplateNode));
             addRenderableWidget(templateNameBox);
             setInitialFocus(templateNameBox);
-        } else templateNameBox = null;
+        }
+        else
+        {
+            templateNameBox = null;
+        }
     }
 
-    private void rebuildCalibrationWidgets() {
+    private void rebuildCalibrationWidgets()
+    {
         EditorLayout.Rect panel = calibrationPanel();
         ElementSelectionCalibration.Calibration value = selectionCalibration.get(calibrationKind);
-        String[] values = {format(value.offsetRatioX()), format(value.offsetRatioY()), format(value.scaleX()), format(value.scaleY())};
+        String[] values = { format(value.offsetRatioX()), format(value.offsetRatioY()), format(value.scaleX()),
+                format(value.scaleY()) };
         int fieldX = panel.x() + Math.min(235, Math.max(170, panel.width() / 2));
         int fieldWidth = Math.max(90, panel.right() - fieldX - 20);
-        for (int index = 0; index < values.length; index++) {
+        for (int index = 0; index < values.length; index++)
+        {
             int y = panel.y() + 61 + index * 40;
-            EditBox box = new EditBox(font, fieldX, y, fieldWidth, 20,
-                    Component.literal(calibrationFieldLabel(index)));
+            EditBox box = new EditBox(font, fieldX, y, fieldWidth, 20, Component.literal(calibrationFieldLabel(index)));
             box.setMaxLength(32);
             box.setValue(values[index]);
             box.setTextColor(TEXT);
@@ -249,44 +312,55 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
     }
 
     @Override
-    public boolean isPauseScreen() {
+    public boolean isPauseScreen()
+    {
         return false;
     }
 
     @Override
-    public boolean isInGameUi() {
+    public boolean isInGameUi()
+    {
         return true;
     }
 
     /** Keep the composited camera feed un-tinted inside the 16:9 viewport. */
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick)
+    {
         // The normal in-game Screen background is a full-window translucent
         // veil. Dock panels already provide their own opaque background, so a
         // veil here would incorrectly darken the real game viewport as well.
     }
 
     @Override
-    public boolean shouldCloseOnEsc() {
+    public boolean shouldCloseOnEsc()
+    {
         return true;
     }
 
     @Override
-    public void tick() {
+    public void tick()
+    {
         super.tick();
         if (propertyDrag != null && propertyDrag.dragging && !propertyReleased && !propertyRequestInFlight
-                && Double.compare(pendingPropertyValue, sentPropertyValue) != 0) {
+                && Double.compare(pendingPropertyValue, sentPropertyValue) != 0)
+        {
             flushPropertyDrag(false);
         }
-        if (activeGestureId != 0 && !dragReleased && !dragRequestInFlight
-                && pendingDragPointer != null && !pendingDragPointer.equals(lastSentDragPointer)) {
+        if (activeGestureId != 0 && !dragReleased && !dragRequestInFlight && pendingDragPointer != null
+                && !pendingDragPointer.equals(lastSentDragPointer))
+        {
             flushLiveDrag(false);
         }
     }
 
     @Override
-    public void onClose() {
-        if (calibrationSettingsOpen) applyCalibrationFields(true);
+    public void onClose()
+    {
+        if (calibrationSettingsOpen)
+        {
+            applyCalibrationFields(true);
+        }
         layout.save(ArcMenuEditorClient.preferencesFile());
         selectionCalibration.save(ArcMenuEditorClient.selectionCalibrationFile());
         EditorViewport.clear();
@@ -295,13 +369,15 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
     }
 
     @Override
-    public void removed() {
+    public void removed()
+    {
         EditorViewport.clear();
         super.removed();
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick)
+    {
         currentLayout = layout.calculate(width, height);
         EditorViewport.update(currentLayout.viewport());
         hoverTooltip = null;
@@ -312,7 +388,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         drawElementManager(graphics, mouseX, mouseY);
         drawProperties(graphics, mouseX, mouseY);
         drawTemplates(graphics, mouseX, mouseY);
-        if (calibrationSettingsOpen) {
+        if (calibrationSettingsOpen)
+        {
             drawCalibrationSettings(graphics, mouseX, mouseY);
             super.extractRenderState(graphics, mouseX, mouseY, partialTick);
             return;
@@ -323,11 +400,18 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         drawHoverTooltip(graphics);
     }
 
-    private void drawDragGhost(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        String label = !dragCandidateNode.isBlank() ? (state.selectedIds().size() > 1
-                ? EditorI18n.text("arcmenu_editor.common.elements", state.selectedIds().size()) : dragCandidateNode)
-                : !draggingTemplate.isBlank() ? EditorI18n.text("arcmenu_editor.common.template_drag", draggingTemplate) : "";
-        if (label.isBlank() || Math.hypot(mouseX - dragStartX, mouseY - dragStartY) < 4.0) return;
+    private void drawDragGhost(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
+        String label = !dragCandidateNode.isBlank()
+                ? (state.selectedIds().size() > 1
+                        ? EditorI18n.text("arcmenu_editor.common.elements", state.selectedIds().size())
+                        : dragCandidateNode)
+                : !draggingTemplate.isBlank() ? EditorI18n.text("arcmenu_editor.common.template_drag", draggingTemplate)
+                        : "";
+        if (label.isBlank() || Math.hypot(mouseX - dragStartX, mouseY - dragStartY) < 4.0)
+        {
+            return;
+        }
         int ghostWidth = Math.min(180, font.width(label) + 16);
         int x = Math.min(width - ghostWidth - 3, mouseX + 9);
         int y = Math.min(height - 23, mouseY + 9);
@@ -336,7 +420,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         graphics.text(font, ellipsize(label, 24), x + 7, y + 6, TEXT, false);
     }
 
-    private void drawWorkspaceMask(GuiGraphicsExtractor graphics) {
+    private void drawWorkspaceMask(GuiGraphicsExtractor graphics)
+    {
         var l = currentLayout;
         fill(graphics, l.header(), HEADER);
         fill(graphics, l.tools(), PANEL);
@@ -354,36 +439,50 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         graphics.fill(layout.toolsWidth() - 1, EditorLayout.HEADER_HEIGHT, layout.toolsWidth() + 1, height, BORDER);
         graphics.fill(width - layout.inspectorWidth() - 1, EditorLayout.HEADER_HEIGHT,
                 width - layout.inspectorWidth() + 1, height, BORDER);
-        graphics.fill(layout.toolsWidth(), height - layout.templatesHeight() - 1,
-                width - layout.inspectorWidth(), height - layout.templatesHeight() + 1, BORDER);
+        graphics.fill(layout.toolsWidth(), height - layout.templatesHeight() - 1, width - layout.inspectorWidth(),
+                height - layout.templatesHeight() + 1, BORDER);
     }
 
-    private void drawHeader(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void drawHeader(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
         graphics.text(font, "ArcMenu", 8, 8, TEXT, false);
         EditorProtocol.SnapshotPacket snapshot = state.snapshot();
         int x = 68;
-        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.frontend"), state.activeTab() == EditorProtocol.TAB_FRONTEND, mouseX, mouseY);
-        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.backend"), state.activeTab() == EditorProtocol.TAB_BACKEND, mouseX, mouseY);
+        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.frontend"),
+                state.activeTab() == EditorProtocol.TAB_FRONTEND, mouseX, mouseY);
+        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.backend"),
+                state.activeTab() == EditorProtocol.TAB_BACKEND, mouseX, mouseY);
         x += 8;
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.undo"), false, mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.redo"), false, mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.save"), false, mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.apply"), false, mouseX, mouseY);
-        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.settings"), calibrationSettingsOpen, mouseX, mouseY);
+        x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.settings"), calibrationSettingsOpen,
+                mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.mcp.title"), EditorMcp.running(), mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.projects.projects"), false, mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.projects.market"), false, mouseX, mouseY);
         String menu = snapshot == null ? EditorI18n.text("arcmenu_editor.header.disconnected")
                 : snapshot.menuId() + "  r" + snapshot.revision() + (snapshot.dirty() ? "  *" : "");
-        int menuX = x + 8, available = Math.max(0, width - 28 - menuX);
+        int menuX = x + 8;
+        int available = Math.max(0, width - 28 - menuX);
         int menuWidth = Math.min(font.width(menu), available / 2);
-        if (menuWidth > 8) graphics.text(font, ellipsize(menu, menuWidth), menuX, 8, snapshot != null && snapshot.dirty() ? 0xFFFFC857 : MUTED, false);
-        int statusX = menuX + menuWidth + 8, statusWidth = width - 28 - statusX;
-        if (statusWidth > 8) graphics.text(font, ellipsize(state.status(), statusWidth), statusX, 8, MUTED, false);
+        if (menuWidth > 8)
+        {
+            graphics.text(font, ellipsize(menu, menuWidth), menuX, 8,
+                    snapshot != null && snapshot.dirty() ? 0xFFFFC857 : MUTED, false);
+        }
+        int statusX = menuX + menuWidth + 8;
+        int statusWidth = width - 28 - statusX;
+        if (statusWidth > 8)
+        {
+            graphics.text(font, ellipsize(state.status(), statusWidth), statusX, 8, MUTED, false);
+        }
         EditorIcons.draw(graphics, EditorIcons.CLOSE, width - 20, 4, 0xFFE7A0A7);
     }
 
-    private int headerButton(GuiGraphicsExtractor graphics, int x, String label, boolean active, int mouseX, int mouseY) {
+    private int headerButton(GuiGraphicsExtractor graphics, int x, String label, boolean active, int mouseX, int mouseY)
+    {
         int buttonWidth = font.width(label) + 14;
         boolean hover = mouseX >= x && mouseX < x + buttonWidth && mouseY >= 3 && mouseY < 22;
         graphics.fill(x, 3, x + buttonWidth, 22, active ? ACCENT : hover ? 0xFF343B48 : 0xFF252A34);
@@ -391,66 +490,94 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         return x + buttonWidth + 3;
     }
 
-    private void drawCalibrationSettings(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void drawCalibrationSettings(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
         graphics.fill(0, EditorLayout.HEADER_HEIGHT, width, height, 0xC9000000);
         EditorLayout.Rect panel = calibrationPanel();
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.bottom(), 0xFF171A21);
         graphics.outline(panel.x(), panel.y(), panel.width(), panel.height(), 0xFF657084);
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.y() + 31, HEADER);
-        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.title"), panel.x() + 11, panel.y() + 11, TEXT, false);
-        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.description"),
-                panel.x() + 116, panel.y() + 11, MUTED, false);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.title"), panel.x() + 11, panel.y() + 11, TEXT,
+                false);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.description"), panel.x() + 116, panel.y() + 11,
+                MUTED, false);
         EditorIcons.draw(graphics, EditorIcons.CLOSE, panel.right() - 21, panel.y() + 7, 0xFFE7A0A7);
 
-        for (int index = 0; index < ElementSelectionCalibration.KINDS.length; index++) {
+        for (int index = 0; index < ElementSelectionCalibration.KINDS.length; index++)
+        {
             byte kind = ElementSelectionCalibration.KINDS[index];
             EditorLayout.Rect row = calibrationKindRect(index);
             boolean hover = row.contains(mouseX, mouseY);
             boolean selected = kind == calibrationKind;
-            graphics.fill(row.x(), row.y(), row.right(), row.bottom(), selected ? SELECTED : hover ? 0xFF2B303A : PANEL);
-            if (selected) graphics.fill(row.x(), row.y(), row.x() + 3, row.bottom(), ACCENT);
+            graphics.fill(row.x(), row.y(), row.right(), row.bottom(),
+                    selected ? SELECTED : hover ? 0xFF2B303A : PANEL);
+            if (selected)
+            {
+                graphics.fill(row.x(), row.y(), row.x() + 3, row.bottom(), ACCENT);
+            }
             EditorIcons.draw(graphics, kindIcon(kind), row.x() + 8, row.y() + 3, kindColor(kind));
             graphics.text(font, calibrationKindLabel(kind), row.x() + 30, row.y() + 7, TEXT, false);
         }
 
         int labelX = panel.x() + Math.min(165, Math.max(145, panel.width() / 3));
-        for (CalibrationField field : calibrationFields) {
-            graphics.text(font, calibrationFieldLabel(field.index), labelX,
-                    field.box.getY() + 7, MUTED, false);
+        for (CalibrationField field : calibrationFields)
+        {
+            graphics.text(font, calibrationFieldLabel(field.index), labelX, field.box.getY() + 7, MUTED, false);
         }
-        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.offset_help"), labelX, panel.y() + 230, MUTED, false);
-        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.scale_help"), labelX, panel.y() + 244, MUTED, false);
-        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.shared_help"), labelX, panel.y() + 258, 0xFF7F9CC3, false);
-        settingButton(graphics, calibrationResetRect(), EditorI18n.text("arcmenu_editor.calibration.reset"), mouseX, mouseY, false);
-        settingButton(graphics, calibrationSaveRect(), EditorI18n.text("arcmenu_editor.calibration.save"), mouseX, mouseY, true);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.offset_help"), labelX, panel.y() + 230, MUTED,
+                false);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.scale_help"), labelX, panel.y() + 244, MUTED,
+                false);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.shared_help"), labelX, panel.y() + 258,
+                0xFF7F9CC3, false);
+        settingButton(graphics, calibrationResetRect(), EditorI18n.text("arcmenu_editor.calibration.reset"), mouseX,
+                mouseY, false);
+        settingButton(graphics, calibrationSaveRect(), EditorI18n.text("arcmenu_editor.calibration.save"), mouseX,
+                mouseY, true);
         String status = ellipsize(state.status(), Math.max(20, (panel.width() - 245) / 6));
         graphics.text(font, status, panel.x() + 10, panel.bottom() - 20, MUTED, false);
     }
 
-    private void settingButton(GuiGraphicsExtractor graphics, EditorLayout.Rect rect, String label,
-                               int mouseX, int mouseY, boolean primary) {
+    private void settingButton(GuiGraphicsExtractor graphics, EditorLayout.Rect rect, String label, int mouseX,
+            int mouseY, boolean primary)
+    {
         boolean hover = rect.contains(mouseX, mouseY);
         graphics.fill(rect.x(), rect.y(), rect.right(), rect.bottom(),
                 primary ? (hover ? 0xFF4B9AFF : ACCENT) : (hover ? 0xFF343B48 : 0xFF252A34));
         graphics.centeredText(font, label, rect.x() + rect.width() / 2, rect.y() + 7, TEXT);
     }
 
-    private void drawTools(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void drawTools(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
         var panel = currentLayout.tools();
         title(graphics, panel, EditorI18n.text("arcmenu_editor.panel.tools"));
         ToolDefinition[] tools = state.activeTab() == EditorProtocol.TAB_BACKEND
-                ? new ToolDefinition[]{new ToolDefinition(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.tool.group"), EditorProtocol.KIND_GROUP),
-                new ToolDefinition(EditorIcons.OUTLINE, EditorI18n.text("arcmenu_editor.tool.region"), EditorProtocol.KIND_REGION)}
-                : new ToolDefinition[]{new ToolDefinition(EditorIcons.CURSOR, EditorI18n.text("arcmenu_editor.tool.select"), (byte) -1),
-                new ToolDefinition(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.tool.group"), EditorProtocol.KIND_GROUP),
-                new ToolDefinition(EditorIcons.SQUARE, EditorI18n.text("arcmenu_editor.tool.rectangle"), EditorProtocol.KIND_RECTANGLE),
-                new ToolDefinition(EditorIcons.OUTLINE, EditorI18n.text("arcmenu_editor.tool.frame"), EditorProtocol.KIND_FRAME),
-                new ToolDefinition(EditorIcons.LINE, EditorI18n.text("arcmenu_editor.tool.line"), EditorProtocol.KIND_LINE),
-                new ToolDefinition(EditorIcons.FONT, EditorI18n.text("arcmenu_editor.tool.text"), EditorProtocol.KIND_TEXT),
-                new ToolDefinition(EditorIcons.IMAGE, EditorI18n.text("arcmenu_editor.tool.image"), EditorProtocol.KIND_IMAGE),
-                new ToolDefinition(EditorIcons.GIF, EditorI18n.text("arcmenu_editor.tool.gif"), EditorProtocol.KIND_GIF),
-                new ToolDefinition(EditorIcons.MATERIAL, EditorI18n.text("arcmenu_editor.tool.item"), EditorProtocol.KIND_ITEM),
-                new ToolDefinition(EditorIcons.BLOCK, EditorI18n.text("arcmenu_editor.tool.block"), EditorProtocol.KIND_BLOCK)};
+                ? new ToolDefinition[] {
+                        new ToolDefinition(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.tool.group"),
+                                EditorProtocol.KIND_GROUP),
+                        new ToolDefinition(EditorIcons.OUTLINE, EditorI18n.text("arcmenu_editor.tool.region"),
+                                EditorProtocol.KIND_REGION) }
+                : new ToolDefinition[] {
+                        new ToolDefinition(EditorIcons.CURSOR, EditorI18n.text("arcmenu_editor.tool.select"),
+                                (byte) -1),
+                        new ToolDefinition(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.tool.group"),
+                                EditorProtocol.KIND_GROUP),
+                        new ToolDefinition(EditorIcons.SQUARE, EditorI18n.text("arcmenu_editor.tool.rectangle"),
+                                EditorProtocol.KIND_RECTANGLE),
+                        new ToolDefinition(EditorIcons.OUTLINE, EditorI18n.text("arcmenu_editor.tool.frame"),
+                                EditorProtocol.KIND_FRAME),
+                        new ToolDefinition(EditorIcons.LINE, EditorI18n.text("arcmenu_editor.tool.line"),
+                                EditorProtocol.KIND_LINE),
+                        new ToolDefinition(EditorIcons.FONT, EditorI18n.text("arcmenu_editor.tool.text"),
+                                EditorProtocol.KIND_TEXT),
+                        new ToolDefinition(EditorIcons.IMAGE, EditorI18n.text("arcmenu_editor.tool.image"),
+                                EditorProtocol.KIND_IMAGE),
+                        new ToolDefinition(EditorIcons.GIF, EditorI18n.text("arcmenu_editor.tool.gif"),
+                                EditorProtocol.KIND_GIF),
+                        new ToolDefinition(EditorIcons.MATERIAL, EditorI18n.text("arcmenu_editor.tool.item"),
+                                EditorProtocol.KIND_ITEM),
+                        new ToolDefinition(EditorIcons.BLOCK, EditorI18n.text("arcmenu_editor.tool.block"),
+                                EditorProtocol.KIND_BLOCK) };
         toolButtons.clear();
         int contentTop = panel.y() + 26;
         int columns = panel.width() >= 96 ? 2 : 1;
@@ -458,21 +585,27 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         int cellWidth = Math.max(36, (panel.width() - 12 - gap * (columns - 1)) / columns);
         int cellHeight = 38;
         graphics.enableScissor(panel.x(), panel.y() + 21, panel.right(), panel.bottom());
-        for (int index = 0; index < tools.length; index++) {
+        for (int index = 0; index < tools.length; index++)
+        {
             ToolDefinition tool = tools[index];
             int column = index % columns;
             int row = index / columns;
             int x = panel.x() + 6 + column * (cellWidth + gap);
             int y = contentTop + row * (cellHeight + gap) - toolsScroll;
             boolean hover = mouseX >= x && mouseX < x + cellWidth && mouseY >= y && mouseY < y + cellHeight;
-            boolean active = EditorImageTypes.imageKind(tool.kind) && tool.kind == assetLibrary.imageKind() && assetLibrary.imageMode()
-                    || tool.kind == -1 && !assetLibrary.imageMode();
+            boolean active = EditorImageTypes.imageKind(tool.kind) && tool.kind == assetLibrary.imageKind()
+                    && assetLibrary.imageMode() || tool.kind == -1 && !assetLibrary.imageMode();
             graphics.fill(x, y, x + cellWidth, y + cellHeight, active ? SELECTED : hover ? 0xFF343B48 : 0xFF242933);
-            if (hover) graphics.outline(x, y, cellWidth, cellHeight, 0xFF52647C);
-            EditorIcons.draw(graphics, tool.icon, x + (cellWidth - 16) / 2, y + 3,
-                    hover ? 0xFF82B7FF : 0xFFD9DFEA);
+            if (hover)
+            {
+                graphics.outline(x, y, cellWidth, cellHeight, 0xFF52647C);
+            }
+            EditorIcons.draw(graphics, tool.icon, x + (cellWidth - 16) / 2, y + 3, hover ? 0xFF82B7FF : 0xFFD9DFEA);
             graphics.centeredText(font, tool.label, x + cellWidth / 2, y + 23, hover ? TEXT : MUTED);
-            if (active) graphics.fill(x, y + cellHeight - 2, x + cellWidth, y + cellHeight, ACCENT);
+            if (active)
+            {
+                graphics.fill(x, y + cellHeight - 2, x + cellWidth, y + cellHeight, ACCENT);
+            }
             toolButtons.add(new ToolButton(tool, new EditorLayout.Rect(x, y, cellWidth, cellHeight)));
         }
         int rows = (tools.length + columns - 1) / columns;
@@ -481,25 +614,35 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         toolContentHeight = Math.max(0, y + toolsScroll - contentTop);
     }
 
-    private ElementSelectionCalibration.Calibration nodeCalibration(EditorProtocol.NodeSnapshot node) {
+    private ElementSelectionCalibration.Calibration nodeCalibration(EditorProtocol.NodeSnapshot node)
+    {
         EditorProtocol.SnapshotPacket snapshot = state.snapshot();
         return selectionCalibration.forNode(node.kind(), snapshot != null && snapshot.exactRectangles());
     }
 
-    private void drawViewport(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        if (captureClean) return;
+    private void drawViewport(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
+        if (captureClean)
+        {
+            return;
+        }
         var view = currentLayout.viewport();
         var virtual = virtualScreen();
         EditorProtocol.SnapshotPacket snapshot = state.snapshot();
-        if (snapshot == null) {
-            graphics.centeredText(font, EditorI18n.text("arcmenu_editor.viewport.open_instruction"), view.x() + view.width() / 2,
-                    view.y() + view.height() / 2, TEXT);
+        if (snapshot == null)
+        {
+            graphics.centeredText(font, EditorI18n.text("arcmenu_editor.viewport.open_instruction"),
+                    view.x() + view.width() / 2, view.y() + view.height() / 2, TEXT);
             return;
         }
         graphics.enableScissor(view.x(), view.y(), view.right(), view.bottom());
         List<EditorProtocol.NodeSnapshot> nodes = new ArrayList<>(state.nodes());
-        for (EditorProtocol.NodeSnapshot node : nodes) {
-            if (state.activeTab() == EditorProtocol.TAB_FRONTEND && !state.selected(node.id())) continue;
+        for (EditorProtocol.NodeSnapshot node : nodes)
+        {
+            if (state.activeTab() == EditorProtocol.TAB_FRONTEND && !state.selected(node.id()))
+            {
+                continue;
+            }
             ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
             double drawX = calibration.proxyX(node.x(), node.width());
             double drawY = calibration.proxyY(node.y(), node.height());
@@ -512,7 +655,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             int color = state.selected(node.id()) ? (node.id().equals(state.selectedId()) ? 0xFFFFC857 : 0xFF8FB7ED)
                     : state.activeTab() == EditorProtocol.TAB_BACKEND ? 0xB04096FF : 0x885D88C7;
             graphics.outline(x, y, w, h, color);
-            if (node.id().equals(state.selectedId())) {
+            if (node.id().equals(state.selectedId()))
+            {
                 graphics.fill(x + w - 3, y + h - 3, x + w + 3, y + h + 3, ACCENT);
             }
         }
@@ -520,13 +664,15 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         int virtualY = (int) Math.round(virtual.y());
         int virtualRight = (int) Math.round(virtual.right());
         int virtualBottom = (int) Math.round(virtual.bottom());
-        graphics.outline(virtualX, virtualY, Math.max(1, virtualRight - virtualX), Math.max(1, virtualBottom - virtualY), 0xFFB38CFF);
-        graphics.text(font, EditorI18n.text("arcmenu_editor.viewport.game", view.width(), view.height()),
-                view.x() + 5, view.y() + 5, 0xCCFFFFFF, true);
-        String calibration = EditorI18n.text("arcmenu_editor.viewport.calibration",
-                format(layout.virtualScreenScale()), format(layout.virtualScreenOffsetX()), format(layout.virtualScreenOffsetY()));
+        graphics.outline(virtualX, virtualY, Math.max(1, virtualRight - virtualX),
+                Math.max(1, virtualBottom - virtualY), 0xFFB38CFF);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.viewport.game", view.width(), view.height()), view.x() + 5,
+                view.y() + 5, 0xCCFFFFFF, true);
+        String calibration = EditorI18n.text("arcmenu_editor.viewport.calibration", format(layout.virtualScreenScale()),
+                format(layout.virtualScreenOffsetX()), format(layout.virtualScreenOffsetY()));
         graphics.text(font, calibration, view.x() + 5, view.y() + 17, 0xDDBF9CFF, true);
-        if (virtual.contains(mouseX, mouseY)) {
+        if (virtual.contains(mouseX, mouseY))
+        {
             double menuX = menuX(mouseX);
             double menuY = menuY(mouseY);
             String coordinates = EditorI18n.text("arcmenu_editor.viewport.coordinates", format(menuX), format(menuY));
@@ -535,14 +681,16 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         graphics.disableScissor();
     }
 
-    private void drawElementManager(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void drawElementManager(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
         var panel = currentLayout.manager();
         title(graphics, panel, EditorI18n.text("arcmenu_editor.panel.manager"));
         managerButtons.clear();
         int buttonX = panel.x() + 5;
         buttonX = managerButton(graphics, buttonX, panel.y() + 23, EditorIcons.ADD,
-                EditorI18n.text(state.activeTab() == EditorProtocol.TAB_FRONTEND
-                        ? "arcmenu_editor.manager.new_group" : "arcmenu_editor.manager.new_region"), ManagerAction.CREATE, mouseX, mouseY);
+                EditorI18n.text(state.activeTab() == EditorProtocol.TAB_FRONTEND ? "arcmenu_editor.manager.new_group"
+                        : "arcmenu_editor.manager.new_region"),
+                ManagerAction.CREATE, mouseX, mouseY);
         buttonX = managerButton(graphics, buttonX, panel.y() + 23, EditorIcons.FOLDER,
                 EditorI18n.text("arcmenu_editor.manager.group"), ManagerAction.GROUP, mouseX, mouseY);
         buttonX = managerButton(graphics, buttonX, panel.y() + 23, EditorIcons.DUPLICATE,
@@ -554,10 +702,11 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         graphics.text(font, selectedCount, panel.right() - font.width(selectedCount) - 7, panel.y() + 28, MUTED, false);
         nodeRows.clear();
         Map<String, List<EditorProtocol.NodeSnapshot>> children = new HashMap<>();
-        for (EditorProtocol.NodeSnapshot node : state.nodes()) {
+        for (EditorProtocol.NodeSnapshot node : state.nodes())
+        {
             children.computeIfAbsent(node.parentId(), ignored -> new ArrayList<>()).add(node);
         }
-        int[] row = {0};
+        int[] row = { 0 };
         appendRows(children, "", 0, row);
         int yStart = panel.y() + 48 - managerScroll;
         boolean managerDrag = !dragCandidateNode.isBlank()
@@ -565,28 +714,53 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         List<String> dragSelection = managerDrag ? selectedOrder() : List.of();
         boolean hoveringRow = false;
         graphics.enableScissor(panel.x(), panel.y() + 46, panel.right(), panel.bottom());
-        for (NodeRow nodeRow : nodeRows) {
+        for (NodeRow nodeRow : nodeRows)
+        {
             int y = yStart + nodeRow.index * 19;
-            if (y + 19 < panel.y() + 46 || y >= panel.bottom()) continue;
+            if (y + 19 < panel.y() + 46 || y >= panel.bottom())
+            {
+                continue;
+            }
             boolean selected = state.selected(nodeRow.node.id());
             boolean hover = panel.contains(mouseX, mouseY) && mouseY >= y && mouseY < y + 19;
-            if (hover) hoveringRow = true;
+            if (hover)
+            {
+                hoveringRow = true;
+            }
             boolean groupDrop = managerDrag && hover && canMoveIntoGroup(dragSelection, nodeRow.node);
-            boolean levelDrop = managerDrag && hover && !selected
-                    && nodeRow.node.kind() != EditorProtocol.KIND_GROUP
+            boolean levelDrop = managerDrag && hover && !selected && nodeRow.node.kind() != EditorProtocol.KIND_GROUP
                     && canMoveToParent(dragSelection, nodeRow.node.parentId());
-            if (selected || hover) graphics.fill(panel.x() + 3, y, panel.right() - 3, y + 19,
-                    groupDrop ? 0xFF24513E : selected ? SELECTED : 0xFF2B303A);
-            if (groupDrop) graphics.outline(panel.x() + 3, y, panel.width() - 6, 19, 0xFF65D68A);
-            if (levelDrop) graphics.fill(panel.x() + 3, y, panel.right() - 3, y + 2, 0xFF65D68A);
-            if (nodeRow.node.id().equals(state.selectedId())) graphics.fill(panel.x() + 3, y, panel.x() + 5, y + 19, ACCENT);
+            if (selected || hover)
+            {
+                graphics.fill(panel.x() + 3, y, panel.right() - 3, y + 19,
+                        groupDrop ? 0xFF24513E : selected ? SELECTED : 0xFF2B303A);
+            }
+            if (groupDrop)
+            {
+                graphics.outline(panel.x() + 3, y, panel.width() - 6, 19, 0xFF65D68A);
+            }
+            if (levelDrop)
+            {
+                graphics.fill(panel.x() + 3, y, panel.right() - 3, y + 2, 0xFF65D68A);
+            }
+            if (nodeRow.node.id().equals(state.selectedId()))
+            {
+                graphics.fill(panel.x() + 3, y, panel.x() + 5, y + 19, ACCENT);
+            }
             int x = panel.x() + 8 + nodeRow.depth * 13;
-            if (state.hasChildren(nodeRow.node.id())) {
-                graphics.text(font, state.expanded().contains(nodeRow.node.id()) ? "-" : "+", x + 2, y + 5, MUTED, false);
+            if (state.hasChildren(nodeRow.node.id()))
+            {
+                graphics.text(font, state.expanded().contains(nodeRow.node.id()) ? "-" : "+", x + 2, y + 5, MUTED,
+                        false);
                 x += 11;
-            } else x += 11;
+            }
+            else
+            {
+                x += 11;
+            }
             EditorIcons.draw(graphics, kindIcon(nodeRow.node.kind()), x - 2, y + 2, kindColor(nodeRow.node.kind()));
-            graphics.text(font, ellipsize(nodeRow.node.id(), Math.max(10, (panel.width() - x - 55) / 6)), x + 16, y + 5, TEXT, false);
+            graphics.text(font, ellipsize(nodeRow.node.id(), Math.max(10, (panel.width() - x - 55) / 6)), x + 16, y + 5,
+                    TEXT, false);
             EditorIcons.draw(graphics, nodeRow.node.visible() ? EditorIcons.VISIBLE : EditorIcons.INVISIBLE,
                     panel.right() - 38, y + 2, nodeRow.node.visible() ? 0xFF9BE2A0 : 0xFF697382);
             EditorIcons.draw(graphics, state.locked(nodeRow.node.id()) ? EditorIcons.LOCKED : EditorIcons.UNLOCKED,
@@ -594,128 +768,197 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             nodeRow.screenY = y;
         }
         graphics.disableScissor();
-        if (managerDrag
-                && panel.contains(mouseX, mouseY) && mouseY >= panel.y() + 46 && !hoveringRow
-                && canMoveToParent(dragSelection, "")) {
-            graphics.outline(panel.x() + 3, panel.y() + 46, panel.width() - 6,
-                    Math.max(1, panel.height() - 49), 0xFF65D68A);
+        if (managerDrag && panel.contains(mouseX, mouseY) && mouseY >= panel.y() + 46 && !hoveringRow
+                && canMoveToParent(dragSelection, ""))
+        {
+            graphics.outline(panel.x() + 3, panel.y() + 46, panel.width() - 6, Math.max(1, panel.height() - 49),
+                    0xFF65D68A);
         }
     }
 
-    private int managerButton(GuiGraphicsExtractor graphics, int x, int y, EditorIcons.Icon icon,
-                              String tooltip, ManagerAction action, int mouseX, int mouseY) {
+    private int managerButton(GuiGraphicsExtractor graphics, int x, int y, EditorIcons.Icon icon, String tooltip,
+            ManagerAction action, int mouseX, int mouseY)
+    {
         boolean hover = mouseX >= x && mouseX < x + 22 && mouseY >= y && mouseY < y + 21;
         graphics.fill(x, y, x + 22, y + 21, hover ? 0xFF343B48 : 0xFF242933);
         EditorIcons.draw(graphics, icon, x + 3, y + 2, hover ? 0xFF82B7FF : 0xFFD4DBE6);
         managerButtons.add(new ManagerButton(action, new EditorLayout.Rect(x, y, 22, 21)));
-        if (hover) hoverTooltip = new HoverTooltip(tooltip, x, y + 23);
+        if (hover)
+        {
+            hoverTooltip = new HoverTooltip(tooltip, x, y + 23);
+        }
         return x + 25;
     }
 
-    private void drawHoverTooltip(GuiGraphicsExtractor graphics) {
-        if (hoverTooltip == null || contextMenu != null) return;
-        EditorTooltips.draw(graphics,font,Component.literal(hoverTooltip.text),hoverTooltip.x,hoverTooltip.y,width,height,0xFF161920,BORDER,TEXT);
+    private void drawHoverTooltip(GuiGraphicsExtractor graphics)
+    {
+        if (hoverTooltip == null || contextMenu != null)
+        {
+            return;
+        }
+        EditorTooltips.draw(graphics, font, Component.literal(hoverTooltip.text), hoverTooltip.x, hoverTooltip.y, width,
+                height, 0xFF161920, BORDER, TEXT);
     }
 
-    private void appendRows(Map<String, List<EditorProtocol.NodeSnapshot>> children, String parent, int depth, int[] row) {
-        for (EditorProtocol.NodeSnapshot node : children.getOrDefault(parent, List.of())) {
+    private void appendRows(Map<String, List<EditorProtocol.NodeSnapshot>> children, String parent, int depth,
+            int[] row)
+    {
+        for (EditorProtocol.NodeSnapshot node : children.getOrDefault(parent, List.of()))
+        {
             NodeRow value = new NodeRow(node, depth, row[0]++);
             nodeRows.add(value);
-            if (state.expanded().contains(node.id())) appendRows(children, node.id(), depth + 1, row);
+            if (state.expanded().contains(node.id()))
+            {
+                appendRows(children, node.id(), depth + 1, row);
+            }
         }
     }
 
-    private void drawProperties(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void drawProperties(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
         var panel = currentLayout.properties();
         title(graphics, panel, EditorI18n.text("arcmenu_editor.panel.properties"));
         EditorProtocol.NodeSnapshot node = state.find(state.selectedId());
-        if (node == null) {
-            graphics.centeredText(font, EditorI18n.text("arcmenu_editor.properties.select"), panel.x() + panel.width() / 2, panel.y() + 43, MUTED);
+        if (node == null)
+        {
+            graphics.centeredText(font, EditorI18n.text("arcmenu_editor.properties.select"),
+                    panel.x() + panel.width() / 2, panel.y() + 43, MUTED);
             return;
         }
         graphics.enableScissor(panel.x(), panel.y() + 21, panel.right(), panel.bottom() - 21);
-        for (PropertyField field : propertyFields) {
+        for (PropertyField field : propertyFields)
+        {
             graphics.text(font, propertyLabel(field.property.key()), panel.x() + 8, field.y + 7, MUTED, false);
             graphics.fill(field.rect.x(), field.rect.y(), field.rect.right(), field.rect.bottom(),
                     field.box.isFocused() ? 0xFF223A5B : 0xFF171A20);
             int stripe = propertyStripe(field.property.key());
             graphics.fill(field.rect.x(), field.rect.y(), field.rect.x() + 3, field.rect.bottom(), stripe);
-            if (field.property.key().equals("source") && EditorImageTypes.imageKind(node.kind())) {
+            if (field.property.key().equals("source") && EditorImageTypes.imageKind(node.kind()))
+            {
                 EditorIcons.draw(graphics, EditorIcons.FOLDER, field.rect.right() - 19, field.y + 2, ACCENT);
-                if (mouseX >= field.rect.right() - 21 && field.rect.contains(mouseX,mouseY))
-                    hoverTooltip = new HoverTooltip(EditorI18n.text("arcmenu_editor.images.choose_source"), mouseX + 8, mouseY - 20);
+                if (mouseX >= field.rect.right() - 21 && field.rect.contains(mouseX, mouseY))
+                {
+                    hoverTooltip = new HoverTooltip(EditorI18n.text("arcmenu_editor.images.choose_source"), mouseX + 8,
+                            mouseY - 20);
+                }
             }
-            String hint = EditorImageTypes.hint(node.kind(),field.property.key());
-            if (hint.isEmpty()) hint = EditorI18n.propertyHint(field.property.key());
-            if (!hint.isEmpty() && mouseX >= panel.x() && mouseX < field.rect.x() && mouseY >= field.y && mouseY < field.y + 24)
+            String hint = EditorImageTypes.hint(node.kind(), field.property.key());
+            if (hint.isEmpty())
+            {
+                hint = EditorI18n.propertyHint(field.property.key());
+            }
+            if (!hint.isEmpty() && mouseX >= panel.x() && mouseX < field.rect.x() && mouseY >= field.y
+                    && mouseY < field.y + 24)
+            {
                 hoverTooltip = new HoverTooltip(hint, mouseX + 8, mouseY - 20);
-            if (isNumeric(field.property)) {
-                EditorIcons.draw(graphics, EditorIcons.CHEVRON_LEFT, field.rect.x() + 6, field.rect.y() + 2, 0x887F8997);
-                EditorIcons.draw(graphics, EditorIcons.CHEVRON_RIGHT, field.rect.right() - 12, field.rect.y() + 2, 0x887F8997);
-            } else if (field.property.type() == EditorProtocol.PROPERTY_BOOLEAN || field.property.type() == EditorProtocol.PROPERTY_CHOICE) {
-                EditorIcons.draw(graphics, EditorIcons.CHEVRON_RIGHT, field.rect.right() - 12, field.rect.y() + 2, 0xAA8EBBFA);
+            }
+            if (isNumeric(field.property))
+            {
+                EditorIcons.draw(graphics, EditorIcons.CHEVRON_LEFT, field.rect.x() + 6, field.rect.y() + 2,
+                        0x887F8997);
+                EditorIcons.draw(graphics, EditorIcons.CHEVRON_RIGHT, field.rect.right() - 12, field.rect.y() + 2,
+                        0x887F8997);
+            }
+            else if (field.property.type() == EditorProtocol.PROPERTY_BOOLEAN
+                    || field.property.type() == EditorProtocol.PROPERTY_CHOICE)
+            {
+                EditorIcons.draw(graphics, EditorIcons.CHEVRON_RIGHT, field.rect.right() - 12, field.rect.y() + 2,
+                        0xAA8EBBFA);
             }
         }
         graphics.disableScissor();
-        graphics.text(font, EditorI18n.text("arcmenu_editor.properties.help"), panel.x() + 8, panel.bottom() - 15, 0xFF788394, false);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.properties.help"), panel.x() + 8, panel.bottom() - 15,
+                0xFF788394, false);
     }
 
-    private void drawTemplates(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        if (effectTimeline.active()) { effectTimeline.draw(graphics, font, currentLayout.templates(), mouseX, mouseY); return; }
-        if (assetLibrary.imageMode()) {
+    private void drawTemplates(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
+        if (effectTimeline.active())
+        {
+            effectTimeline.draw(graphics, font, currentLayout.templates(), mouseX, mouseY);
+            return;
+        }
+        if (assetLibrary.imageMode())
+        {
             templateCards.clear();
             drawImages(graphics, mouseX, mouseY);
             return;
         }
         var panel = currentLayout.templates();
         title(graphics, panel, EditorI18n.text("arcmenu_editor.panel.templates"));
-        graphics.text(font, EditorI18n.text("arcmenu_editor.templates.help"),
-                panel.x() + 10, panel.y() + 25, MUTED, false);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.templates.help"), panel.x() + 10, panel.y() + 25, MUTED,
+                false);
         int cardY = panel.y() + 45 - templateScroll;
         int cardW = 126;
         templateCards.clear();
-        List<EditorProtocol.TemplateSnapshot> templates = state.snapshot() == null ? List.of() : state.snapshot().templates();
+        List<EditorProtocol.TemplateSnapshot> templates = state.snapshot() == null ? List.of()
+                : state.snapshot().templates();
         int columns = Math.max(1, (panel.width() - 18) / (cardW + 9));
         int cardCount = Math.max(1, templates.size());
         templateContentHeight = ((cardCount + columns - 1) / columns) * 86;
         graphics.enableScissor(panel.x(), panel.y() + 43, panel.right(), panel.bottom());
-        for (int i = 0; i < cardCount; i++) {
+        for (int i = 0; i < cardCount; i++)
+        {
             int x = panel.x() + 10 + (i % columns) * (cardW + 9);
             int y = cardY + (i / columns) * 86;
             EditorProtocol.TemplateSnapshot template = templates.isEmpty() ? null : templates.get(i);
             boolean visible = y + 78 >= panel.y() + 43 && y < panel.bottom();
-            if (!visible) continue;
-            boolean hover = mouseX >= x && mouseX < x + cardW && mouseY >= Math.max(y, panel.y() + 43) && mouseY < Math.min(y + 78, panel.bottom());
+            if (!visible)
+            {
+                continue;
+            }
+            boolean hover = mouseX >= x && mouseX < x + cardW && mouseY >= Math.max(y, panel.y() + 43)
+                    && mouseY < Math.min(y + 78, panel.bottom());
             graphics.fill(x, y, x + cardW, y + 78, hover ? 0xFF303846 : 0xFF242933);
             graphics.outline(x, y, cardW, 78, hover ? 0xFF6EA8F5 : BORDER);
             graphics.fill(x + 6, y + 6, x + cardW - 6, y + 49, 0xFF11141A);
-            if (template == null) {
-                graphics.centeredText(font, EditorI18n.text("arcmenu_editor.templates.drop"), x + cardW / 2, y + 23, 0xFF8FB7ED);
-            } else {
-                EditorIcons.draw(graphics, EditorIcons.FOLDER, x + cardW / 2 - 28, y + 16, 0xFF6CC7EA);
-                graphics.text(font, EditorI18n.text("arcmenu_editor.common.elements", template.nodeCount()), x + cardW / 2 - 8, y + 23, 0xFF6CC7EA, false);
+            if (template == null)
+            {
+                graphics.centeredText(font, EditorI18n.text("arcmenu_editor.templates.drop"), x + cardW / 2, y + 23,
+                        0xFF8FB7ED);
             }
-            graphics.text(font, template == null ? EditorI18n.text("arcmenu_editor.templates.none") : ellipsize(template.id(), 18), x + 7, y + 61, TEXT, false);
-            if (template != null) templateCards.add(new TemplateCard(template, new EditorLayout.Rect(x, y, cardW, 78)));
+            else
+            {
+                EditorIcons.draw(graphics, EditorIcons.FOLDER, x + cardW / 2 - 28, y + 16, 0xFF6CC7EA);
+                graphics.text(font, EditorI18n.text("arcmenu_editor.common.elements", template.nodeCount()),
+                        x + cardW / 2 - 8, y + 23, 0xFF6CC7EA, false);
+            }
+            graphics.text(font,
+                    template == null ? EditorI18n.text("arcmenu_editor.templates.none") : ellipsize(template.id(), 18),
+                    x + 7, y + 61, TEXT, false);
+            if (template != null)
+            {
+                templateCards.add(new TemplateCard(template, new EditorLayout.Rect(x, y, cardW, 78)));
+            }
         }
         graphics.disableScissor();
-        if (!dragCandidateNode.isBlank() && currentLayout.templates().contains(mouseX, mouseY)) {
+        if (!dragCandidateNode.isBlank() && currentLayout.templates().contains(mouseX, mouseY))
+        {
             graphics.outline(panel.x() + 4, panel.y() + 4, panel.width() - 8, panel.height() - 8, ACCENT);
         }
-        if (!pendingTemplateNode.isBlank()) drawTemplateDialog(graphics);
+        if (!pendingTemplateNode.isBlank())
+        {
+            drawTemplateDialog(graphics);
+        }
     }
 
-
-    private int folderPaneWidth() {
+    private int folderPaneWidth()
+    {
         return Math.max(86, Math.min(140, currentLayout.templates().width() / 4));
     }
 
-    private void drawImages(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void drawImages(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
         var panel = currentLayout.templates();
-        title(graphics, panel, EditorI18n.text(assetLibrary.imageKind() == EditorProtocol.KIND_GIF ? "arcmenu_editor.images.gif_library" : "arcmenu_editor.images.library"));
+        title(graphics, panel,
+                EditorI18n
+                        .text(assetLibrary.imageKind() == EditorProtocol.KIND_GIF ? "arcmenu_editor.images.gif_library"
+                                : "arcmenu_editor.images.library"));
         String help = EditorI18n.text("arcmenu_editor.images.help");
         if (panel.width() > font.width(help) + 110)
+        {
             graphics.text(font, help, panel.right() - font.width(help) - 8, panel.y() + 7, MUTED, false);
+        }
         int divider = panel.x() + folderPaneWidth();
         int top = panel.y() + 43;
         graphics.fill(panel.x(), panel.y() + 21, panel.right(), top, 0xFF141820);
@@ -730,27 +973,42 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         graphics.disableScissor();
         boolean canInsert = assetLibrary.selected() != null && state.activeTab() == EditorProtocol.TAB_FRONTEND;
         graphics.fill(panel.right() - 65, panel.y() + 24, panel.right() - 6, top - 3, canInsert ? SELECTED : PANEL_ALT);
-        graphics.centeredText(font, EditorI18n.text(imageSourceTarget.isEmpty() ? "arcmenu_editor.images.insert" : "arcmenu_editor.images.apply_source"),
+        graphics.centeredText(font,
+                EditorI18n.text(imageSourceTarget.isEmpty() ? "arcmenu_editor.images.insert"
+                        : "arcmenu_editor.images.apply_source"),
                 panel.right() - 35, panel.y() + 28, canInsert ? TEXT : MUTED);
 
         folderRows.clear();
         int visibleHeight = panel.bottom() - top;
-        folderScroll = Math.max(0, Math.min(Math.max(0, assetLibrary.folders().size() * 20 - visibleHeight), folderScroll));
+        folderScroll = Math.max(0,
+                Math.min(Math.max(0, assetLibrary.folders().size() * 20 - visibleHeight), folderScroll));
         graphics.enableScissor(panel.x(), top, divider, panel.bottom());
         int index = 0;
-        for (String path : assetLibrary.folders()) {
+        for (String path : assetLibrary.folders())
+        {
             int y = top + index++ * 20 - folderScroll;
-            if (y + 20 <= top || y >= panel.bottom()) continue;
+            if (y + 20 <= top || y >= panel.bottom())
+            {
+                continue;
+            }
             boolean chosen = path.equals(assetLibrary.folder());
-            if (chosen) graphics.fill(panel.x() + 3, y, divider - 3, y + 20, SELECTED);
+            if (chosen)
+            {
+                graphics.fill(panel.x() + 3, y, divider - 3, y + 20, SELECTED);
+            }
             int depth = path.isEmpty() ? 0 : path.split("/").length;
             int x = panel.x() + 6 + Math.min(depth, 4) * 9;
             EditorIcons.draw(graphics, EditorIcons.FOLDER, x, y + 2, chosen ? 0xFF83B8FF : 0xFFA5ADBD);
-            String label = path.isEmpty() ? EditorI18n.text("arcmenu_editor.images.root") : EditorAssetLibrary.name(path);
-            graphics.text(font, font.plainSubstrByWidth(label, Math.max(12, divider - x - 24)), x + 19, y + 6, TEXT, false);
+            String label = path.isEmpty() ? EditorI18n.text("arcmenu_editor.images.root")
+                    : EditorAssetLibrary.name(path);
+            graphics.text(font, font.plainSubstrByWidth(label, Math.max(12, divider - x - 24)), x + 19, y + 6, TEXT,
+                    false);
             folderRows.add(new FolderRow(path, new EditorLayout.Rect(panel.x(), y, folderPaneWidth(), 20)));
-            if (mouseX < divider && mouseX >= panel.x() && mouseY >= Math.max(y, top) && mouseY < Math.min(y + 20, panel.bottom()))
+            if (mouseX < divider && mouseX >= panel.x() && mouseY >= Math.max(y, top)
+                    && mouseY < Math.min(y + 20, panel.bottom()))
+            {
                 hoverTooltip = new HoverTooltip(path.isEmpty() ? label : path, mouseX + 8, mouseY - 20);
+            }
         }
         graphics.disableScissor();
 
@@ -764,29 +1022,46 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         imageScroll = Math.max(0, Math.min(Math.max(0, imageContentHeight - visibleHeight), imageScroll));
         assetCards.clear();
         graphics.enableScissor(divider + 1, top, panel.right(), panel.bottom());
-        for (int i = 0; i < entries.size(); i++) {
+        for (int i = 0; i < entries.size(); i++)
+        {
             var entry = entries.get(i);
             int x = gridX + (i % columns) * (cardW + 7);
             int y = top + 4 + (i / columns) * rowHeight - imageScroll;
-            if (y + 70 <= top || y >= panel.bottom()) continue;
+            if (y + 70 <= top || y >= panel.bottom())
+            {
+                continue;
+            }
             boolean selected = !entry.directory() && entry.image().path().equals(assetLibrary.selectedPath());
-            boolean hover = mouseX >= x && mouseX < x + cardW && mouseY >= Math.max(y, top) && mouseY < Math.min(y + 70, panel.bottom());
+            boolean hover = mouseX >= x && mouseX < x + cardW && mouseY >= Math.max(y, top)
+                    && mouseY < Math.min(y + 70, panel.bottom());
             graphics.fill(x, y, x + cardW, y + 70, selected ? SELECTED : hover ? 0xFF303846 : 0xFF242933);
-            if (selected || hover) graphics.outline(x, y, cardW, 70, selected ? ACCENT : 0xFF52647C);
+            if (selected || hover)
+            {
+                graphics.outline(x, y, cardW, 70, selected ? ACCENT : 0xFF52647C);
+            }
             var preview = new EditorLayout.Rect(x + 4, y + 4, cardW - 8, 43);
-            if (entry.directory()) {
+            if (entry.directory())
+            {
                 EditorIcons.draw(graphics, EditorIcons.FOLDER, x + (cardW - 16) / 2, y + 17, 0xFF8FB7ED);
-            } else {
+            }
+            else
+            {
                 // Checkerboard makes transparent artwork readable without altering its texture.
-                for (int cy = preview.y(); cy < preview.bottom(); cy += 6) {
-                    for (int cx = preview.x(); cx < preview.right(); cx += 6) {
-                        int color = (((cx - preview.x()) / 6 + (cy - preview.y()) / 6) & 1) == 0 ? 0xFF343A45 : 0xFF282D37;
-                        graphics.fill(cx, cy, Math.min(cx + 6, preview.right()), Math.min(cy + 6, preview.bottom()), color);
+                for (int cy = preview.y(); cy < preview.bottom(); cy += 6)
+                {
+                    for (int cx = preview.x(); cx < preview.right(); cx += 6)
+                    {
+                        int color = (((cx - preview.x()) / 6 + (cy - preview.y()) / 6) & 1) == 0 ? 0xFF343A45
+                                : 0xFF282D37;
+                        graphics.fill(cx, cy, Math.min(cx + 6, preview.right()), Math.min(cy + 6, preview.bottom()),
+                                color);
                     }
                 }
-                if (!EditorImagePreview.draw(graphics, entry.image(), preview)) {
+                if (!EditorImagePreview.draw(graphics, entry.image(), preview))
+                {
                     graphics.fill(preview.x(), preview.y(), preview.right(), preview.bottom(), 0xFF171B22);
-                    graphics.centeredText(font, font.plainSubstrByWidth(EditorI18n.text("arcmenu_editor.images.unavailable"), cardW - 8),
+                    graphics.centeredText(font,
+                            font.plainSubstrByWidth(EditorI18n.text("arcmenu_editor.images.unavailable"), cardW - 8),
                             x + cardW / 2, y + 21, MUTED);
                 }
             }
@@ -795,49 +1070,93 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
                     : entry.image().width() + " × " + entry.image().height();
             graphics.text(font, detail, x + 5, y + 61, MUTED, false);
             assetCards.add(new AssetCard(entry, new EditorLayout.Rect(x, y, cardW, 70)));
-            if (hover) hoverTooltip = new HoverTooltip(entry.path(), mouseX + 8, mouseY - 20);
+            if (hover)
+            {
+                hoverTooltip = new HoverTooltip(entry.path(), mouseX + 8, mouseY - 20);
+            }
         }
-        if (entries.isEmpty()) graphics.centeredText(font, EditorI18n.text("arcmenu_editor.images.none"),
-                divider + (panel.right() - divider) / 2, top + 25, MUTED);
+        if (entries.isEmpty())
+        {
+            graphics.centeredText(font, EditorI18n.text("arcmenu_editor.images.none"),
+                    divider + (panel.right() - divider) / 2, top + 25, MUTED);
+        }
         graphics.disableScissor();
     }
 
-    private boolean clickImages(double x, double y, boolean doubleClick) {
+    private boolean clickImages(double x, double y, boolean doubleClick)
+    {
         var panel = currentLayout.templates();
-        if (y >= panel.y() + 21 && y < panel.y() + 43) {
-            if (x < panel.x() + 22) { assetLibrary.up(); imageScroll = 0; }
-            else if (x >= panel.right() - 65) insertSelectedImage();
+        if (y >= panel.y() + 21 && y < panel.y() + 43)
+        {
+            if (x < panel.x() + 22)
+            {
+                assetLibrary.up();
+                imageScroll = 0;
+            }
+            else if (x >= panel.right() - 65)
+            {
+                insertSelectedImage();
+            }
             return true;
         }
-        if (y < panel.y() + 43) return true;
-        for (FolderRow row : folderRows) {
-            if (row.rect.contains(x, y)) { assetLibrary.openFolder(row.path); imageScroll = 0; return true; }
+        if (y < panel.y() + 43)
+        {
+            return true;
         }
-        for (AssetCard card : assetCards) {
-            if (!card.rect.contains(x, y)) continue;
-            if (card.entry.directory()) {
+        for (FolderRow row : folderRows)
+        {
+            if (row.rect.contains(x, y))
+            {
+                assetLibrary.openFolder(row.path);
+                imageScroll = 0;
+                return true;
+            }
+        }
+        for (AssetCard card : assetCards)
+        {
+            if (!card.rect.contains(x, y))
+            {
+                continue;
+            }
+            if (card.entry.directory())
+            {
                 assetLibrary.openFolder(card.entry.path());
                 imageScroll = 0;
-            } else {
+            }
+            else
+            {
                 assetLibrary.select(card.entry.image().path());
-                if (doubleClick) insertSelectedImage();
+                if (doubleClick)
+                {
+                    insertSelectedImage();
+                }
             }
             return true;
         }
         return true;
     }
 
-    private void insertSelectedImage() {
+    private void insertSelectedImage()
+    {
         var image = assetLibrary.selected();
-        if (image != null && state.activeTab() == EditorProtocol.TAB_FRONTEND) {
+        if (image != null && state.activeTab() == EditorProtocol.TAB_FRONTEND)
+        {
             var target = state.find(imageSourceTarget);
-            if (target != null && EditorImageTypes.imageKind(target.kind())) {
-                ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(), EditorProtocol.TAB_FRONTEND, target.id(), "source", image.path()));
+            if (target != null && EditorImageTypes.imageKind(target.kind()))
+            {
+                ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(),
+                        EditorProtocol.TAB_FRONTEND, target.id(), "source", image.path()));
                 imageSourceTarget = "";
-            } else create(EditorImageTypes.kind(image.path()), image.path());
+            }
+            else
+            {
+                create(EditorImageTypes.kind(image.path()), image.path());
+            }
         }
     }
-    private void drawTemplateDialog(GuiGraphicsExtractor graphics) {
+
+    private void drawTemplateDialog(GuiGraphicsExtractor graphics)
+    {
         int dialogWidth = 260;
         int x = (width - dialogWidth) / 2;
         int y = height / 2 - 48;
@@ -848,20 +1167,24 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         graphics.text(font, EditorI18n.text("arcmenu_editor.templates.submit_help"), x + 12, y + 75, MUTED, false);
     }
 
-    private void title(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, String value) {
+    private void title(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, String value)
+    {
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.y() + 20, HEADER);
         graphics.text(font, value, panel.x() + 7, panel.y() + 6, TEXT, false);
         graphics.fill(panel.x(), panel.y() + 19, panel.right(), panel.y() + 20, BORDER);
     }
 
-    private void property(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, String value) {
+    private void property(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, String value)
+    {
         graphics.text(font, label, panel.x() + 8, y + 5, MUTED, false);
         int x = panel.x() + 72;
         graphics.fill(x, y, panel.right() - 8, y + 20, 0xFF171A20);
         graphics.text(font, ellipsize(value, 35), x + 6, y + 6, TEXT, false);
     }
 
-    private void property2(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double a, double b) {
+    private void property2(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double a,
+            double b)
+    {
         graphics.text(font, label, panel.x() + 8, y, MUTED, false);
         int x = panel.x() + 8;
         int w = (panel.width() - 25) / 2;
@@ -869,7 +1192,9 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         smallField(graphics, x + w + 7, y + 12, w, "Y  " + format(b), 0xFF56D364);
     }
 
-    private void property3(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double a, double b, double c) {
+    private void property3(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double a,
+            double b, double c)
+    {
         graphics.text(font, label, panel.x() + 8, y, MUTED, false);
         int x = panel.x() + 8;
         int w = (panel.width() - 30) / 3;
@@ -878,74 +1203,134 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         smallField(graphics, x + (w + 5) * 2, y + 12, w, "Z " + format(c), 0xFF55A6F1);
     }
 
-    private void smallField(GuiGraphicsExtractor graphics, int x, int y, int width, String value, int stripe) {
+    private void smallField(GuiGraphicsExtractor graphics, int x, int y, int width, String value, int stripe)
+    {
         graphics.fill(x, y, x + width, y + 20, 0xFF171A20);
         graphics.fill(x, y, x + 2, y + 20, stripe);
         graphics.centeredText(font, ellipsize(value, 12), x + width / 2, y + 6, TEXT);
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (currentLayout == null) return super.mouseClicked(event, doubleClick);
-        if (calibrationSettingsOpen) return clickCalibrationSettings(event, doubleClick);
-        if (effectTimeline.click(event, doubleClick)) return true;
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
+    {
+        if (currentLayout == null)
+        {
+            return super.mouseClicked(event, doubleClick);
+        }
+        if (calibrationSettingsOpen)
+        {
+            return clickCalibrationSettings(event, doubleClick);
+        }
+        if (effectTimeline.click(event, doubleClick))
+        {
+            return true;
+        }
         double x = event.x();
         double y = event.y();
-        if (contextMenu != null) {
+        if (contextMenu != null)
+        {
             ContextEntry entry = contextMenu.entryAt(x, y);
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && entry != null) {
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && entry != null)
+            {
                 contextMenu = null;
-                if (entry.enabled) entry.action.run();
+                if (entry.enabled)
+                {
+                    entry.action.run();
+                }
                 return true;
             }
             contextMenu = null;
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) return true;
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+            {
+                return true;
+            }
         }
-        if (propertyDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+        if (propertyDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+        {
             pendingPropertyValue = propertyDrag.initialValue;
             propertyDrag.dragging = true;
             propertyReleased = true;
             flushPropertyDrag(true);
             return true;
         }
-        if (!pendingTemplateNode.isBlank()) return super.mouseClicked(event, doubleClick);
-        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && currentLayout.templates().contains(x, y)) {
-            if (assetLibrary.imageMode()) return true;
-            TemplateCard card = templateCards.stream().filter(value -> value.rect.contains(x, y)).findFirst().orElse(null);
-            if (card != null) openTemplateContext(x, y, card);
+        if (!pendingTemplateNode.isBlank())
+        {
+            return super.mouseClicked(event, doubleClick);
+        }
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && currentLayout.templates().contains(x, y))
+        {
+            if (assetLibrary.imageMode())
+            {
+                return true;
+            }
+            TemplateCard card = templateCards.stream().filter(value -> value.rect.contains(x, y)).findFirst()
+                    .orElse(null);
+            if (card != null)
+            {
+                openTemplateContext(x, y, card);
+            }
             return true;
         }
-        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && currentLayout.manager().contains(x, y)) {
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && currentLayout.manager().contains(x, y))
+        {
             NodeRow row = nodeRowAt(y);
-            if (row != null && !state.selected(row.node.id())) {
+            if (row != null && !state.selected(row.node.id()))
+            {
                 state.selectOnly(row.node.id());
                 rebuildWidgets();
             }
             openManagerContext(x, y, row);
             return true;
         }
-        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return super.mouseClicked(event, doubleClick);
-        if (y < EditorLayout.HEADER_HEIGHT) return clickHeader(x, y);
-        if (Math.abs(x - layout.toolsWidth()) <= 3) { resizeTarget = ResizeTarget.TOOLS; return true; }
-        if (Math.abs(x - (width - layout.inspectorWidth())) <= 3) { resizeTarget = ResizeTarget.INSPECTOR; return true; }
-        if (x >= layout.toolsWidth() && x < width - layout.inspectorWidth()
-                && Math.abs(y - (height - layout.templatesHeight())) <= 3) {
-            resizeTarget = ResizeTarget.TEMPLATES; return true;
+        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+        {
+            return super.mouseClicked(event, doubleClick);
         }
-        for (PropertyField field : propertyFields) {
-            if (!field.rect.contains(x, y)) continue;
-            if (propertyRequestInFlight || propertyReleased) return true;
+        if (y < EditorLayout.HEADER_HEIGHT)
+        {
+            return clickHeader(x, y);
+        }
+        if (Math.abs(x - layout.toolsWidth()) <= 3)
+        {
+            resizeTarget = ResizeTarget.TOOLS;
+            return true;
+        }
+        if (Math.abs(x - (width - layout.inspectorWidth())) <= 3)
+        {
+            resizeTarget = ResizeTarget.INSPECTOR;
+            return true;
+        }
+        if (x >= layout.toolsWidth() && x < width - layout.inspectorWidth()
+                && Math.abs(y - (height - layout.templatesHeight())) <= 3)
+        {
+            resizeTarget = ResizeTarget.TEMPLATES;
+            return true;
+        }
+        for (PropertyField field : propertyFields)
+        {
+            if (!field.rect.contains(x, y))
+            {
+                continue;
+            }
+            if (propertyRequestInFlight || propertyReleased)
+            {
+                return true;
+            }
             var fieldNode = state.find(field.nodeId);
-            if (field.property.key().equals("source") && fieldNode != null && EditorImageTypes.imageKind(fieldNode.kind()) && x >= field.rect.right() - 21) {
+            if (field.property.key().equals("source") && fieldNode != null
+                    && EditorImageTypes.imageKind(fieldNode.kind()) && x >= field.rect.right() - 21)
+            {
                 unfocusPropertyFields();
                 imageSourceTarget = field.nodeId;
                 assetLibrary.selectTool(fieldNode.kind());
                 imageScroll = 0;
                 return true;
             }
-            if (isNumeric(field.property)) {
+            if (isNumeric(field.property))
+            {
                 double value = parseNumber(field.box.getValue(), field.property.value());
-                if (event.hasControlDown()) {
+                if (event.hasControlDown())
+                {
                     setProperty(field, formatPropertyValue(field.property, Math.rint(value)));
                     return true;
                 }
@@ -959,11 +1344,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
                 unfocusPropertyFields();
                 return true;
             }
-            if (field.property.type() == EditorProtocol.PROPERTY_BOOLEAN) {
+            if (field.property.type() == EditorProtocol.PROPERTY_BOOLEAN)
+            {
                 setProperty(field, Boolean.toString(!Boolean.parseBoolean(field.property.value())));
                 return true;
             }
-            if (field.property.type() == EditorProtocol.PROPERTY_CHOICE && !field.property.choices().isEmpty()) {
+            if (field.property.type() == EditorProtocol.PROPERTY_CHOICE && !field.property.choices().isEmpty())
+            {
                 int current = field.property.choices().indexOf(field.property.value());
                 int direction = event.hasShiftDown() ? -1 : 1;
                 int next = Math.floorMod(current + direction, field.property.choices().size());
@@ -973,156 +1360,246 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             focusProperty(field);
             return true;
         }
-        if (currentLayout.tools().contains(x, y) && y >= currentLayout.tools().y() + 21) {
-            for (ToolButton button : toolButtons) {
-                if (button.rect.contains(x, y)) {
+        if (currentLayout.tools().contains(x, y) && y >= currentLayout.tools().y() + 21)
+        {
+            for (ToolButton button : toolButtons)
+            {
+                if (button.rect.contains(x, y))
+                {
                     imageSourceTarget = "";
                     assetLibrary.selectTool(button.tool.kind);
-                    if (EditorImageTypes.imageKind(button.tool.kind)) { contextMenu = null; }
-                    else if (button.tool.kind >= 0) create(button.tool.kind, "");
-                    else state.status(EditorI18n.text("arcmenu_editor.status.select_tool"));
+                    if (EditorImageTypes.imageKind(button.tool.kind))
+                    {
+                        contextMenu = null;
+                    }
+                    else if (button.tool.kind >= 0)
+                    {
+                        create(button.tool.kind, "");
+                    }
+                    else
+                    {
+                        state.status(EditorI18n.text("arcmenu_editor.status.select_tool"));
+                    }
                     return true;
                 }
             }
         }
-        if (currentLayout.templates().contains(x, y)) {
-            if (assetLibrary.imageMode()) return clickImages(x, y, doubleClick);
-            for (TemplateCard card : templateCards) {
-                if (card.rect.contains(x, y)) {
+        if (currentLayout.templates().contains(x, y))
+        {
+            if (assetLibrary.imageMode())
+            {
+                return clickImages(x, y, doubleClick);
+            }
+            for (TemplateCard card : templateCards)
+            {
+                if (card.rect.contains(x, y))
+                {
                     draggingTemplate = card.template.id();
-                    dragStartX = x; dragStartY = y;
+                    dragStartX = x;
+                    dragStartY = y;
                     return true;
                 }
             }
         }
-        if (currentLayout.manager().contains(x, y)) {
-            for (ManagerButton button : managerButtons) {
-                if (button.rect.contains(x, y)) {
+        if (currentLayout.manager().contains(x, y))
+        {
+            for (ManagerButton button : managerButtons)
+            {
+                if (button.rect.contains(x, y))
+                {
                     performManagerAction(button.action);
                     return true;
                 }
             }
-            for (NodeRow row : nodeRows) {
-                if (y >= row.screenY && y < row.screenY + 19) {
+            for (NodeRow row : nodeRows)
+            {
+                if (y >= row.screenY && y < row.screenY + 19)
+                {
                     int toggleX = currentLayout.manager().x() + 8 + row.depth * 13;
-                    if (x >= currentLayout.manager().right() - 36 && x < currentLayout.manager().right() - 22) {
+                    if (x >= currentLayout.manager().right() - 36 && x < currentLayout.manager().right() - 22)
+                    {
                         EditorProtocol.PropertySnapshot visible = row.node.properties().stream()
                                 .filter(property -> property.key().equals("visible")).findFirst().orElse(null);
-                        if (visible != null) ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(
-                                state.snapshot().revision(), state.activeTab(), row.node.id(), "visible",
-                                Boolean.toString(!Boolean.parseBoolean(visible.value()))));
-                    } else if (x >= currentLayout.manager().right() - 22) {
+                        if (visible != null)
+                        {
+                            ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(),
+                                    state.activeTab(), row.node.id(), "visible",
+                                    Boolean.toString(!Boolean.parseBoolean(visible.value()))));
+                        }
+                    }
+                    else if (x >= currentLayout.manager().right() - 22)
+                    {
                         state.toggleLocked(row.node.id());
-                    } else if (state.hasChildren(row.node.id()) && x >= toggleX && x < toggleX + 12) {
-                        if (!state.expanded().add(row.node.id())) state.expanded().remove(row.node.id());
-                    } else {
-                        if (event.hasShiftDown()) {
+                    }
+                    else if (state.hasChildren(row.node.id()) && x >= toggleX && x < toggleX + 12)
+                    {
+                        if (!state.expanded().add(row.node.id()))
+                        {
+                            state.expanded().remove(row.node.id());
+                        }
+                    }
+                    else
+                    {
+                        if (event.hasShiftDown())
+                        {
                             state.selectRange(nodeRows.stream().map(value -> value.node.id()).toList(), row.node.id());
-                        } else if (event.hasControlDown()) {
+                        }
+                        else if (event.hasControlDown())
+                        {
                             state.toggleSelection(row.node.id());
-                        } else if (!state.selected(row.node.id())) {
+                        }
+                        else if (!state.selected(row.node.id()))
+                        {
                             state.selectOnly(row.node.id());
                         }
                         dragCandidateNode = state.selected(row.node.id()) ? row.node.id() : "";
-                        dragStartX = x; dragStartY = y;
+                        dragStartX = x;
+                        dragStartY = y;
                         rebuildWidgets();
                     }
                     return true;
                 }
             }
         }
-        if (virtualScreen().contains(x, y) && state.snapshot() != null) {
+        if (virtualScreen().contains(x, y) && state.snapshot() != null)
+        {
             EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
-            if (selected != null && !state.locked(selected.id()) && resizeHandleHit(selected, x, y)) {
+            if (selected != null && !state.locked(selected.id()) && resizeHandleHit(selected, x, y))
+            {
                 resizingNode = true;
                 draggingNode = selected.id();
                 beginLiveGesture();
                 return true;
             }
             EditorProtocol.NodeSnapshot hit = hitNode(x, y);
-            if (hit != null) {
-                if (event.hasControlDown()) {
+            if (hit != null)
+            {
+                if (event.hasControlDown())
+                {
                     state.toggleSelection(hit.id());
                     rebuildWidgets();
                     return true;
                 }
-                if (!state.selected(hit.id())) {
+                if (!state.selected(hit.id()))
+                {
                     state.selectOnly(hit.id());
                     rebuildWidgets();
                 }
                 boolean locked = state.locked(hit.id());
                 resizingNode = !locked && resizeHandleHit(hit, x, y);
-                if (!locked) draggingNode = hit.id();
+                if (!locked)
+                {
+                    draggingNode = hit.id();
+                }
                 grabOffsetX = menuX(x) - hit.x();
                 grabOffsetY = menuY(y) - hit.y();
-                if (resizingNode || !draggingNode.isBlank()) beginLiveGesture();
+                if (resizingNode || !draggingNode.isBlank())
+                {
+                    beginLiveGesture();
+                }
                 return true;
             }
         }
         return super.mouseClicked(event, doubleClick);
     }
 
-    private boolean clickHeader(double x, double y) {
+    private boolean clickHeader(double x, double y)
+    {
         int at = 68;
         int next = at + font.width(EditorI18n.text("arcmenu_editor.header.frontend")) + 14;
-        if (x >= at && x < next) { switchTab(EditorProtocol.TAB_FRONTEND); return true; }
-        at = next + 3; next = at + font.width(EditorI18n.text("arcmenu_editor.header.backend")) + 14;
-        if (x >= at && x < next) { switchTab(EditorProtocol.TAB_BACKEND); return true; }
+        if (x >= at && x < next)
+        {
+            switchTab(EditorProtocol.TAB_FRONTEND);
+            return true;
+        }
+        at = next + 3;
+        next = at + font.width(EditorI18n.text("arcmenu_editor.header.backend")) + 14;
+        if (x >= at && x < next)
+        {
+            switchTab(EditorProtocol.TAB_BACKEND);
+            return true;
+        }
         at = next + 11;
         HeaderAction[] actions = HeaderAction.values();
-        for (HeaderAction action : actions) {
+        for (HeaderAction action : actions)
+        {
             String label = EditorI18n.text(action.translationKey);
             next = at + font.width(label) + 14;
-            if (x >= at && x < next) {
+            if (x >= at && x < next)
+            {
                 performHeaderAction(action);
                 return true;
             }
             at = next + 3;
         }
-        if (x >= width - 24) { onClose(); return true; }
+        if (x >= width - 24)
+        {
+            onClose();
+            return true;
+        }
         return true;
     }
 
-    private boolean clickCalibrationSettings(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return true;
+    private boolean clickCalibrationSettings(MouseButtonEvent event, boolean doubleClick)
+    {
+        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+        {
+            return true;
+        }
         double x = event.x();
         double y = event.y();
         EditorLayout.Rect panel = calibrationPanel();
-        if (x >= panel.right() - 26 && x < panel.right() && y >= panel.y() && y < panel.y() + 30) {
+        if (x >= panel.right() - 26 && x < panel.right() && y >= panel.y() && y < panel.y() + 30)
+        {
             closeCalibrationSettings();
             return true;
         }
-        for (int index = 0; index < ElementSelectionCalibration.KINDS.length; index++) {
-            if (!calibrationKindRect(index).contains(x, y)) continue;
+        for (int index = 0; index < ElementSelectionCalibration.KINDS.length; index++)
+        {
+            if (!calibrationKindRect(index).contains(x, y))
+            {
+                continue;
+            }
             byte nextKind = ElementSelectionCalibration.KINDS[index];
-            if (nextKind != calibrationKind && applyCalibrationFields(true)) {
+            if (nextKind != calibrationKind && applyCalibrationFields(true))
+            {
                 calibrationKind = nextKind;
                 rebuildWidgets();
             }
             return true;
         }
-        if (calibrationResetRect().contains(x, y)) {
+        if (calibrationResetRect().contains(x, y))
+        {
             selectionCalibration.reset(calibrationKind);
             selectionCalibration.save(ArcMenuEditorClient.selectionCalibrationFile());
-            state.status(EditorI18n.text("arcmenu_editor.status.calibration_reset", calibrationKindLabel(calibrationKind)));
+            state.status(
+                    EditorI18n.text("arcmenu_editor.status.calibration_reset", calibrationKindLabel(calibrationKind)));
             rebuildWidgets();
             return true;
         }
-        if (calibrationSaveRect().contains(x, y)) {
+        if (calibrationSaveRect().contains(x, y))
+        {
             closeCalibrationSettings();
             return true;
         }
-        if (panel.contains(x, y)) return super.mouseClicked(event, doubleClick);
+        if (panel.contains(x, y))
+        {
+            return super.mouseClicked(event, doubleClick);
+        }
         return true;
     }
 
-    private boolean keyPressedCalibrationSettings(KeyEvent event) {
-        if (event.isEscape()) {
+    private boolean keyPressedCalibrationSettings(KeyEvent event)
+    {
+        if (event.isEscape())
+        {
             closeCalibrationSettings();
             return true;
         }
-        if (event.isConfirmation() && getFocused() instanceof EditBox) {
-            if (applyCalibrationFields(true)) {
+        if (event.isConfirmation() && getFocused() instanceof EditBox)
+        {
+            if (applyCalibrationFields(true))
+            {
                 setFocused(null);
                 rebuildWidgets();
             }
@@ -1131,122 +1608,191 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         return super.keyPressed(event);
     }
 
-    private void openCalibrationSettings() {
+    private void openCalibrationSettings()
+    {
         EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
-        if (selected != null && supportsCalibration(selected.kind())) calibrationKind = selected.kind();
+        if (selected != null && supportsCalibration(selected.kind()))
+        {
+            calibrationKind = selected.kind();
+        }
         calibrationSettingsOpen = true;
         contextMenu = null;
         state.status(EditorI18n.text("arcmenu_editor.status.calibration_editing"));
         rebuildWidgets();
     }
 
-    private void closeCalibrationSettings() {
-        if (!applyCalibrationFields(true)) return;
+    private void closeCalibrationSettings()
+    {
+        if (!applyCalibrationFields(true))
+        {
+            return;
+        }
         calibrationSettingsOpen = false;
         state.status(EditorI18n.text("arcmenu_editor.status.calibration_saved"));
         rebuildWidgets();
     }
 
-    private boolean applyCalibrationFields(boolean save) {
-        if (calibrationFields.size() != 4) return true;
+    private boolean applyCalibrationFields(boolean save)
+    {
+        if (calibrationFields.size() != 4)
+        {
+            return true;
+        }
         double[] values = new double[4];
-        try {
-            for (CalibrationField field : calibrationFields) {
+        try
+        {
+            for (CalibrationField field : calibrationFields)
+            {
                 values[field.index] = Double.parseDouble(field.box.getValue().trim());
-                if (!Double.isFinite(values[field.index])) throw new NumberFormatException();
+                if (!Double.isFinite(values[field.index]))
+                {
+                    throw new NumberFormatException();
+                }
             }
-        } catch (NumberFormatException ignored) {
+        }
+        catch (NumberFormatException ignored)
+        {
             state.error(EditorI18n.text("arcmenu_editor.status.calibration_invalid_number"));
             return false;
         }
-        if (values[2] <= 0.0 || values[3] <= 0.0) {
+        if (values[2] <= 0.0 || values[3] <= 0.0)
+        {
             state.error(EditorI18n.text("arcmenu_editor.status.calibration_scale_positive"));
             return false;
         }
         selectionCalibration.set(calibrationKind, values[0], values[1], values[2], values[3]);
-        if (save) selectionCalibration.save(ArcMenuEditorClient.selectionCalibrationFile());
+        if (save)
+        {
+            selectionCalibration.save(ArcMenuEditorClient.selectionCalibrationFile());
+        }
         return true;
     }
 
-    private static boolean supportsCalibration(byte kind) {
-        for (byte supported : ElementSelectionCalibration.KINDS) if (supported == kind) return true;
+    private static boolean supportsCalibration(byte kind)
+    {
+        for (byte supported : ElementSelectionCalibration.KINDS)
+        {
+            if (supported == kind)
+            {
+                return true;
+            }
+        }
         return false;
     }
 
-    private void switchTab(byte tab) {
-        if (state.snapshot() == null || state.activeTab() == tab) return;
+    private void switchTab(byte tab)
+    {
+        if (state.snapshot() == null || state.activeTab() == tab)
+        {
+            return;
+        }
         state.activeTab(tab);
         propertyScroll = 0;
         rebuildWidgets();
         ArcMenuEditorClient.send(new EditorProtocol.SwitchTabPacket(tab));
     }
 
-    private void create(byte kind, String imageSource) {
+    private void create(byte kind, String imageSource)
+    {
         EditorProtocol.SnapshotPacket snapshot = state.snapshot();
-        if (snapshot == null) return;
+        if (snapshot == null)
+        {
+            return;
+        }
         String parent = "";
         EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
-        if (selected != null && selected.kind() == EditorProtocol.KIND_GROUP) {
+        if (selected != null && selected.kind() == EditorProtocol.KIND_GROUP)
+        {
             parent = selected.id();
             state.expanded().add(parent);
         }
-        ArcMenuEditorClient.send(new EditorProtocol.CreatePacket(snapshot.revision(), state.activeTab(), kind, parent, imageSource));
+        ArcMenuEditorClient.send(
+                new EditorProtocol.CreatePacket(snapshot.revision(), state.activeTab(), kind, parent, imageSource));
     }
 
-    private void performHeaderAction(HeaderAction action) {
-        if (action == HeaderAction.PROJECTS || action == HeaderAction.MARKET) {
-            WorkspaceClient.open(this, action == HeaderAction.MARKET); return;
+    private void performHeaderAction(HeaderAction action)
+    {
+        if (action == HeaderAction.PROJECTS || action == HeaderAction.MARKET)
+        {
+            WorkspaceClient.open(this, action == HeaderAction.MARKET);
+            return;
         }
-        if (action == HeaderAction.MCP) {
+        if (action == HeaderAction.MCP)
+        {
             minecraft.setScreen(new McpScreen(this));
             return;
         }
-        if (action == HeaderAction.SETTINGS) {
+        if (action == HeaderAction.SETTINGS)
+        {
             openCalibrationSettings();
             return;
         }
         EditorProtocol.SnapshotPacket snapshot = state.snapshot();
-        if (snapshot == null) return;
-        switch (action) {
-            case UNDO -> ArcMenuEditorClient.send(new EditorProtocol.UndoPacket(snapshot.revision()));
-            case REDO -> ArcMenuEditorClient.send(new EditorProtocol.RedoPacket(snapshot.revision()));
-            case SAVE -> ArcMenuEditorClient.send(new EditorProtocol.SavePacket(snapshot.revision()));
-            case APPLY -> ArcMenuEditorClient.send(new EditorProtocol.ApplyPacket(snapshot.revision()));
-            case SETTINGS, MCP, PROJECTS, MARKET -> { }
+        if (snapshot == null)
+        {
+            return;
+        }
+        switch (action)
+        {
+        case UNDO -> ArcMenuEditorClient.send(new EditorProtocol.UndoPacket(snapshot.revision()));
+        case REDO -> ArcMenuEditorClient.send(new EditorProtocol.RedoPacket(snapshot.revision()));
+        case SAVE -> ArcMenuEditorClient.send(new EditorProtocol.SavePacket(snapshot.revision()));
+        case APPLY -> ArcMenuEditorClient.send(new EditorProtocol.ApplyPacket(snapshot.revision()));
+        case SETTINGS, MCP, PROJECTS, MARKET ->
+            {
+            }
         }
     }
 
     @Override
-    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-        if (effectTimeline.drag(event)) return true;
-        if (propertyDrag != null) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY)
+    {
+        if (effectTimeline.drag(event))
+        {
+            return true;
+        }
+        if (propertyDrag != null)
+        {
             double dx = event.x() - propertyDrag.startX;
-            if (!propertyDrag.dragging && Math.abs(dx) >= 3.0) propertyDrag.dragging = true;
-            if (propertyDrag.dragging) {
+            if (!propertyDrag.dragging && Math.abs(dx) >= 3.0)
+            {
+                propertyDrag.dragging = true;
+            }
+            if (propertyDrag.dragging)
+            {
                 pendingPropertyValue = normalizePropertyValue(propertyDrag.property,
                         propertyDrag.initialValue + dx * propertyStep(propertyDrag.property, event));
-                propertyField(propertyDrag.property.key()).ifPresent(field -> field.box.setValue(formatPropertyValue(
-                        propertyDrag.property, pendingPropertyValue)));
+                propertyField(propertyDrag.property.key()).ifPresent(
+                        field -> field.box.setValue(formatPropertyValue(propertyDrag.property, pendingPropertyValue)));
                 flushPropertyDrag(false);
             }
             return true;
         }
-        if (resizeTarget != ResizeTarget.NONE) {
-            switch (resizeTarget) {
-                case TOOLS -> layout.toolsWidth((int) Math.round(event.x()));
-                case INSPECTOR -> layout.inspectorWidth((int) Math.round(width - event.x()));
-                case TEMPLATES -> layout.templatesHeight((int) Math.round(height - event.y()));
-                default -> { }
+        if (resizeTarget != ResizeTarget.NONE)
+        {
+            switch (resizeTarget)
+            {
+            case TOOLS -> layout.toolsWidth((int) Math.round(event.x()));
+            case INSPECTOR -> layout.inspectorWidth((int) Math.round(width - event.x()));
+            case TEMPLATES -> layout.templatesHeight((int) Math.round(height - event.y()));
+            default ->
+                {
+                }
             }
             return true;
         }
-        if (!dragCandidateNode.isBlank() || !draggingTemplate.isBlank()) return true;
-        if (resizingNode && state.snapshot() != null) {
+        if (!dragCandidateNode.isBlank() || !draggingTemplate.isBlank())
+        {
+            return true;
+        }
+        if (resizingNode && state.snapshot() != null)
+        {
             pendingDragPointer = boundedPointer(event.x(), event.y(), true);
             flushLiveDrag(false);
             return true;
         }
-        if (!draggingNode.isBlank() && state.snapshot() != null) {
+        if (!draggingNode.isBlank() && state.snapshot() != null)
+        {
             pendingDragPointer = boundedPointer(event.x(), event.y(), false);
             flushLiveDrag(false);
             return true;
@@ -1255,38 +1801,59 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
     }
 
     @Override
-    public boolean mouseReleased(MouseButtonEvent event) {
-        if (effectTimeline.release(event)) return true;
-        if (propertyDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            if (!propertyDrag.dragging) {
+    public boolean mouseReleased(MouseButtonEvent event)
+    {
+        if (effectTimeline.release(event))
+        {
+            return true;
+        }
+        if (propertyDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+        {
+            if (!propertyDrag.dragging)
+            {
                 PropertyDrag clicked = propertyDrag;
                 finishPropertyGesture();
                 propertyField(clicked.property.key()).ifPresent(this::focusProperty);
-            } else {
+            }
+            else
+            {
                 propertyReleased = true;
                 flushPropertyDrag(true);
             }
             return true;
         }
-        if (activeGestureId != 0) {
-            if (pendingDragPointer != null && currentLayout != null) {
+        if (activeGestureId != 0)
+        {
+            if (pendingDragPointer != null && currentLayout != null)
+            {
                 var virtual = virtualScreen();
                 double x = Math.max(virtual.x(), Math.min(virtual.right() - 0.001, event.x()));
                 double y = Math.max(virtual.y(), Math.min(virtual.bottom() - 0.001, event.y()));
                 pendingDragPointer = resizingNode ? resizePointer(x, y) : pointer(x, y);
             }
             dragReleased = true;
-            if (pendingDragPointer == null) finishLiveGesture();
-            else flushLiveDrag(true);
+            if (pendingDragPointer == null)
+            {
+                finishLiveGesture();
+            }
+            else
+            {
+                flushLiveDrag(true);
+            }
             resizeTarget = ResizeTarget.NONE;
             return true;
         }
-        boolean managerDragged = !dragCandidateNode.isBlank() && Math.hypot(event.x() - dragStartX, event.y() - dragStartY) >= 4.0;
-        if (managerDragged && state.activeTab() == EditorProtocol.TAB_FRONTEND && !assetLibrary.imageMode() && currentLayout != null && currentLayout.templates().contains(event.x(), event.y())) {
+        boolean managerDragged = !dragCandidateNode.isBlank()
+                && Math.hypot(event.x() - dragStartX, event.y() - dragStartY) >= 4.0;
+        if (managerDragged && state.activeTab() == EditorProtocol.TAB_FRONTEND && !assetLibrary.imageMode()
+                && currentLayout != null && currentLayout.templates().contains(event.x(), event.y()))
+        {
             List<String> selected = selectedOrder();
-            if (selected.size() == 1) {
+            if (selected.size() == 1)
+            {
                 EditorProtocol.NodeSnapshot node = state.find(selected.getFirst());
-                if (node != null && node.kind() == EditorProtocol.KIND_GROUP) {
+                if (node != null && node.kind() == EditorProtocol.KIND_GROUP)
+                {
                     pendingTemplateNode = node.id();
                     dragCandidateNode = "";
                     rebuildWidgets();
@@ -1294,46 +1861,69 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
                 }
             }
             state.status(EditorI18n.text("arcmenu_editor.status.only_single_group"));
-        } else if (managerDragged && currentLayout != null && currentLayout.manager().contains(event.x(), event.y())
-                && state.snapshot() != null) {
+        }
+        else if (managerDragged && currentLayout != null && currentLayout.manager().contains(event.x(), event.y())
+                && state.snapshot() != null)
+        {
             NodeRow target = nodeRowAt(event.y());
             List<String> selected = selectedOrder();
-            if (target != null && target.node.kind() == EditorProtocol.KIND_GROUP) {
-                if (canMoveIntoGroup(selected, target.node)) {
+            if (target != null && target.node.kind() == EditorProtocol.KIND_GROUP)
+            {
+                if (canMoveIntoGroup(selected, target.node))
+                {
                     state.expanded().add(target.node.id());
-                    if (sameParent(selected, target.node.id())) {
+                    if (sameParent(selected, target.node.id()))
+                    {
                         ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(state.snapshot().revision(),
                                 state.activeTab(), selected, ""));
-                    } else {
+                    }
+                    else
+                    {
                         ArcMenuEditorClient.send(new EditorProtocol.ReparentPacket(state.snapshot().revision(),
                                 selected, target.node.id(), ""));
                     }
-                } else {
+                }
+                else
+                {
                     state.status(EditorI18n.text("arcmenu_editor.status.invalid_group_drop"));
                 }
-            } else if (target != null && !selected.contains(target.node.id())) {
-                if (sameParent(selected, target.node.parentId())) {
-                    ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(state.snapshot().revision(), state.activeTab(),
-                            selected, target.node.id()));
-                } else if (canMoveToParent(selected, target.node.parentId())) {
+            }
+            else if (target != null && !selected.contains(target.node.id()))
+            {
+                if (sameParent(selected, target.node.parentId()))
+                {
+                    ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(state.snapshot().revision(),
+                            state.activeTab(), selected, target.node.id()));
+                }
+                else if (canMoveToParent(selected, target.node.parentId()))
+                {
                     ArcMenuEditorClient.send(new EditorProtocol.ReparentPacket(state.snapshot().revision(), selected,
                             target.node.parentId(), target.node.id()));
-                } else {
+                }
+                else
+                {
                     state.status(EditorI18n.text("arcmenu_editor.status.invalid_group_drop"));
                 }
-            } else if (target == null && event.y() >= currentLayout.manager().y() + 46) {
-                if (sameParent(selected, "")) {
+            }
+            else if (target == null && event.y() >= currentLayout.manager().y() + 46)
+            {
+                if (sameParent(selected, ""))
+                {
                     ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(state.snapshot().revision(),
                             state.activeTab(), selected, ""));
-                } else if (canMoveToParent(selected, "")) {
-                    ArcMenuEditorClient.send(new EditorProtocol.ReparentPacket(state.snapshot().revision(),
-                            selected, "", ""));
+                }
+                else if (canMoveToParent(selected, ""))
+                {
+                    ArcMenuEditorClient
+                            .send(new EditorProtocol.ReparentPacket(state.snapshot().revision(), selected, "", ""));
                 }
             }
         }
-        if (!draggingTemplate.isBlank() && currentLayout != null && currentLayout.manager().contains(event.x(), event.y())
-                && state.snapshot() != null) {
-            ArcMenuEditorClient.send(new EditorProtocol.InstantiateTemplatePacket(state.snapshot().revision(), draggingTemplate));
+        if (!draggingTemplate.isBlank() && currentLayout != null
+                && currentLayout.manager().contains(event.x(), event.y()) && state.snapshot() != null)
+        {
+            ArcMenuEditorClient
+                    .send(new EditorProtocol.InstantiateTemplatePacket(state.snapshot().revision(), draggingTemplate));
         }
         dragCandidateNode = "";
         draggingTemplate = "";
@@ -1341,9 +1931,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         return super.mouseReleased(event);
     }
 
-    private void beginLiveGesture() {
+    private void beginLiveGesture()
+    {
         activeGestureId = nextGestureId++;
-        if (nextGestureId <= 0) nextGestureId = 1;
+        if (nextGestureId <= 0)
+        {
+            nextGestureId = 1;
+        }
         pendingDragPointer = null;
         lastSentDragPointer = null;
         lastDragSendNanos = 0;
@@ -1352,26 +1946,39 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         finalDragSent = false;
     }
 
-    private void flushLiveDrag(boolean finalUpdate) {
-        if (activeGestureId == 0 || pendingDragPointer == null || dragRequestInFlight || state.snapshot() == null) return;
+    private void flushLiveDrag(boolean finalUpdate)
+    {
+        if (activeGestureId == 0 || pendingDragPointer == null || dragRequestInFlight || state.snapshot() == null)
+        {
+            return;
+        }
         long now = System.nanoTime();
-        if (!finalUpdate && now - lastDragSendNanos < LIVE_DRAG_INTERVAL_NANOS) return;
-        if (resizingNode) {
-            ArcMenuEditorClient.send(new EditorProtocol.ResizePacket(
-                    state.snapshot().revision(), state.activeTab(), draggingNode, pendingDragPointer,
-                    activeGestureId, finalUpdate));
-        } else if (!draggingNode.isBlank()) {
-            ArcMenuEditorClient.send(new EditorProtocol.MovePacket(
-                    state.snapshot().revision(), state.activeTab(), draggingNode, pendingDragPointer,
-                    grabOffsetX, grabOffsetY, activeGestureId, finalUpdate));
-        } else return;
+        if (!finalUpdate && now - lastDragSendNanos < LIVE_DRAG_INTERVAL_NANOS)
+        {
+            return;
+        }
+        if (resizingNode)
+        {
+            ArcMenuEditorClient.send(new EditorProtocol.ResizePacket(state.snapshot().revision(), state.activeTab(),
+                    draggingNode, pendingDragPointer, activeGestureId, finalUpdate));
+        }
+        else if (!draggingNode.isBlank())
+        {
+            ArcMenuEditorClient.send(new EditorProtocol.MovePacket(state.snapshot().revision(), state.activeTab(),
+                    draggingNode, pendingDragPointer, grabOffsetX, grabOffsetY, activeGestureId, finalUpdate));
+        }
+        else
+        {
+            return;
+        }
         lastSentDragPointer = pendingDragPointer;
         lastDragSendNanos = now;
         dragRequestInFlight = true;
         finalDragSent = finalUpdate;
     }
 
-    private void finishLiveGesture() {
+    private void finishLiveGesture()
+    {
         activeGestureId = 0;
         draggingNode = "";
         resizingNode = false;
@@ -1382,16 +1989,27 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         finalDragSent = false;
     }
 
-    private void flushPropertyDrag(boolean finalUpdate) {
-        if (propertyDrag == null || !propertyDrag.dragging || propertyRequestInFlight || state.snapshot() == null) return;
-        long now = System.nanoTime();
-        if (!finalUpdate && now - lastPropertySendNanos < LIVE_DRAG_INTERVAL_NANOS) return;
-        if (Double.compare(pendingPropertyValue, propertyDrag.initialValue) == 0 && Double.isNaN(sentPropertyValue)) {
-            if (finalUpdate) finishPropertyGesture();
+    private void flushPropertyDrag(boolean finalUpdate)
+    {
+        if (propertyDrag == null || !propertyDrag.dragging || propertyRequestInFlight || state.snapshot() == null)
+        {
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(
-                state.snapshot().revision(), state.activeTab(), propertyDrag.nodeId, propertyDrag.property.key(),
+        long now = System.nanoTime();
+        if (!finalUpdate && now - lastPropertySendNanos < LIVE_DRAG_INTERVAL_NANOS)
+        {
+            return;
+        }
+        if (Double.compare(pendingPropertyValue, propertyDrag.initialValue) == 0 && Double.isNaN(sentPropertyValue))
+        {
+            if (finalUpdate)
+            {
+                finishPropertyGesture();
+            }
+            return;
+        }
+        ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(), state.activeTab(),
+                propertyDrag.nodeId, propertyDrag.property.key(),
                 formatPropertyValue(propertyDrag.property, pendingPropertyValue), propertyDrag.gestureId, finalUpdate));
         sentPropertyValue = pendingPropertyValue;
         lastPropertySendNanos = now;
@@ -1399,7 +2017,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         propertyFinalSent = finalUpdate;
     }
 
-    private void finishPropertyGesture() {
+    private void finishPropertyGesture()
+    {
         propertyDrag = null;
         propertyRequestInFlight = false;
         propertyFinalSent = false;
@@ -1408,116 +2027,195 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         sentPropertyValue = Double.NaN;
     }
 
-    private static double propertyStep(EditorProtocol.PropertySnapshot property, MouseButtonEvent event) {
+    private static double propertyStep(EditorProtocol.PropertySnapshot property, MouseButtonEvent event)
+    {
         String key = property.key();
         double normal = key.startsWith("rotation.") ? 1.0
-                : key.startsWith("scale.") ? 0.01
-                : property.type() == EditorProtocol.PROPERTY_INTEGER ? 1.0 : 0.25;
-        if (event.hasAltDown()) return normal / 5.0;
-        if (event.hasShiftDown()) return normal * 5.0;
-        if (event.hasControlDown()) return key.startsWith("rotation.") ? 15.0
-                : key.startsWith("scale.") ? 0.1 : 1.0;
+                : key.startsWith("scale.") ? 0.01 : property.type() == EditorProtocol.PROPERTY_INTEGER ? 1.0 : 0.25;
+        if (event.hasAltDown())
+        {
+            return normal / 5.0;
+        }
+        if (event.hasShiftDown())
+        {
+            return normal * 5.0;
+        }
+        if (event.hasControlDown())
+        {
+            return key.startsWith("rotation.") ? 15.0 : key.startsWith("scale.") ? 0.1 : 1.0;
+        }
         return normal;
     }
 
-    private static double normalizePropertyValue(EditorProtocol.PropertySnapshot property, double value) {
-        if (!Double.isFinite(value)) return 0.0;
-        if (property.type() == EditorProtocol.PROPERTY_INTEGER) value = Math.rint(value);
-        if (property.key().equals("opacity")) value = Math.max(0, Math.min(255, value));
-        if (property.key().equals("width") || property.key().equals("height") || property.key().equals("thickness")) {
+    private static double normalizePropertyValue(EditorProtocol.PropertySnapshot property, double value)
+    {
+        if (!Double.isFinite(value))
+        {
+            return 0.0;
+        }
+        if (property.type() == EditorProtocol.PROPERTY_INTEGER)
+        {
+            value = Math.rint(value);
+        }
+        if (property.key().equals("opacity"))
+        {
+            value = Math.max(0, Math.min(255, value));
+        }
+        if (property.key().equals("width") || property.key().equals("height") || property.key().equals("thickness"))
+        {
             value = Math.max(0.01, value);
         }
         return Math.abs(value) < 0.0000005 ? 0.0 : value;
     }
 
-    private static String formatPropertyValue(EditorProtocol.PropertySnapshot property, double value) {
-        if (property.type() == EditorProtocol.PROPERTY_INTEGER) return Long.toString(Math.round(value));
+    private static String formatPropertyValue(EditorProtocol.PropertySnapshot property, double value)
+    {
+        if (property.type() == EditorProtocol.PROPERTY_INTEGER)
+        {
+            return Long.toString(Math.round(value));
+        }
         return format(value);
     }
 
-    private static double parseNumber(String value, String fallback) {
-        try { return Double.parseDouble(value); }
-        catch (NumberFormatException ignored) {
-            try { return Double.parseDouble(fallback); }
-            catch (NumberFormatException ignoredAgain) { return 0.0; }
+    private static double parseNumber(String value, String fallback)
+    {
+        try
+        {
+            return Double.parseDouble(value);
+        }
+        catch (NumberFormatException ignored)
+        {
+            try
+            {
+                return Double.parseDouble(fallback);
+            }
+            catch (NumberFormatException ignoredAgain)
+            {
+                return 0.0;
+            }
         }
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        if (effectTimeline.active()) {
-        boolean control = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LCONTROL) || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RCONTROL);
-        boolean shift = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RSHIFT);
-        if (effectTimeline.scroll(mouseX, mouseY, vertical, control, shift)) return true;
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical)
+    {
+        if (effectTimeline.active())
+        {
+            boolean control = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LCONTROL)
+                    || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RCONTROL);
+            boolean shift = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LSHIFT)
+                    || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RSHIFT);
+            if (effectTimeline.scroll(mouseX, mouseY, vertical, control, shift))
+            {
+                return true;
+            }
         }
-        if (currentLayout != null && currentLayout.tools().contains(mouseX, mouseY)) {
+        if (currentLayout != null && currentLayout.tools().contains(mouseX, mouseY))
+        {
             int visible = currentLayout.tools().height() - 28;
-            toolsScroll = Math.max(0, Math.min(Math.max(0, toolContentHeight - visible), toolsScroll - (int) Math.round(vertical * 25)));
+            toolsScroll = Math.max(0,
+                    Math.min(Math.max(0, toolContentHeight - visible), toolsScroll - (int) Math.round(vertical * 25)));
             return true;
         }
-        if (currentLayout != null && currentLayout.manager().contains(mouseX, mouseY)) {
+        if (currentLayout != null && currentLayout.manager().contains(mouseX, mouseY))
+        {
             int content = nodeRows.size() * 19;
             int visible = currentLayout.manager().height() - 50;
-            managerScroll = Math.max(0, Math.min(Math.max(0, content - visible), managerScroll - (int) Math.round(vertical * 19)));
+            managerScroll = Math.max(0,
+                    Math.min(Math.max(0, content - visible), managerScroll - (int) Math.round(vertical * 19)));
             return true;
         }
-        if (currentLayout != null && currentLayout.properties().contains(mouseX, mouseY)) {
+        if (currentLayout != null && currentLayout.properties().contains(mouseX, mouseY))
+        {
             EditorProtocol.NodeSnapshot node = state.find(state.selectedId());
-            if (node != null) {
+            if (node != null)
+            {
                 int content = node.properties().size() * 24;
                 int visible = currentLayout.properties().height() - 50;
-                propertyScroll = Math.max(0, Math.min(Math.max(0, content - visible), propertyScroll - (int) Math.round(vertical * 24)));
+                propertyScroll = Math.max(0,
+                        Math.min(Math.max(0, content - visible), propertyScroll - (int) Math.round(vertical * 24)));
                 rebuildWidgets();
             }
             return true;
         }
-        if (currentLayout != null && currentLayout.templates().contains(mouseX, mouseY)) {
-            if (assetLibrary.imageMode()) {
+        if (currentLayout != null && currentLayout.templates().contains(mouseX, mouseY))
+        {
+            if (assetLibrary.imageMode())
+            {
                 int visible = currentLayout.templates().height() - 43;
                 if (mouseX < currentLayout.templates().x() + folderPaneWidth())
-                    folderScroll = Math.max(0, Math.min(Math.max(0, assetLibrary.folders().size() * 20 - visible), folderScroll - (int) Math.round(vertical * 20)));
-                else imageScroll = Math.max(0, Math.min(Math.max(0, imageContentHeight - visible), imageScroll - (int) Math.round(vertical * 38)));
+                {
+                    folderScroll = Math.max(0, Math.min(Math.max(0, assetLibrary.folders().size() * 20 - visible),
+                            folderScroll - (int) Math.round(vertical * 20)));
+                }
+                else
+                {
+                    imageScroll = Math.max(0, Math.min(Math.max(0, imageContentHeight - visible),
+                            imageScroll - (int) Math.round(vertical * 38)));
+                }
                 return true;
             }
             int visible = currentLayout.templates().height() - 45;
-            templateScroll = Math.max(0, Math.min(Math.max(0, templateContentHeight - visible), templateScroll - (int) Math.round(vertical * 43)));
+            templateScroll = Math.max(0, Math.min(Math.max(0, templateContentHeight - visible),
+                    templateScroll - (int) Math.round(vertical * 43)));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
-        if(effectTimeline.searchFocused())return effectTimeline.key(event)||super.keyPressed(event);
-        if (!(getFocused() instanceof EditBox) && effectTimeline.key(event)) return true;
-        if (calibrationSettingsOpen) return keyPressedCalibrationSettings(event);
-        if (contextMenu != null && event.isEscape()) {
+    public boolean keyPressed(KeyEvent event)
+    {
+        if (effectTimeline.searchFocused())
+        {
+            return effectTimeline.key(event) || super.keyPressed(event);
+        }
+        if (!(getFocused() instanceof EditBox) && effectTimeline.key(event))
+        {
+            return true;
+        }
+        if (calibrationSettingsOpen)
+        {
+            return keyPressedCalibrationSettings(event);
+        }
+        if (contextMenu != null && event.isEscape())
+        {
             contextMenu = null;
             return true;
         }
-        if (!pendingTemplateNode.isBlank()) {
-            if (event.isEscape()) {
+        if (!pendingTemplateNode.isBlank())
+        {
+            if (event.isEscape())
+            {
                 pendingTemplateNode = "";
                 rebuildWidgets();
                 return true;
             }
-            if (event.isConfirmation() && templateNameBox != null && state.snapshot() != null) {
+            if (event.isConfirmation() && templateNameBox != null && state.snapshot() != null)
+            {
                 String templateId = templateNameBox.getValue().trim().toLowerCase(Locale.ROOT);
-                ArcMenuEditorClient.send(new EditorProtocol.SaveTemplatePacket(state.snapshot().revision(), pendingTemplateNode, templateId));
+                ArcMenuEditorClient.send(new EditorProtocol.SaveTemplatePacket(state.snapshot().revision(),
+                        pendingTemplateNode, templateId));
                 pendingTemplateNode = "";
                 rebuildWidgets();
                 return true;
             }
             return super.keyPressed(event);
         }
-        for (PropertyField field : propertyFields) {
-            if (!field.box.isFocused()) continue;
-            if (event.isEscape()) {
+        for (PropertyField field : propertyFields)
+        {
+            if (!field.box.isFocused())
+            {
+                continue;
+            }
+            if (event.isEscape())
+            {
                 field.box.setValue(displayPropertyValue(field.property));
                 setFocused(null);
                 return true;
             }
-            if (event.isConfirmation() && state.snapshot() != null) {
+            if (event.isConfirmation() && state.snapshot() != null)
+            {
                 String value = submittedPropertyValue(field.property, field.box.getValue());
                 setProperty(field, value);
                 setFocused(null);
@@ -1525,61 +2223,96 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             }
             return super.keyPressed(event);
         }
-        if (state.snapshot() != null && event.hasControlDown()) {
-            if (event.key() == GLFW.GLFW_KEY_Z) {
-                ArcMenuEditorClient.send(event.hasShiftDown()
-                        ? new EditorProtocol.RedoPacket(state.snapshot().revision())
-                        : new EditorProtocol.UndoPacket(state.snapshot().revision()));
+        if (state.snapshot() != null && event.hasControlDown())
+        {
+            if (event.key() == GLFW.GLFW_KEY_Z)
+            {
+                ArcMenuEditorClient
+                        .send(event.hasShiftDown() ? new EditorProtocol.RedoPacket(state.snapshot().revision())
+                                : new EditorProtocol.UndoPacket(state.snapshot().revision()));
                 return true;
             }
-            if (event.key() == GLFW.GLFW_KEY_Y) {
-                ArcMenuEditorClient.send(new EditorProtocol.RedoPacket(state.snapshot().revision())); return true;
+            if (event.key() == GLFW.GLFW_KEY_Y)
+            {
+                ArcMenuEditorClient.send(new EditorProtocol.RedoPacket(state.snapshot().revision()));
+                return true;
             }
-            if (event.key() == GLFW.GLFW_KEY_S) {
-                ArcMenuEditorClient.send(new EditorProtocol.SavePacket(state.snapshot().revision())); return true;
+            if (event.key() == GLFW.GLFW_KEY_S)
+            {
+                ArcMenuEditorClient.send(new EditorProtocol.SavePacket(state.snapshot().revision()));
+                return true;
             }
-            if (event.key() == GLFW.GLFW_KEY_A) {
+            if (event.key() == GLFW.GLFW_KEY_A)
+            {
                 state.selectAll(state.nodes().stream().map(EditorProtocol.NodeSnapshot::id).toList());
                 rebuildWidgets();
                 return true;
             }
-            if (event.key() == GLFW.GLFW_KEY_C) { copySelection(); return true; }
-            if (event.key() == GLFW.GLFW_KEY_V) {
-                EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
-                if (event.hasShiftDown() && selected != null && selected.kind() == EditorProtocol.KIND_GROUP) {
-                    pasteSelection(false, selected.id());
-                } else pasteSelection(true, "");
+            if (event.key() == GLFW.GLFW_KEY_C)
+            {
+                copySelection();
                 return true;
             }
-            if (event.key() == GLFW.GLFW_KEY_D) { duplicateSelection(); return true; }
-            if (event.key() == GLFW.GLFW_KEY_G) {
-                if (event.hasShiftDown()) ungroupSelection(); else groupSelection();
+            if (event.key() == GLFW.GLFW_KEY_V)
+            {
+                EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
+                if (event.hasShiftDown() && selected != null && selected.kind() == EditorProtocol.KIND_GROUP)
+                {
+                    pasteSelection(false, selected.id());
+                }
+                else
+                {
+                    pasteSelection(true, "");
+                }
+                return true;
+            }
+            if (event.key() == GLFW.GLFW_KEY_D)
+            {
+                duplicateSelection();
+                return true;
+            }
+            if (event.key() == GLFW.GLFW_KEY_G)
+            {
+                if (event.hasShiftDown())
+                {
+                    ungroupSelection();
+                }
+                else
+                {
+                    groupSelection();
+                }
                 return true;
             }
         }
-        if (event.key() == GLFW.GLFW_KEY_F2 && state.selectedIds().size() == 1) {
+        if (event.key() == GLFW.GLFW_KEY_F2 && state.selectedIds().size() == 1)
+        {
             focusIdProperty();
             return true;
         }
-        if (state.snapshot() != null && event.key() == GLFW.GLFW_KEY_DELETE && !state.selectedIds().isEmpty()) {
+        if (state.snapshot() != null && event.key() == GLFW.GLFW_KEY_DELETE && !state.selectedIds().isEmpty())
+        {
             deleteSelection();
             return true;
         }
         return super.keyPressed(event);
     }
 
-    private void performManagerAction(ManagerAction action) {
-        switch (action) {
-            case CREATE -> create(state.activeTab() == EditorProtocol.TAB_FRONTEND
-                    ? EditorProtocol.KIND_GROUP : EditorProtocol.KIND_REGION, "");
-            case GROUP -> groupSelection();
-            case DUPLICATE -> duplicateSelection();
-            case PASTE -> pasteSelection(true, "");
+    private void performManagerAction(ManagerAction action)
+    {
+        switch (action)
+        {
+        case CREATE -> create(state.activeTab() == EditorProtocol.TAB_FRONTEND ? EditorProtocol.KIND_GROUP
+                : EditorProtocol.KIND_REGION, "");
+        case GROUP -> groupSelection();
+        case DUPLICATE -> duplicateSelection();
+        case PASTE -> pasteSelection(true, "");
         }
     }
 
-    private void copySelection() {
-        if (state.snapshot() == null || state.selectedIds().isEmpty()) {
+    private void copySelection()
+    {
+        if (state.snapshot() == null || state.selectedIds().isEmpty())
+        {
             state.status(EditorI18n.text("arcmenu_editor.status.no_copy"));
             return;
         }
@@ -1589,13 +2322,16 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         state.status(EditorI18n.text("arcmenu_editor.status.copied", clipboardIds.size()));
     }
 
-    private boolean clipboardAvailable() {
+    private boolean clipboardAvailable()
+    {
         return state.snapshot() != null && !clipboardIds.isEmpty() && clipboardTab == state.activeTab()
                 && clipboardMenu.equals(state.snapshot().menuId());
     }
 
-    private void pasteSelection(boolean preserveParents, String targetParent) {
-        if (!clipboardAvailable()) {
+    private void pasteSelection(boolean preserveParents, String targetParent)
+    {
+        if (!clipboardAvailable())
+        {
             state.status(EditorI18n.text("arcmenu_editor.status.clipboard_unavailable"));
             return;
         }
@@ -1603,119 +2339,190 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
                 clipboardIds, targetParent, preserveParents));
     }
 
-    private void duplicateSelection() {
-        if (state.snapshot() == null || state.selectedIds().isEmpty()) return;
+    private void duplicateSelection()
+    {
+        if (state.snapshot() == null || state.selectedIds().isEmpty())
+        {
+            return;
+        }
         ArcMenuEditorClient.send(new EditorProtocol.DuplicatePacket(state.snapshot().revision(), state.activeTab(),
                 selectedOrder(), "", true));
     }
 
-    private void groupSelection() {
-        if (state.snapshot() == null || state.selectedIds().isEmpty()) return;
+    private void groupSelection()
+    {
+        if (state.snapshot() == null || state.selectedIds().isEmpty())
+        {
+            return;
+        }
         ArcMenuEditorClient.send(new EditorProtocol.GroupPacket(state.snapshot().revision(), selectedOrder()));
     }
 
-    private void ungroupSelection() {
-        if (state.snapshot() == null || state.activeTab() != EditorProtocol.TAB_BACKEND || state.selectedIds().size() != 1) return;
+    private void ungroupSelection()
+    {
+        if (state.snapshot() == null || state.activeTab() != EditorProtocol.TAB_BACKEND
+                || state.selectedIds().size() != 1)
+        {
+            return;
+        }
         var node = state.find(state.selectedId());
-        if (node == null || node.kind() != EditorProtocol.KIND_GROUP) return;
+        if (node == null || node.kind() != EditorProtocol.KIND_GROUP)
+        {
+            return;
+        }
         ArcMenuEditorClient.send(new EditorProtocol.UngroupPacket(state.snapshot().revision(), node.id()));
     }
 
-    private void deleteSelection() {
-        if (state.snapshot() == null || state.selectedIds().isEmpty()) return;
+    private void deleteSelection()
+    {
+        if (state.snapshot() == null || state.selectedIds().isEmpty())
+        {
+            return;
+        }
         List<String> ids = selectedOrder();
-        if (ids.size() == 1) {
-            ArcMenuEditorClient.send(new EditorProtocol.DeletePacket(state.snapshot().revision(), state.activeTab(), ids.getFirst()));
-        } else {
-            ArcMenuEditorClient.send(new EditorProtocol.DeleteManyPacket(state.snapshot().revision(), state.activeTab(), ids));
+        if (ids.size() == 1)
+        {
+            ArcMenuEditorClient.send(
+                    new EditorProtocol.DeletePacket(state.snapshot().revision(), state.activeTab(), ids.getFirst()));
+        }
+        else
+        {
+            ArcMenuEditorClient
+                    .send(new EditorProtocol.DeleteManyPacket(state.snapshot().revision(), state.activeTab(), ids));
         }
     }
 
-    private void focusIdProperty() {
+    private void focusIdProperty()
+    {
         propertyScroll = 0;
         rebuildWidgets();
         propertyField("id").ifPresent(this::focusProperty);
     }
 
-    private void focusProperty(PropertyField field) {
+    private void focusProperty(PropertyField field)
+    {
         unfocusPropertyFields();
         setFocused(field.box);
         field.box.moveCursorToEnd(false);
         field.box.setHighlightPos(0);
     }
 
-    private void unfocusPropertyFields() {
+    private void unfocusPropertyFields()
+    {
         propertyFields.forEach(field -> field.box.setFocused(false));
-        if (getFocused() instanceof EditBox && getFocused() != templateNameBox) setFocused(null);
+        if (getFocused() instanceof EditBox && getFocused() != templateNameBox)
+        {
+            setFocused(null);
+        }
     }
 
-    private void setProperty(PropertyField field, String value) {
-        if (state.snapshot() == null || field.tab != state.activeTab() || state.find(field.nodeId) == null) return;
+    private void setProperty(PropertyField field, String value)
+    {
+        if (state.snapshot() == null || field.tab != state.activeTab() || state.find(field.nodeId) == null)
+        {
+            return;
+        }
         ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(), field.tab,
                 field.nodeId, field.property.key(), value));
     }
 
-    private Optional<PropertyField> propertyField(String key) {
+    private Optional<PropertyField> propertyField(String key)
+    {
         return propertyFields.stream().filter(field -> field.property.key().equals(key)).findFirst();
     }
 
-    private List<String> selectedOrder() {
+    private List<String> selectedOrder()
+    {
         return state.nodes().stream().map(EditorProtocol.NodeSnapshot::id).filter(state::selected).toList();
     }
 
-    private boolean sameParent(List<String> ids, String parentId) {
-        return !ids.isEmpty() && ids.stream().map(state::find).allMatch(node -> node != null && node.parentId().equals(parentId));
+    private boolean sameParent(List<String> ids, String parentId)
+    {
+        return !ids.isEmpty()
+                && ids.stream().map(state::find).allMatch(node -> node != null && node.parentId().equals(parentId));
     }
 
-    private boolean canMoveIntoGroup(List<String> ids, EditorProtocol.NodeSnapshot target) {
+    private boolean canMoveIntoGroup(List<String> ids, EditorProtocol.NodeSnapshot target)
+    {
         return target.kind() == EditorProtocol.KIND_GROUP && canMoveToParent(ids, target.id());
     }
 
-    private boolean canMoveToParent(List<String> ids, String targetParentId) {
-        if (ids.isEmpty()) return false;
-        if (targetParentId.isBlank()) return true;
+    private boolean canMoveToParent(List<String> ids, String targetParentId)
+    {
+        if (ids.isEmpty())
+        {
+            return false;
+        }
+        if (targetParentId.isBlank())
+        {
+            return true;
+        }
         EditorProtocol.NodeSnapshot target = state.find(targetParentId);
-        if (target == null || target.kind() != EditorProtocol.KIND_GROUP) return false;
+        if (target == null || target.kind() != EditorProtocol.KIND_GROUP)
+        {
+            return false;
+        }
         String cursor = targetParentId;
         Set<String> visited = new LinkedHashSet<>();
-        while (!cursor.isBlank() && visited.add(cursor)) {
-            if (ids.contains(cursor)) return false;
+        while (!cursor.isBlank() && visited.add(cursor))
+        {
+            if (ids.contains(cursor))
+            {
+                return false;
+            }
             EditorProtocol.NodeSnapshot node = state.find(cursor);
             cursor = node == null ? "" : node.parentId();
         }
         return true;
     }
 
-    private NodeRow nodeRowAt(double y) {
+    private NodeRow nodeRowAt(double y)
+    {
         return nodeRows.stream().filter(row -> y >= row.screenY && y < row.screenY + 19).findFirst().orElse(null);
     }
 
-    private void openManagerContext(double mouseX, double mouseY, NodeRow row) {
+    private void openManagerContext(double mouseX, double mouseY, NodeRow row)
+    {
         List<ContextEntry> entries = new ArrayList<>();
         boolean hasSelection = !state.selectedIds().isEmpty();
-        if (row != null && row.node.kind() == EditorProtocol.KIND_GROUP && clipboardAvailable()) {
-            entries.add(new ContextEntry(EditorIcons.PASTE, EditorI18n.text("arcmenu_editor.context.paste_into_group"), "Ctrl+Shift+V", true,
-                    () -> pasteSelection(false, row.node.id())));
+        if (row != null && row.node.kind() == EditorProtocol.KIND_GROUP && clipboardAvailable())
+        {
+            entries.add(new ContextEntry(EditorIcons.PASTE, EditorI18n.text("arcmenu_editor.context.paste_into_group"),
+                    "Ctrl+Shift+V", true, () -> pasteSelection(false, row.node.id())));
         }
-        entries.add(new ContextEntry(EditorIcons.COPY, EditorI18n.text("arcmenu_editor.context.copy"), "Ctrl+C", hasSelection, this::copySelection));
-        entries.add(new ContextEntry(EditorIcons.PASTE, EditorI18n.text("arcmenu_editor.context.paste_original"), "Ctrl+V", clipboardAvailable(),
-                () -> pasteSelection(true, "")));
-        entries.add(new ContextEntry(EditorIcons.DUPLICATE, EditorI18n.text("arcmenu_editor.context.duplicate"), "Ctrl+D", hasSelection, this::duplicateSelection));
-        entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.group"), "Ctrl+G", hasSelection, this::groupSelection));
-        if (state.activeTab() == EditorProtocol.TAB_BACKEND && row != null && row.node.kind() == EditorProtocol.KIND_GROUP) {
-            entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.ungroup"), "Ctrl+Shift+G",
-                    state.selectedIds().size() == 1, this::ungroupSelection));
+        entries.add(new ContextEntry(EditorIcons.COPY, EditorI18n.text("arcmenu_editor.context.copy"), "Ctrl+C",
+                hasSelection, this::copySelection));
+        entries.add(new ContextEntry(EditorIcons.PASTE, EditorI18n.text("arcmenu_editor.context.paste_original"),
+                "Ctrl+V", clipboardAvailable(), () -> pasteSelection(true, "")));
+        entries.add(new ContextEntry(EditorIcons.DUPLICATE, EditorI18n.text("arcmenu_editor.context.duplicate"),
+                "Ctrl+D", hasSelection, this::duplicateSelection));
+        entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.group"), "Ctrl+G",
+                hasSelection, this::groupSelection));
+        if (state.activeTab() == EditorProtocol.TAB_BACKEND && row != null
+                && row.node.kind() == EditorProtocol.KIND_GROUP)
+        {
+            entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.ungroup"),
+                    "Ctrl+Shift+G", state.selectedIds().size() == 1, this::ungroupSelection));
         }
-        if (row != null && state.hasChildren(row.node.id())) {
+        if (row != null && state.hasChildren(row.node.id()))
+        {
             boolean expanded = state.expanded().contains(row.node.id());
             entries.add(new ContextEntry(expanded ? EditorIcons.CHEVRON_LEFT : EditorIcons.CHEVRON_RIGHT,
-                    EditorI18n.text(expanded ? "arcmenu_editor.context.collapse" : "arcmenu_editor.context.expand"), "", true, () -> {
-                if (!state.expanded().add(row.node.id())) state.expanded().remove(row.node.id());
-            }));
-            entries.add(new ContextEntry(EditorIcons.LIST, EditorI18n.text("arcmenu_editor.context.select_children"), "", true, () -> selectChildren(row.node.id())));
+                    EditorI18n.text(expanded ? "arcmenu_editor.context.collapse" : "arcmenu_editor.context.expand"), "",
+                    true, () ->
+                    {
+                        if (!state.expanded().add(row.node.id()))
+                        {
+                            state.expanded().remove(row.node.id());
+                        }
+                    }));
+            entries.add(new ContextEntry(EditorIcons.LIST, EditorI18n.text("arcmenu_editor.context.select_children"),
+                    "", true, () -> selectChildren(row.node.id())));
         }
-        entries.add(new ContextEntry(EditorIcons.EDIT, EditorI18n.text("arcmenu_editor.context.rename"), "F2", state.selectedIds().size() == 1, this::focusIdProperty));
-        entries.add(new ContextEntry(EditorIcons.TRASH, EditorI18n.text("arcmenu_editor.context.delete"), "Delete", hasSelection, this::deleteSelection));
+        entries.add(new ContextEntry(EditorIcons.EDIT, EditorI18n.text("arcmenu_editor.context.rename"), "F2",
+                state.selectedIds().size() == 1, this::focusIdProperty));
+        entries.add(new ContextEntry(EditorIcons.TRASH, EditorI18n.text("arcmenu_editor.context.delete"), "Delete",
+                hasSelection, this::deleteSelection));
         int menuWidth = 174;
         int menuHeight = entries.size() * 21 + 4;
         int x = Math.max(2, Math.min(width - menuWidth - 2, (int) Math.round(mouseX)));
@@ -1723,9 +2530,11 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         contextMenu = new ContextMenu(x, y, menuWidth, entries);
     }
 
-    private void openTemplateContext(double mouseX, double mouseY, TemplateCard card) {
-        List<ContextEntry> entries = List.of(new ContextEntry(
-                EditorIcons.TRASH, EditorI18n.text("arcmenu_editor.context.delete_template"), "", true, () -> deleteTemplate(card.template.id())));
+    private void openTemplateContext(double mouseX, double mouseY, TemplateCard card)
+    {
+        List<ContextEntry> entries = List
+                .of(new ContextEntry(EditorIcons.TRASH, EditorI18n.text("arcmenu_editor.context.delete_template"), "",
+                        true, () -> deleteTemplate(card.template.id())));
         int menuWidth = 126;
         int menuHeight = entries.size() * 21 + 4;
         int x = Math.max(2, Math.min(width - menuWidth - 2, (int) Math.round(mouseX)));
@@ -1733,13 +2542,18 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         contextMenu = new ContextMenu(x, y, menuWidth, entries);
     }
 
-    private void deleteTemplate(String templateId) {
-        if (state.snapshot() == null) return;
+    private void deleteTemplate(String templateId)
+    {
+        if (state.snapshot() == null)
+        {
+            return;
+        }
         ArcMenuEditorClient.send(new EditorProtocol.DeleteTemplatePacket(state.snapshot().revision(), templateId));
         state.status(EditorI18n.text("arcmenu_editor.status.deleting_template", templateId));
     }
 
-    private void selectChildren(String parentId) {
+    private void selectChildren(String parentId)
+    {
         List<String> children = state.nodes().stream().filter(node -> node.parentId().equals(parentId))
                 .map(EditorProtocol.NodeSnapshot::id).toList();
         state.selectAll(children);
@@ -1747,31 +2561,43 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         rebuildWidgets();
     }
 
-    private void drawContextMenu(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        if (contextMenu == null) return;
+    private void drawContextMenu(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
+        if (contextMenu == null)
+        {
+            return;
+        }
         int height = contextMenu.entries.size() * 21 + 4;
         graphics.fill(contextMenu.x + 4, contextMenu.y + 4, contextMenu.x + contextMenu.width + 5,
                 contextMenu.y + height + 5, 0x77000000);
-        graphics.fill(contextMenu.x, contextMenu.y, contextMenu.x + contextMenu.width, contextMenu.y + height, 0xFF161920);
+        graphics.fill(contextMenu.x, contextMenu.y, contextMenu.x + contextMenu.width, contextMenu.y + height,
+                0xFF161920);
         graphics.outline(contextMenu.x, contextMenu.y, contextMenu.width, height, BORDER);
-        for (int index = 0; index < contextMenu.entries.size(); index++) {
+        for (int index = 0; index < contextMenu.entries.size(); index++)
+        {
             ContextEntry entry = contextMenu.entries.get(index);
             int y = contextMenu.y + 2 + index * 21;
             boolean hover = entry.enabled && mouseX >= contextMenu.x && mouseX < contextMenu.x + contextMenu.width
                     && mouseY >= y && mouseY < y + 21;
-            if (hover) graphics.fill(contextMenu.x + 2, y, contextMenu.x + contextMenu.width - 2, y + 21, SELECTED);
+            if (hover)
+            {
+                graphics.fill(contextMenu.x + 2, y, contextMenu.x + contextMenu.width - 2, y + 21, SELECTED);
+            }
             int color = entry.enabled ? TEXT : 0xFF626A77;
             EditorIcons.draw(graphics, entry.icon, contextMenu.x + 5, y + 2, color);
             graphics.text(font, entry.label, contextMenu.x + 26, y + 7, color, false);
-            if (!entry.shortcut.isBlank()) {
+            if (!entry.shortcut.isBlank())
+            {
                 graphics.text(font, entry.shortcut, contextMenu.x + contextMenu.width - font.width(entry.shortcut) - 7,
                         y + 7, entry.enabled ? MUTED : 0xFF555C68, false);
             }
         }
     }
 
-    private EditorProtocol.NodeSnapshot hitNode(double x, double y) {
-        return state.nodes().stream().filter(node -> {
+    private EditorProtocol.NodeSnapshot hitNode(double x, double y)
+    {
+        return state.nodes().stream().filter(node ->
+        {
             ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
             double width = calibration.proxyWidth(node.width());
             double height = calibration.proxyHeight(node.height());
@@ -1779,24 +2605,29 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
             double right = calibration.proxyX(node.x(), node.width()) + width / 2;
             double bottom = calibration.proxyY(node.y(), node.height()) - height / 2;
             double top = calibration.proxyY(node.y(), node.height()) + height / 2;
-            double mx = menuX(x); double my = menuY(y);
-            return mx >= left && mx <= right && my >= bottom && my <= top;
+            double mouseX = menuX(x);
+            double mouseY = menuY(y);
+            return mouseX >= left && mouseX <= right && mouseY >= bottom && mouseY <= top;
         }).max(Comparator.comparingInt(node -> state.nodes().indexOf(node))).orElse(null);
     }
 
-    private boolean resizeHandleHit(EditorProtocol.NodeSnapshot node, double screenX, double screenY) {
+    private boolean resizeHandleHit(EditorProtocol.NodeSnapshot node, double screenX, double screenY)
+    {
         ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
         int handleX = screenX(calibration.proxyX(node.x(), node.width()) + calibration.proxyWidth(node.width()) / 2);
         int handleY = screenY(calibration.proxyY(node.y(), node.height()) - calibration.proxyHeight(node.height()) / 2);
         return Math.abs(screenX - handleX) <= 8 && Math.abs(screenY - handleY) <= 8;
     }
 
-    private EditorProtocol.Pointer pointer(double mouseX, double mouseY) {
+    private EditorProtocol.Pointer pointer(double mouseX, double mouseY)
+    {
         var view = virtualScreen();
-        return new EditorProtocol.Pointer(mouseX, mouseY, view.x(), view.y(), view.width(), view.height(), menuX(mouseX), menuY(mouseY));
+        return new EditorProtocol.Pointer(mouseX, mouseY, view.x(), view.y(), view.width(), view.height(),
+                menuX(mouseX), menuY(mouseY));
     }
 
-    private EditorProtocol.Pointer boundedPointer(double mouseX, double mouseY, boolean resize) {
+    private EditorProtocol.Pointer boundedPointer(double mouseX, double mouseY, boolean resize)
+    {
         var view = virtualScreen();
         double x = Math.max(view.x(), Math.min(view.right() - 0.001, mouseX));
         double y = Math.max(view.y(), Math.min(view.bottom() - 0.001, mouseY));
@@ -1804,52 +2635,65 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
     }
 
     /** Invert the type calibration before the server derives backend width/height from the pointer. */
-    private EditorProtocol.Pointer resizePointer(double mouseX, double mouseY) {
+    private EditorProtocol.Pointer resizePointer(double mouseX, double mouseY)
+    {
         var view = virtualScreen();
         EditorProtocol.NodeSnapshot node = state.find(draggingNode);
-        ElementSelectionCalibration.Calibration calibration = node == null
-                ? ElementSelectionCalibration.IDENTITY : nodeCalibration(node);
+        ElementSelectionCalibration.Calibration calibration = node == null ? ElementSelectionCalibration.IDENTITY
+                : nodeCalibration(node);
         double nodeX = node == null ? 0.0 : node.x();
         double nodeY = node == null ? 0.0 : node.y();
         double correctedMenuX = calibration.serverRightX(nodeX, menuX(mouseX));
         double correctedMenuY = calibration.serverBottomY(nodeY, menuY(mouseY));
-        return new EditorProtocol.Pointer(screenXExact(correctedMenuX), screenYExact(correctedMenuY),
-                view.x(), view.y(), view.width(), view.height(), correctedMenuX, correctedMenuY);
+        return new EditorProtocol.Pointer(screenXExact(correctedMenuX), screenYExact(correctedMenuY), view.x(),
+                view.y(), view.width(), view.height(), correctedMenuX, correctedMenuY);
     }
 
-    private int screenX(double menuX) {
+    private int screenX(double menuX)
+    {
         return (int) Math.round(screenXExact(menuX));
     }
 
-    private int screenY(double menuY) {
+    private int screenY(double menuY)
+    {
         return (int) Math.round(screenYExact(menuY));
     }
 
-    private double screenXExact(double menuX) {
-        var snapshot = state.snapshot(); var view = virtualScreen();
+    private double screenXExact(double menuX)
+    {
+        var snapshot = state.snapshot();
+        var view = virtualScreen();
         return view.x() + (menuX + snapshot.canvasWidth() / 2.0) / snapshot.canvasWidth() * view.width();
     }
 
-    private double screenYExact(double menuY) {
-        var snapshot = state.snapshot(); var view = virtualScreen();
+    private double screenYExact(double menuY)
+    {
+        var snapshot = state.snapshot();
+        var view = virtualScreen();
         return view.y() + (snapshot.canvasHeight() / 2.0 - menuY) / snapshot.canvasHeight() * view.height();
     }
 
-    private double menuX(double screenX) {
-        var snapshot = state.snapshot(); var view = virtualScreen();
+    private double menuX(double screenX)
+    {
+        var snapshot = state.snapshot();
+        var view = virtualScreen();
         return (screenX - view.x()) / view.width() * snapshot.canvasWidth() - snapshot.canvasWidth() / 2.0;
     }
 
-    private double menuY(double screenY) {
-        var snapshot = state.snapshot(); var view = virtualScreen();
+    private double menuY(double screenY)
+    {
+        var snapshot = state.snapshot();
+        var view = virtualScreen();
         return snapshot.canvasHeight() / 2.0 - (screenY - view.y()) / view.height() * snapshot.canvasHeight();
     }
 
-    private EditorLayout.ScreenRect virtualScreen() {
+    private EditorLayout.ScreenRect virtualScreen()
+    {
         return layout.virtualScreen(currentLayout);
     }
 
-    private EditorLayout.Rect calibrationPanel() {
+    private EditorLayout.Rect calibrationPanel()
+    {
         int panelWidth = Math.max(320, Math.min(560, width - 40));
         int panelHeight = Math.max(300, Math.min(350, height - EditorLayout.HEADER_HEIGHT - 30));
         return new EditorLayout.Rect((width - panelWidth) / 2,
@@ -1857,221 +2701,314 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
                 panelWidth, panelHeight);
     }
 
-    private EditorLayout.Rect calibrationKindRect(int index) {
+    private EditorLayout.Rect calibrationKindRect(int index)
+    {
         EditorLayout.Rect panel = calibrationPanel();
         int listWidth = Math.min(145, Math.max(118, panel.width() / 3));
         return new EditorLayout.Rect(panel.x() + 8, panel.y() + 39 + index * 23, listWidth, 21);
     }
 
-    private EditorLayout.Rect calibrationResetRect() {
+    private EditorLayout.Rect calibrationResetRect()
+    {
         EditorLayout.Rect panel = calibrationPanel();
         return new EditorLayout.Rect(panel.right() - 236, panel.bottom() - 31, 108, 22);
     }
 
-    private EditorLayout.Rect calibrationSaveRect() {
+    private EditorLayout.Rect calibrationSaveRect()
+    {
         EditorLayout.Rect panel = calibrationPanel();
         return new EditorLayout.Rect(panel.right() - 120, panel.bottom() - 31, 108, 22);
     }
 
-    private static void fill(GuiGraphicsExtractor graphics, EditorLayout.Rect rect, int color) {
+    private static void fill(GuiGraphicsExtractor graphics, EditorLayout.Rect rect, int color)
+    {
         graphics.fill(rect.x(), rect.y(), rect.right(), rect.bottom(), color);
     }
 
-    private String ellipsize(String value, int maxCharacters) {
-        if (value == null) return "";
-        if (value.length() <= maxCharacters) return value;
+    private String ellipsize(String value, int maxCharacters)
+    {
+        if (value == null)
+        {
+            return "";
+        }
+        if (value.length() <= maxCharacters)
+        {
+            return value;
+        }
         return value.substring(0, Math.max(0, maxCharacters - 3)) + "...";
     }
 
-    private static String displayPropertyValue(EditorProtocol.PropertySnapshot property) {
+    private static String displayPropertyValue(EditorProtocol.PropertySnapshot property)
+    {
         return property.type() == EditorProtocol.PROPERTY_MULTILINE
                 ? property.value().replace("\\", "\\\\").replace("\r", "").replace("\n", "\\n")
                 : property.value();
     }
 
-    private static String submittedPropertyValue(EditorProtocol.PropertySnapshot property, String value) {
-        if (property.type() != EditorProtocol.PROPERTY_MULTILINE) return value.trim();
+    private static String submittedPropertyValue(EditorProtocol.PropertySnapshot property, String value)
+    {
+        if (property.type() != EditorProtocol.PROPERTY_MULTILINE)
+        {
+            return value.trim();
+        }
         StringBuilder output = new StringBuilder();
         boolean escape = false;
-        for (int i = 0; i < value.length(); i++) {
+        for (int i = 0; i < value.length(); i++)
+        {
             char character = value.charAt(i);
-            if (escape) {
+            if (escape)
+            {
                 output.append(character == 'n' ? '\n' : character);
                 escape = false;
-            } else if (character == '\\') escape = true;
-            else output.append(character);
+            }
+            else if (character == '\\')
+            {
+                escape = true;
+            }
+            else
+            {
+                output.append(character);
+            }
         }
-        if (escape) output.append('\\');
+        if (escape)
+        {
+            output.append('\\');
+        }
         return output.toString();
     }
 
-    private String suggestTemplateId(String groupId) {
+    private String suggestTemplateId(String groupId)
+    {
         String base = groupId.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "-");
-        if (base.isBlank() || !Character.isLetterOrDigit(base.charAt(0))) base = "template-" + base;
-        if (state.snapshot() == null) return base;
+        if (base.isBlank() || !Character.isLetterOrDigit(base.charAt(0)))
+        {
+            base = "template-" + base;
+        }
+        if (state.snapshot() == null)
+        {
+            return base;
+        }
         Set<String> ids = new HashSet<>();
         state.snapshot().templates().forEach(template -> ids.add(template.id()));
-        if (!ids.contains(base)) return base;
+        if (!ids.contains(base))
+        {
+            return base;
+        }
         int suffix = 2;
-        while (ids.contains(base + suffix)) suffix++;
+        while (ids.contains(base + suffix))
+        {
+            suffix++;
+        }
         return base + suffix;
     }
 
-    private static String propertyLabel(String key) {
-        return switch (key) {
-            case "id" -> EditorI18n.text("arcmenu_editor.property.id");
-            case "offset.x", "x" -> EditorI18n.text("arcmenu_editor.property.position_x");
-            case "offset.y", "y" -> EditorI18n.text("arcmenu_editor.property.position_y");
-            case "offset.z" -> EditorI18n.text("arcmenu_editor.property.position_z");
-            case "rotation.x" -> EditorI18n.text("arcmenu_editor.property.rotation_x");
-            case "rotation.y" -> EditorI18n.text("arcmenu_editor.property.rotation_y");
-            case "rotation.z" -> EditorI18n.text("arcmenu_editor.property.rotation_z");
-            case "scale.x" -> EditorI18n.text("arcmenu_editor.property.scale_x");
-            case "scale.y" -> EditorI18n.text("arcmenu_editor.property.scale_y");
-            case "scale.z" -> EditorI18n.text("arcmenu_editor.property.scale_z");
-            case "visible" -> EditorI18n.text("arcmenu_editor.property.visible");
-            case "width" -> EditorI18n.text("arcmenu_editor.property.width");
-            case "height" -> EditorI18n.text("arcmenu_editor.property.height");
-            case "thickness" -> EditorI18n.text("arcmenu_editor.property.thickness");
-            case "color" -> EditorI18n.text("arcmenu_editor.property.color");
-            case "opacity" -> EditorI18n.text("arcmenu_editor.property.opacity");
-            case "content" -> EditorI18n.text("arcmenu_editor.property.content");
-            case "size" -> EditorI18n.text("arcmenu_editor.property.size");
-            case "font" -> EditorI18n.text("arcmenu_editor.property.font");
-            case "line-width" -> EditorI18n.text("arcmenu_editor.property.line_width");
-            case "alignment" -> EditorI18n.text("arcmenu_editor.property.alignment");
-            case "update" -> EditorI18n.text("arcmenu_editor.property.update");
-            case "source" -> EditorI18n.text("arcmenu_editor.property.source");
-            case "speed" -> EditorI18n.text("arcmenu_editor.property.speed");
-            case "material" -> EditorI18n.text("arcmenu_editor.property.material");
-            case "context" -> EditorI18n.text("arcmenu_editor.property.context");
-            case "block-data" -> EditorI18n.text("arcmenu_editor.property.block_data");
-            case "priority" -> EditorI18n.text("arcmenu_editor.property.priority");
-            case "tooltip" -> EditorI18n.text("arcmenu_editor.property.tooltip");
-            case "condition" -> EditorI18n.text("arcmenu_editor.property.condition");
-            case "actions" -> EditorI18n.text("arcmenu_editor.property.actions");
-            case "deny" -> EditorI18n.text("arcmenu_editor.property.deny");
-            case "on-hover", "on-leave" -> EditorI18n.property(key);
-            default -> EditorI18n.property(key);
+    private static String propertyLabel(String key)
+    {
+        return switch (key)
+        {
+        case "id" -> EditorI18n.text("arcmenu_editor.property.id");
+        case "offset.x", "x" -> EditorI18n.text("arcmenu_editor.property.position_x");
+        case "offset.y", "y" -> EditorI18n.text("arcmenu_editor.property.position_y");
+        case "offset.z" -> EditorI18n.text("arcmenu_editor.property.position_z");
+        case "rotation.x" -> EditorI18n.text("arcmenu_editor.property.rotation_x");
+        case "rotation.y" -> EditorI18n.text("arcmenu_editor.property.rotation_y");
+        case "rotation.z" -> EditorI18n.text("arcmenu_editor.property.rotation_z");
+        case "scale.x" -> EditorI18n.text("arcmenu_editor.property.scale_x");
+        case "scale.y" -> EditorI18n.text("arcmenu_editor.property.scale_y");
+        case "scale.z" -> EditorI18n.text("arcmenu_editor.property.scale_z");
+        case "visible" -> EditorI18n.text("arcmenu_editor.property.visible");
+        case "width" -> EditorI18n.text("arcmenu_editor.property.width");
+        case "height" -> EditorI18n.text("arcmenu_editor.property.height");
+        case "thickness" -> EditorI18n.text("arcmenu_editor.property.thickness");
+        case "color" -> EditorI18n.text("arcmenu_editor.property.color");
+        case "opacity" -> EditorI18n.text("arcmenu_editor.property.opacity");
+        case "content" -> EditorI18n.text("arcmenu_editor.property.content");
+        case "size" -> EditorI18n.text("arcmenu_editor.property.size");
+        case "font" -> EditorI18n.text("arcmenu_editor.property.font");
+        case "line-width" -> EditorI18n.text("arcmenu_editor.property.line_width");
+        case "alignment" -> EditorI18n.text("arcmenu_editor.property.alignment");
+        case "update" -> EditorI18n.text("arcmenu_editor.property.update");
+        case "source" -> EditorI18n.text("arcmenu_editor.property.source");
+        case "speed" -> EditorI18n.text("arcmenu_editor.property.speed");
+        case "material" -> EditorI18n.text("arcmenu_editor.property.material");
+        case "context" -> EditorI18n.text("arcmenu_editor.property.context");
+        case "block-data" -> EditorI18n.text("arcmenu_editor.property.block_data");
+        case "priority" -> EditorI18n.text("arcmenu_editor.property.priority");
+        case "tooltip" -> EditorI18n.text("arcmenu_editor.property.tooltip");
+        case "condition" -> EditorI18n.text("arcmenu_editor.property.condition");
+        case "actions" -> EditorI18n.text("arcmenu_editor.property.actions");
+        case "deny" -> EditorI18n.text("arcmenu_editor.property.deny");
+        case "on-hover", "on-leave" -> EditorI18n.property(key);
+        default -> EditorI18n.property(key);
         };
     }
 
-    private static String calibrationFieldLabel(int index) {
-        return switch (index) {
-            case 0 -> EditorI18n.text("arcmenu_editor.calibration.field.offset_x");
-            case 1 -> EditorI18n.text("arcmenu_editor.calibration.field.offset_y");
-            case 2 -> EditorI18n.text("arcmenu_editor.calibration.field.scale_x");
-            case 3 -> EditorI18n.text("arcmenu_editor.calibration.field.scale_y");
-            default -> EditorI18n.text("arcmenu_editor.common.unknown_parameter");
+    private static String calibrationFieldLabel(int index)
+    {
+        return switch (index)
+        {
+        case 0 -> EditorI18n.text("arcmenu_editor.calibration.field.offset_x");
+        case 1 -> EditorI18n.text("arcmenu_editor.calibration.field.offset_y");
+        case 2 -> EditorI18n.text("arcmenu_editor.calibration.field.scale_x");
+        case 3 -> EditorI18n.text("arcmenu_editor.calibration.field.scale_y");
+        default -> EditorI18n.text("arcmenu_editor.common.unknown_parameter");
         };
     }
 
-    private static String calibrationKindLabel(byte kind) {
-        return switch (kind) {
-            case EditorProtocol.KIND_GROUP -> EditorI18n.text("arcmenu_editor.tool.group");
-            case EditorProtocol.KIND_RECTANGLE -> EditorI18n.text("arcmenu_editor.tool.rectangle");
-            case EditorProtocol.KIND_FRAME -> EditorI18n.text("arcmenu_editor.tool.frame");
-            case EditorProtocol.KIND_LINE -> EditorI18n.text("arcmenu_editor.tool.line");
-            case EditorProtocol.KIND_TEXT -> EditorI18n.text("arcmenu_editor.tool.text");
-            case EditorProtocol.KIND_IMAGE -> EditorI18n.text("arcmenu_editor.tool.image");
-            case EditorProtocol.KIND_GIF -> EditorI18n.text("arcmenu_editor.tool.gif");
-            case EditorProtocol.KIND_ITEM -> EditorI18n.text("arcmenu_editor.tool.item");
-            case EditorProtocol.KIND_BLOCK -> EditorI18n.text("arcmenu_editor.tool.block");
-            case EditorProtocol.KIND_REGION -> EditorI18n.text("arcmenu_editor.tool.region");
-            default -> EditorI18n.text("arcmenu_editor.common.unknown_type");
+    private static String calibrationKindLabel(byte kind)
+    {
+        return switch (kind)
+        {
+        case EditorProtocol.KIND_GROUP -> EditorI18n.text("arcmenu_editor.tool.group");
+        case EditorProtocol.KIND_RECTANGLE -> EditorI18n.text("arcmenu_editor.tool.rectangle");
+        case EditorProtocol.KIND_FRAME -> EditorI18n.text("arcmenu_editor.tool.frame");
+        case EditorProtocol.KIND_LINE -> EditorI18n.text("arcmenu_editor.tool.line");
+        case EditorProtocol.KIND_TEXT -> EditorI18n.text("arcmenu_editor.tool.text");
+        case EditorProtocol.KIND_IMAGE -> EditorI18n.text("arcmenu_editor.tool.image");
+        case EditorProtocol.KIND_GIF -> EditorI18n.text("arcmenu_editor.tool.gif");
+        case EditorProtocol.KIND_ITEM -> EditorI18n.text("arcmenu_editor.tool.item");
+        case EditorProtocol.KIND_BLOCK -> EditorI18n.text("arcmenu_editor.tool.block");
+        case EditorProtocol.KIND_REGION -> EditorI18n.text("arcmenu_editor.tool.region");
+        default -> EditorI18n.text("arcmenu_editor.common.unknown_type");
         };
     }
 
-    private static int propertyStripe(String key) {
-        if (key.endsWith(".x") || key.equals("x") || key.equals("width")) return 0xFFE95C66;
-        if (key.endsWith(".y") || key.equals("y") || key.equals("height")) return 0xFF56D364;
-        if (key.endsWith(".z")) return 0xFF55A6F1;
+    private static int propertyStripe(String key)
+    {
+        if (key.endsWith(".x") || key.equals("x") || key.equals("width"))
+        {
+            return 0xFFE95C66;
+        }
+        if (key.endsWith(".y") || key.equals("y") || key.equals("height"))
+        {
+            return 0xFF56D364;
+        }
+        if (key.endsWith(".z"))
+        {
+            return 0xFF55A6F1;
+        }
         return 0xFF6B7482;
     }
 
-    private static String format(double value) {
-        if (Math.abs(value - Math.rint(value)) < 0.00001) return Long.toString(Math.round(value));
+    private static String format(double value)
+    {
+        if (Math.abs(value - Math.rint(value)) < 0.00001)
+        {
+            return Long.toString(Math.round(value));
+        }
         return String.format(Locale.ROOT, "%.3f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
-    private static boolean isNumeric(EditorProtocol.PropertySnapshot property) {
+    private static boolean isNumeric(EditorProtocol.PropertySnapshot property)
+    {
         return property.type() == EditorProtocol.PROPERTY_NUMBER || property.type() == EditorProtocol.PROPERTY_INTEGER;
     }
 
-    private static EditorIcons.Icon kindIcon(byte kind) {
-        return switch (kind) {
-            case EditorProtocol.KIND_GROUP -> EditorIcons.FOLDER;
-            case EditorProtocol.KIND_RECTANGLE -> EditorIcons.SQUARE;
-            case EditorProtocol.KIND_FRAME, EditorProtocol.KIND_REGION -> EditorIcons.OUTLINE;
-            case EditorProtocol.KIND_LINE -> EditorIcons.LINE;
-            case EditorProtocol.KIND_TEXT -> EditorIcons.FONT;
-            case EditorProtocol.KIND_IMAGE -> EditorIcons.IMAGE;
-            case EditorProtocol.KIND_GIF -> EditorIcons.GIF;
-            case EditorProtocol.KIND_ITEM -> EditorIcons.MATERIAL;
-            case EditorProtocol.KIND_BLOCK -> EditorIcons.BLOCK;
-            default -> EditorIcons.PROPERTIES;
+    private static EditorIcons.Icon kindIcon(byte kind)
+    {
+        return switch (kind)
+        {
+        case EditorProtocol.KIND_GROUP -> EditorIcons.FOLDER;
+        case EditorProtocol.KIND_RECTANGLE -> EditorIcons.SQUARE;
+        case EditorProtocol.KIND_FRAME, EditorProtocol.KIND_REGION -> EditorIcons.OUTLINE;
+        case EditorProtocol.KIND_LINE -> EditorIcons.LINE;
+        case EditorProtocol.KIND_TEXT -> EditorIcons.FONT;
+        case EditorProtocol.KIND_IMAGE -> EditorIcons.IMAGE;
+        case EditorProtocol.KIND_GIF -> EditorIcons.GIF;
+        case EditorProtocol.KIND_ITEM -> EditorIcons.MATERIAL;
+        case EditorProtocol.KIND_BLOCK -> EditorIcons.BLOCK;
+        default -> EditorIcons.PROPERTIES;
         };
     }
 
-    private static int kindColor(byte kind) {
-        return switch (kind) {
-            case EditorProtocol.KIND_GROUP -> 0xFF6CC7EA;
-            case EditorProtocol.KIND_REGION -> 0xFF5DA8FF;
-            case EditorProtocol.KIND_TEXT -> 0xFFF0CA65;
-            case EditorProtocol.KIND_IMAGE, EditorProtocol.KIND_GIF -> 0xFF9B8AFB;
-            case EditorProtocol.KIND_ITEM, EditorProtocol.KIND_BLOCK -> 0xFF65D68A;
-            default -> 0xFFAFB8C6;
+    private static int kindColor(byte kind)
+    {
+        return switch (kind)
+        {
+        case EditorProtocol.KIND_GROUP -> 0xFF6CC7EA;
+        case EditorProtocol.KIND_REGION -> 0xFF5DA8FF;
+        case EditorProtocol.KIND_TEXT -> 0xFFF0CA65;
+        case EditorProtocol.KIND_IMAGE, EditorProtocol.KIND_GIF -> 0xFF9B8AFB;
+        case EditorProtocol.KIND_ITEM, EditorProtocol.KIND_BLOCK -> 0xFF65D68A;
+        default -> 0xFFAFB8C6;
         };
     }
 
-    private static String kindName(byte kind) {
-        return switch (kind) {
-            case EditorProtocol.KIND_GROUP -> "group";
-            case EditorProtocol.KIND_RECTANGLE -> "rectangle / line";
-            case EditorProtocol.KIND_FRAME -> "frame";
-            case EditorProtocol.KIND_LINE -> "line";
-            case EditorProtocol.KIND_TEXT -> "text";
-            case EditorProtocol.KIND_IMAGE -> "image";
-            case EditorProtocol.KIND_GIF -> "gif";
-            case EditorProtocol.KIND_ITEM -> "item";
-            case EditorProtocol.KIND_BLOCK -> "block";
-            case EditorProtocol.KIND_REGION -> "interaction region";
-            default -> "unknown";
+    private static String kindName(byte kind)
+    {
+        return switch (kind)
+        {
+        case EditorProtocol.KIND_GROUP -> "group";
+        case EditorProtocol.KIND_RECTANGLE -> "rectangle / line";
+        case EditorProtocol.KIND_FRAME -> "frame";
+        case EditorProtocol.KIND_LINE -> "line";
+        case EditorProtocol.KIND_TEXT -> "text";
+        case EditorProtocol.KIND_IMAGE -> "image";
+        case EditorProtocol.KIND_GIF -> "gif";
+        case EditorProtocol.KIND_ITEM -> "item";
+        case EditorProtocol.KIND_BLOCK -> "block";
+        case EditorProtocol.KIND_REGION -> "interaction region";
+        default -> "unknown";
         };
     }
 
-    private static final class NodeRow {
+    private static final class NodeRow
+    {
         private final EditorProtocol.NodeSnapshot node;
         private final int depth;
         private final int index;
         private int screenY = Integer.MIN_VALUE;
 
-        private NodeRow(EditorProtocol.NodeSnapshot node, int depth, int index) {
-            this.node = node; this.depth = depth; this.index = index;
+        private NodeRow(EditorProtocol.NodeSnapshot node, int depth, int index)
+        {
+            this.node = node;
+            this.depth = depth;
+            this.index = index;
         }
     }
 
-    private record PropertyField(String nodeId, byte tab, EditorProtocol.PropertySnapshot property, EditBox box, int y, EditorLayout.Rect rect) {}
-    private record ToolDefinition(EditorIcons.Icon icon, String label, byte kind) {}
-    private record ToolButton(ToolDefinition tool, EditorLayout.Rect rect) {}
-    private record AssetCard(EditorAssetLibrary.Entry entry, EditorLayout.Rect rect) {}
-    private record FolderRow(String path, EditorLayout.Rect rect) {}
-    private record TemplateCard(EditorProtocol.TemplateSnapshot template, EditorLayout.Rect rect) {}
-    private record ManagerButton(ManagerAction action, EditorLayout.Rect rect) {}
-    private record HoverTooltip(String text, int x, int y) {}
-    private record CalibrationField(int index, EditBox box) {}
+    private record PropertyField(String nodeId, byte tab, EditorProtocol.PropertySnapshot property, EditBox box, int y,
+            EditorLayout.Rect rect)
+    {}
 
-    private static final class PropertyDrag {
+    private record ToolDefinition(EditorIcons.Icon icon, String label, byte kind)
+    {}
+
+    private record ToolButton(ToolDefinition tool, EditorLayout.Rect rect)
+    {}
+
+    private record AssetCard(EditorAssetLibrary.Entry entry, EditorLayout.Rect rect)
+    {}
+
+    private record FolderRow(String path, EditorLayout.Rect rect)
+    {}
+
+    private record TemplateCard(EditorProtocol.TemplateSnapshot template, EditorLayout.Rect rect)
+    {}
+
+    private record ManagerButton(ManagerAction action, EditorLayout.Rect rect)
+    {}
+
+    private record HoverTooltip(String text, int x, int y)
+    {}
+
+    private record CalibrationField(int index, EditBox box)
+    {}
+
+    private static final class PropertyDrag
+    {
         private final String nodeId;
         private final EditorProtocol.PropertySnapshot property;
         private final double initialValue;
         private final double startX;
-        @SuppressWarnings("unused") private final double startY;
+        @SuppressWarnings("unused")
+        private final double startY;
         private final long gestureId;
         private boolean dragging;
 
         private PropertyDrag(String nodeId, EditorProtocol.PropertySnapshot property, double initialValue,
-                             double startX, double startY, long gestureId) {
+                double startX, double startY, long gestureId)
+        {
             this.nodeId = nodeId;
             this.property = property;
             this.initialValue = initialValue;
@@ -2081,14 +3018,16 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         }
     }
 
-    private static final class ContextEntry {
+    private static final class ContextEntry
+    {
         private final EditorIcons.Icon icon;
         private final String label;
         private final String shortcut;
         private final boolean enabled;
         private final Runnable action;
 
-        private ContextEntry(EditorIcons.Icon icon, String label, String shortcut, boolean enabled, Runnable action) {
+        private ContextEntry(EditorIcons.Icon icon, String label, String shortcut, boolean enabled, Runnable action)
+        {
             this.icon = icon;
             this.label = label;
             this.shortcut = shortcut;
@@ -2097,37 +3036,54 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host {
         }
     }
 
-    private static final class ContextMenu {
+    private static final class ContextMenu
+    {
         private final int x;
         private final int y;
         private final int width;
         private final List<ContextEntry> entries;
 
-        private ContextMenu(int x, int y, int width, List<ContextEntry> entries) {
+        private ContextMenu(int x, int y, int width, List<ContextEntry> entries)
+        {
             this.x = x;
             this.y = y;
             this.width = width;
             this.entries = List.copyOf(entries);
         }
 
-        private ContextEntry entryAt(double mouseX, double mouseY) {
-            if (mouseX < x || mouseX >= x + width || mouseY < y + 2) return null;
+        private ContextEntry entryAt(double mouseX, double mouseY)
+        {
+            if (mouseX < x || mouseX >= x + width || mouseY < y + 2)
+            {
+                return null;
+            }
             int index = (int) ((mouseY - y - 2) / 21);
             return index >= 0 && index < entries.size() ? entries.get(index) : null;
         }
     }
 
-    private enum ManagerAction { CREATE, GROUP, DUPLICATE, PASTE }
-
-    private enum HeaderAction {
-        UNDO("arcmenu_editor.header.undo"), REDO("arcmenu_editor.header.redo"),
-        SAVE("arcmenu_editor.header.save"), APPLY("arcmenu_editor.header.apply"),
-        SETTINGS("arcmenu_editor.header.settings"), MCP("arcmenu_editor.mcp.title"),
-        PROJECTS("arcmenu_editor.projects.projects"), MARKET("arcmenu_editor.projects.market");
-
-        private final String translationKey;
-        HeaderAction(String translationKey) { this.translationKey = translationKey; }
+    private enum ManagerAction
+    {
+        CREATE, GROUP, DUPLICATE, PASTE
     }
 
-    private enum ResizeTarget { NONE, TOOLS, INSPECTOR, TEMPLATES }
+    private enum HeaderAction
+    {
+        UNDO("arcmenu_editor.header.undo"), REDO("arcmenu_editor.header.redo"), SAVE("arcmenu_editor.header.save"),
+        APPLY("arcmenu_editor.header.apply"), SETTINGS("arcmenu_editor.header.settings"),
+        MCP("arcmenu_editor.mcp.title"), PROJECTS("arcmenu_editor.projects.projects"),
+        MARKET("arcmenu_editor.projects.market");
+
+        private final String translationKey;
+
+        HeaderAction(String translationKey)
+        {
+            this.translationKey = translationKey;
+        }
+    }
+
+    private enum ResizeTarget
+    {
+        NONE, TOOLS, INSPECTOR, TEMPLATES
+    }
 }

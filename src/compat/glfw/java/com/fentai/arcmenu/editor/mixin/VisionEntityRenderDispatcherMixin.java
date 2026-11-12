@@ -10,10 +10,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(EntityRenderDispatcher.class)
-abstract class VisionEntityRenderDispatcherMixin {
+abstract class VisionEntityRenderDispatcherMixin
+{
     @Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true)
     private void arcmenu$excludeVisionMenu(Entity entity, Frustum frustum, double x, double y, double z,
-                                          CallbackInfoReturnable<Boolean> info) {
-        if (VisionSceneClient.owns(entity)) info.setReturnValue(false);
+            CallbackInfoReturnable<Boolean> info)
+    {
+        if (VisionSceneClient.owns(entity))
+        {
+            info.setReturnValue(false);
+        }
     }
 }

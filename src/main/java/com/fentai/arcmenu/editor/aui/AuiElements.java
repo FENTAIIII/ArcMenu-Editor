@@ -7,10 +7,13 @@ import com.fentai.arcmenu.editor.aui.internal.init.Element;
 import java.util.function.Function;
 
 /** Registers the library's built-in DOM controls without a loader annotation scanner. */
-final class AuiElements {
-    private AuiElements() {}
+final class AuiElements
+{
+    private AuiElements()
+    {}
 
-    static void register() {
+    static void register()
+    {
         register("A", A::new);
         register("BODY", Body::new);
         register("CANVAS", Canvas::new);
@@ -28,7 +31,8 @@ final class AuiElements {
         register("TEXTAREA", TextArea::new);
     }
 
-    private static void register(String tag, Function<Document, ? extends Element> factory) {
+    private static void register(String tag, Function<Document, ? extends Element> factory)
+    {
         Element.register(tag, (document, ignored) -> factory.apply(document));
     }
 }
