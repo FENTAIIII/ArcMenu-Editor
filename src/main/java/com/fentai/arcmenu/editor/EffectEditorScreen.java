@@ -2196,7 +2196,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         return result;
     }
 
-    private static MouseButtonEvent mouseEvent(double x, double y, int button, int mods)
+    /** Builds a pointer event for automation; {@code mods} bits are 1 = Shift, 2 = Ctrl, 4 = Alt. */
+    static MouseButtonEvent mouseEvent(double x, double y, int button, int mods)
     {
         return new MouseButtonEvent(x, y,
                 new MouseButtonInfo(

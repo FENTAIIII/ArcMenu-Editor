@@ -43,6 +43,9 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private static final int MUTED = 0xFF9AA4B2;
     private static final int ACCENT = 0xFF388BFF;
     private static final int SELECTED = 0xFF263F65;
+    /** Screen distance within which a dragged element snaps to an alignment line. */
+    private static final double SNAP_DISTANCE_PIXELS = 6.0;
+    private static final int SNAP_GUIDE_COLOR = 0xFFFF4FD8;
 
     private final EditorState state;
     private final EffectTimeline effectTimeline;
@@ -66,6 +69,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private EditorProtocol.Pointer lastSentDragPointer;
     private long nextGestureId = 1;
     private long activeGestureId;
+    private CanvasSnapping.Result activeSnap = CanvasSnapping.NONE;
     private long lastDragSendNanos;
     private boolean dragRequestInFlight;
     private boolean dragReleased;
@@ -666,6 +670,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         int virtualBottom = (int) Math.round(virtual.bottom());
         graphics.outline(virtualX, virtualY, Math.max(1, virtualRight - virtualX),
                 Math.max(1, virtualBottom - virtualY), 0xFFB38CFF);
+        drawSnapGuides(graphics);
         graphics.text(font, EditorI18n.text("arcmenu_editor.viewport.game", view.width(), view.height()), view.x() + 5,
                 view.y() + 5, 0xCCFFFFFF, true);
         String calibration = EditorI18n.text("arcmenu_editor.viewport.calibration", format(layout.virtualScreenScale()),
@@ -1793,7 +1798,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         if (!draggingNode.isBlank() && state.snapshot() != null)
         {
-            pendingDragPointer = boundedPointer(event.x(), event.y(), false);
+            pendingDragPointer = snappedPointer(event.x(), event.y(), event.hasAltDown());
             flushLiveDrag(false);
             return true;
         }
@@ -1826,10 +1831,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             if (pendingDragPointer != null && currentLayout != null)
             {
-                var virtual = virtualScreen();
-                double x = Math.max(virtual.x(), Math.min(virtual.right() - 0.001, event.x()));
-                double y = Math.max(virtual.y(), Math.min(virtual.bottom() - 0.001, event.y()));
-                pendingDragPointer = resizingNode ? resizePointer(x, y) : pointer(x, y);
+                pendingDragPointer = resizingNode ? boundedPointer(event.x(), event.y(), true)
+                        : snappedPointer(event.x(), event.y(), event.hasAltDown());
             }
             dragReleased = true;
             if (pendingDragPointer == null)
@@ -1931,6 +1934,22 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         return super.mouseReleased(event);
     }
 
+    /**
+     * Feeds a pointer event through the same handlers as real mouse input, for MCP automation.
+     * {@code modifiers} uses the bits of {@link EffectEditorScreen#mouseEvent}.
+     */
+    public boolean pointerInput(String operation, double x, double y, int button, int modifiers, double dx, double dy)
+    {
+        MouseButtonEvent event = EffectEditorScreen.mouseEvent(x, y, button, modifiers);
+        return switch (operation)
+        {
+        case "click" -> mouseClicked(event, false);
+        case "drag" -> mouseDragged(event, dx, dy);
+        case "release" -> mouseReleased(event);
+        default -> throw new IllegalArgumentException("Unknown menu editor input operation");
+        };
+    }
+
     private void beginLiveGesture()
     {
         activeGestureId = nextGestureId++;
@@ -1980,6 +1999,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private void finishLiveGesture()
     {
         activeGestureId = 0;
+        activeSnap = CanvasSnapping.NONE;
         draggingNode = "";
         resizingNode = false;
         pendingDragPointer = null;
@@ -2632,6 +2652,103 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         double x = Math.max(view.x(), Math.min(view.right() - 0.001, mouseX));
         double y = Math.max(view.y(), Math.min(view.bottom() - 0.001, mouseY));
         return resize ? resizePointer(x, y) : pointer(x, y);
+    }
+
+    /**
+     * Pointer for moving {@link #draggingNode}, shifted so that the element's visible box lines up with the canvas
+     * or another element when it comes within {@link #SNAP_DISTANCE_PIXELS}. Holding Alt disables snapping.
+     */
+    private EditorProtocol.Pointer snappedPointer(double mouseX, double mouseY, boolean snappingDisabled)
+    {
+        EditorProtocol.Pointer pointer = boundedPointer(mouseX, mouseY, false);
+        EditorProtocol.NodeSnapshot node = state.find(draggingNode);
+        activeSnap = CanvasSnapping.NONE;
+        if (snappingDisabled || node == null)
+        {
+            return pointer;
+        }
+        // The server places the element centre at pointer - grab offset; snap the box that will be drawn there.
+        double centerX = pointer.clientX() - grabOffsetX;
+        double centerY = pointer.clientY() - grabOffsetY;
+        CanvasSnapping.Box moving = visibleBox(node, centerX, centerY);
+        List<CanvasSnapping.Box> others = new ArrayList<>();
+        for (EditorProtocol.NodeSnapshot other : state.nodes())
+        {
+            if (other.visible() && !related(other, node))
+            {
+                others.add(visibleBox(other, other.x(), other.y()));
+            }
+        }
+        EditorProtocol.SnapshotPacket snapshot = state.snapshot();
+        double halfWidth = snapshot.canvasWidth() / 2.0;
+        double halfHeight = snapshot.canvasHeight() / 2.0;
+        CanvasSnapping.Box canvas = new CanvasSnapping.Box(-halfWidth, halfWidth, -halfHeight, halfHeight);
+        double threshold = SNAP_DISTANCE_PIXELS * snapshot.canvasWidth() / virtualScreen().width();
+        activeSnap = CanvasSnapping.snap(moving, canvas, others, threshold);
+        if (activeSnap == CanvasSnapping.NONE)
+        {
+            return pointer;
+        }
+        double snappedX = pointer.clientX() + activeSnap.deltaX();
+        double snappedY = pointer.clientY() + activeSnap.deltaY();
+        return new EditorProtocol.Pointer(screenXExact(snappedX), screenYExact(snappedY), pointer.viewportX(),
+                pointer.viewportY(), pointer.viewportWidth(), pointer.viewportHeight(), snappedX, snappedY);
+    }
+
+    /** The calibrated box drawn for {@code node} when its centre is at the given menu position. */
+    private CanvasSnapping.Box visibleBox(EditorProtocol.NodeSnapshot node, double centerX, double centerY)
+    {
+        ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
+        double drawX = calibration.proxyX(centerX, node.width());
+        double drawY = calibration.proxyY(centerY, node.height());
+        double halfWidth = calibration.proxyWidth(node.width()) / 2.0;
+        double halfHeight = calibration.proxyHeight(node.height()) / 2.0;
+        return new CanvasSnapping.Box(drawX - halfWidth, drawX + halfWidth, drawY - halfHeight, drawY + halfHeight);
+    }
+
+    /** Whether one node contains the other, so their boxes move together and must not snap to each other. */
+    private boolean related(EditorProtocol.NodeSnapshot first, EditorProtocol.NodeSnapshot second)
+    {
+        return first.id().equals(second.id()) || isAncestor(first.id(), second) || isAncestor(second.id(), first);
+    }
+
+    private boolean isAncestor(String ancestorId, EditorProtocol.NodeSnapshot node)
+    {
+        Set<String> visited = new HashSet<>();
+        String parentId = node.parentId();
+        while (!parentId.isBlank() && visited.add(parentId))
+        {
+            if (parentId.equals(ancestorId))
+            {
+                return true;
+            }
+            EditorProtocol.NodeSnapshot parent = state.find(parentId);
+            parentId = parent == null ? "" : parent.parentId();
+        }
+        return false;
+    }
+
+    private void drawSnapGuides(GuiGraphicsExtractor graphics)
+    {
+        if (activeGestureId == 0 || resizingNode || draggingNode.isBlank())
+        {
+            return;
+        }
+        var virtual = virtualScreen();
+        int top = (int) Math.round(virtual.y());
+        int bottom = (int) Math.round(virtual.bottom());
+        int left = (int) Math.round(virtual.x());
+        int right = (int) Math.round(virtual.right());
+        if (activeSnap.snappedX())
+        {
+            int x = screenX(activeSnap.guideX());
+            graphics.fill(x, top, x + 1, bottom, SNAP_GUIDE_COLOR);
+        }
+        if (activeSnap.snappedY())
+        {
+            int y = screenY(activeSnap.guideY());
+            graphics.fill(left, y, right, y + 1, SNAP_GUIDE_COLOR);
+        }
     }
 
     /** Invert the type calibration before the server derives backend width/height from the pointer. */

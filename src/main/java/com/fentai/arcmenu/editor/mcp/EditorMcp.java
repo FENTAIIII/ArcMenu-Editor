@@ -342,6 +342,19 @@ public final class EditorMcp
                         boolean sent = main(() ->
                         {
                             Minecraft client = Minecraft.getInstance();
+                            int modifiers = (bool(args, "ctrl", false) ? 2 : 0) | (bool(args, "shift", false) ? 1 : 0)
+                                    | (bool(args, "alt", false) ? 4 : 0);
+                            if (client.screen instanceof EditorScreen menuEditor)
+                            {
+                                // Menu editor pointer input is acknowledged through the scene state, not Effect acks.
+                                if (!menuEditor.pointerInput(operation, number(args, "x", 0), number(args, "y", 0),
+                                        integer(args, "button", 0), modifiers, number(args, "dx", 0),
+                                        number(args, "dy", 0)))
+                                {
+                                    throw new IllegalArgumentException("The menu editor did not handle that input");
+                                }
+                                return false;
+                            }
                             var screen = client.screen instanceof EffectEditorScreen workspace ? workspace
                                     : client.screen instanceof EffectWorkspaceChild child ? child.workspace() : null;
                             if (screen == null)
