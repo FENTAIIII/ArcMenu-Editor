@@ -1041,5 +1041,11 @@
   "arcmenu_editor.workspace.move_out": "移出当前组",
   "arcmenu_editor.workspace.move_root": "移到根层级",
   "arcmenu_editor.workspace.visibility": "显示／隐藏选中图层",
-  "arcmenu_editor.workspace.solo": "独显／取消独显选中图层"
+  "arcmenu_editor.workspace.solo": "独显／取消独显选中图层",
+  "arcmenu_editor.dialog.safe_frame": "Dialog 安全框",
+  "arcmenu_editor.dialog.outside": "%s 超出 Dialog 安全框，部分屏幕上会缩小",
+  "arcmenu_editor.dialog.unsupported.rotation": "Dialog 中不生效：Dialog 是平面，x、y 轴旋转会被忽略",
+  "arcmenu_editor.dialog.unsupported.update": "Dialog 中不生效：Dialog 只在打开或刷新时更新，不按 tick 定时更新",
+  "arcmenu_editor.dialog.unsupported.hover": "Dialog 中不生效：Dialog 不回传鼠标悬停，请改用 tooltip",
+  "arcmenu_editor.dialog.unsupported.input": "Dialog 中不生效：原生输入框独占整个 Dialog，没有光标与草稿"
 }

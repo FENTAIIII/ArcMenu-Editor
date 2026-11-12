@@ -1041,5 +1041,11 @@
   "arcmenu_editor.workspace.move_out": "Move out of group",
   "arcmenu_editor.workspace.move_root": "Move to root",
   "arcmenu_editor.workspace.visibility": "Toggle selected layers visibility",
-  "arcmenu_editor.workspace.solo": "Toggle selected layers solo"
+  "arcmenu_editor.workspace.solo": "Toggle selected layers solo",
+  "arcmenu_editor.dialog.safe_frame": "Dialog safe frame",
+  "arcmenu_editor.dialog.outside": "%s leaves the Dialog safe frame and shrinks on some screens",
+  "arcmenu_editor.dialog.unsupported.rotation": "Not shown in dialogs: a Dialog is flat, so x and y rotation is ignored",
+  "arcmenu_editor.dialog.unsupported.update": "Not shown in dialogs: a Dialog refreshes when it opens or refreshes, not on a timer",
+  "arcmenu_editor.dialog.unsupported.hover": "Not shown in dialogs: a Dialog does not report the pointer; use tooltip",
+  "arcmenu_editor.dialog.unsupported.input": "Not shown in dialogs: the native input takes the whole Dialog, so there is no caret or draft"
 }

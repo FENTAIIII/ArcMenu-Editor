@@ -21,6 +21,15 @@ public final class EditorProtocol
     public static final int MAX_STRING_BYTES = 262_144;
     public static final int MAX_FRAME_DATA = 28_000;
 
+    /** Snapshot IDs of dialog drafts start with this prefix; menus and Effects keep their plain IDs. */
+    public static final String DIALOG_PREFIX = "dialog:";
+    /**
+     * The Dialog safe frame in canvas units, centered on the canvas. Content inside it keeps ArcMenu's position
+     * and size at every supported screen tier; the editor outlines it on dialog drafts.
+     */
+    public static final double DIALOG_SAFE_WIDTH = 265;
+    public static final double DIALOG_SAFE_HEIGHT = 136;
+
     public static final byte TAB_FRONTEND = 0;
     public static final byte TAB_BACKEND = 1;
 
