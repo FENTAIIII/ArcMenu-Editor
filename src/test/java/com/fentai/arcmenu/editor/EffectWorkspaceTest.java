@@ -25,8 +25,8 @@ final class EffectWorkspaceTest
         assertEquals("new-text", EffectCommands.lookup("T", true, true, true));
         assertEquals("tool-text", EffectCommands.lookup("T", true, false, false));
         assertEquals("", EffectCommands.lookup("D", false, true, false));
-        var bindings = EffectCommands.list().stream().map(EffectCommands.Command::shortcut).filter(s -> !s.isEmpty())
-                .toList();
+        var bindings = EffectCommands.list().stream().map(EffectCommands.Command::shortcut)
+                .filter(binding -> !binding.isEmpty()).toList();
         assertEquals(bindings.size(), new HashSet<>(bindings).size());
     }
 
@@ -47,8 +47,7 @@ final class EffectWorkspaceTest
         var properties = new ArrayList<PropertySnapshot>();
         for (int i = 0; i < pairs.length; i += 2)
         {
-            properties.add(new PropertySnapshot(pairs[i], EditorProtocol.PROPERTY_NUMBER, pairs[i + 1],
-                    List.of()));
+            properties.add(new PropertySnapshot(pairs[i], EditorProtocol.PROPERTY_NUMBER, pairs[i + 1], List.of()));
         }
         return new NodeSnapshot(id, parent, kind, 400, 600, 100, 20, 0, true, false, properties);
     }

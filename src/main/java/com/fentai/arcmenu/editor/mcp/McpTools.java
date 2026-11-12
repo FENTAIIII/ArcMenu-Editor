@@ -241,9 +241,9 @@ public final class McpTools
         }
         else if (type.equals("array"))
         {
-            int n = value.getAsJsonArray().size();
-            if (schema.has("minItems") && n < schema.get("minItems").getAsInt()
-                    || schema.has("maxItems") && n > schema.get("maxItems").getAsInt())
+            int count = value.getAsJsonArray().size();
+            if (schema.has("minItems") && count < schema.get("minItems").getAsInt()
+                    || schema.has("maxItems") && count > schema.get("maxItems").getAsInt())
             {
                 throw new IllegalArgumentException("Invalid array length: " + key);
             }
@@ -251,9 +251,9 @@ public final class McpTools
         }
         else if (type.equals("number") || type.equals("integer"))
         {
-            double n = value.getAsDouble();
-            if (schema.has("minimum") && n < schema.get("minimum").getAsDouble()
-                    || schema.has("maximum") && n > schema.get("maximum").getAsDouble())
+            double number = value.getAsDouble();
+            if (schema.has("minimum") && number < schema.get("minimum").getAsDouble()
+                    || schema.has("maximum") && number > schema.get("maximum").getAsDouble())
             {
                 throw new IllegalArgumentException("Argument is outside its range: " + key);
             }

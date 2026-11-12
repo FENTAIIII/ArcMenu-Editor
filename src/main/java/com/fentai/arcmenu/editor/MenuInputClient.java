@@ -2,7 +2,6 @@ package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.editor.net.MenuInputPayload;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -48,9 +47,7 @@ public final class MenuInputClient
             }
             boolean[] down = { client.options.keyAttack.isDown(), client.options.keyUse.isDown(),
                     client.options.keyPickItem.isDown() };
-            var minecraft = client;
-            boolean shift = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LSHIFT)
-                    || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RSHIFT);
+            boolean shift = KeyboardModifiers.shiftDown(client);
             for (int button = 0; button < down.length; button++)
             {
                 if (down[button] && !held[button] && ClientPlayNetworking.canSend(MenuInputPayload.TYPE))

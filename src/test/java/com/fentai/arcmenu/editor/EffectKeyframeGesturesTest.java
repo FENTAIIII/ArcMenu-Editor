@@ -80,17 +80,17 @@ final class EffectKeyframeGesturesTest
     @Test
     void reversingTimeReversesBezierHandlesAndAttachesTheOriginalIncomingSegment()
     {
-        var a = new EffectKeyframeGestures.Ref("title", "offset.y",
+        var firstRef = new EffectKeyframeGestures.Ref("title", "offset.y",
                 new EffectProtocol.Key(0, "0", "bezier", .15, .25, .65, 1.2));
-        var b = ref("offset.y", 30, "100");
-        var entries = EffectKeyframeGestures.reversed(List.of(a, b)).getAsJsonArray("keys");
+        var secondRef = ref("offset.y", 30, "100");
+        var entries = EffectKeyframeGestures.reversed(List.of(firstRef, secondRef)).getAsJsonArray("keys");
         var reversedStart = entries.get(1).getAsJsonObject();
         assertEquals(0, reversedStart.get("newFrame").getAsInt());
         assertEquals(.35, reversedStart.get("x1").getAsDouble(), .000001);
         assertEquals(-.2, reversedStart.get("y1").getAsDouble(), .000001);
         assertEquals(.85, reversedStart.get("x2").getAsDouble(), .000001);
         assertEquals(.75, reversedStart.get("y2").getAsDouble(), .000001);
-        var original = new EffectProtocol.Track("title", "offset.y", true, List.of(a.key(), b.key()));
+        var original = new EffectProtocol.Track("title", "offset.y", true, List.of(firstRef.key(), secondRef.key()));
         var reversed = new EffectProtocol.Track("title", "offset.y", true,
                 List.of(new EffectProtocol.Key(0, "100", "bezier", .35, -.2, .85, .75),
                         new EffectProtocol.Key(30, "0", "linear", .333, 0, .667, 1)));
@@ -104,11 +104,11 @@ final class EffectKeyframeGesturesTest
     @Test
     void easyEaseChangesBothSidesOfAnInteriorKeyWithoutFlatteningNeighborTangents()
     {
-        var a = new EffectProtocol.Key(0, "0", "linear", .333, 0, .667, 1);
-        var b = new EffectProtocol.Key(10, "10", "linear", .333, 0, .667, 1);
-        var c = new EffectProtocol.Key(20, "30", "linear", .333, 0, .667, 1);
-        var track = new EffectProtocol.Track("title", "offset.y", true, List.of(a, b, c));
-        var selected = List.of(new EffectKeyframeGestures.Ref("title", "offset.y", b));
+        var firstKey = new EffectProtocol.Key(0, "0", "linear", .333, 0, .667, 1);
+        var middleKey = new EffectProtocol.Key(10, "10", "linear", .333, 0, .667, 1);
+        var lastKey = new EffectProtocol.Key(20, "30", "linear", .333, 0, .667, 1);
+        var track = new EffectProtocol.Track("title", "offset.y", true, List.of(firstKey, middleKey, lastKey));
+        var selected = List.of(new EffectKeyframeGestures.Ref("title", "offset.y", middleKey));
         var both = EffectKeyframeGestures.eased(selected, List.of(track), "ease").getAsJsonArray("keys");
         assertEquals(2, both.size());
         var outgoing = both.get(0).getAsJsonObject();

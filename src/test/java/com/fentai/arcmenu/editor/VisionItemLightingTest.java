@@ -95,8 +95,7 @@ final class VisionItemLightingTest
             }
         };
         state.renderState = new RenderState(GenericInterpolator.constant(new Transformation(authored)),
-                BillboardConstraints.FIXED, 0xF000F0, FloatInterpolator.constant(0),
-                FloatInterpolator.constant(0), -1);
+                BillboardConstraints.FIXED, 0xF000F0, FloatInterpolator.constant(0), FloatInterpolator.constant(0), -1);
         return state;
     }
 }

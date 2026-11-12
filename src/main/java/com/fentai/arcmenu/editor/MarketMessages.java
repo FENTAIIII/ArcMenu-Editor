@@ -32,14 +32,14 @@ final class MarketMessages
 
     static String error(Throwable failure)
     {
-        Throwable cause = cause(failure);
+        Throwable cause = unwrap(failure);
         String key = keyFor(cause);
         return key.isEmpty() ? diagnostic(cause) : EditorI18n.text(PREFIX + key);
     }
 
     static String diagnostic(Throwable failure)
     {
-        Throwable cause = cause(failure);
+        Throwable cause = unwrap(failure);
         return Objects.toString(cause.getMessage(), cause.getClass().getSimpleName());
     }
 
@@ -51,7 +51,7 @@ final class MarketMessages
 
     static String keyFor(Throwable failure)
     {
-        Throwable cause = cause(failure);
+        Throwable cause = unwrap(failure);
         if (cause instanceof RequestException request)
         {
             String dependency = dependencyKey(request.getMessage());
@@ -167,7 +167,8 @@ final class MarketMessages
         };
     }
 
-    private static Throwable cause(Throwable failure)
+    /** Unwraps the completion and execution wrappers that futures add around a failure. */
+    static Throwable unwrap(Throwable failure)
     {
         while (failure.getCause() != null
                 && (failure instanceof CompletionException || failure instanceof ExecutionException))

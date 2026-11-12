@@ -96,9 +96,7 @@ public final class EffectCommandScreen extends Screen implements EffectWorkspace
                 commands.add(new EffectCommands.Command(id, id.replace('-', '_'), binding));
             }
         });
-        shown = commands.stream()
-                .filter(command -> searchText(command).contains(query))
-                .toList();
+        shown = commands.stream().filter(command -> searchText(command).contains(query)).toList();
     }
 
     private static String searchText(EffectCommands.Command command)

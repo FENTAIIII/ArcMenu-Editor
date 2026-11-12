@@ -55,9 +55,9 @@ public final class WorkspaceClient
     private static CompletableFuture<JsonObject> refreshRequest;
     private static volatile String configurationError = "";
     private static CompletableFuture<Void> startupLoad = CompletableFuture.completedFuture(null);
-    private static final ExecutorService SESSION_IO = Executors.newFixedThreadPool(2, r ->
+    private static final ExecutorService SESSION_IO = Executors.newFixedThreadPool(2, task ->
     {
-        var thread = new Thread(r, "ArcMenu-Market-Session");
+        var thread = new Thread(task, "ArcMenu-Market-Session");
         thread.setDaemon(true);
         return thread;
     });
@@ -99,8 +99,8 @@ public final class WorkspaceClient
             }
             pending.entrySet().removeIf(entry -> entry.getValue().result().isDone());
             long now = System.nanoTime();
-            var expired = pending.entrySet().stream().filter(e -> e.getValue().deadline() < now).map(Map.Entry::getKey)
-                    .toList();
+            var expired = pending.entrySet().stream().filter(pendingEntry -> pendingEntry.getValue().deadline() < now)
+                    .map(Map.Entry::getKey).toList();
             for (long id : expired)
             {
                 pending.remove(id).result().completeExceptionally(new IllegalStateException(
@@ -460,7 +460,7 @@ public final class WorkspaceClient
             return CompletableFuture.failedFuture(
                     new IllegalStateException("Open the project manager before preparing package previews"));
         }
-        var pack = STATE.localPacks().stream().filter(p -> p.filename().equals(filename)).findFirst()
+        var pack = STATE.localPacks().stream().filter(candidate -> candidate.filename().equals(filename)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown local package: " + filename));
         return WorkspacePublication.prepare(screen, pack);
     }
@@ -650,8 +650,9 @@ public final class WorkspaceClient
         WorkspacePublication.cancelCapture();
         var requests = new ArrayList<>(pending.values());
         pending.clear();
-        requests.forEach(p -> p.result().completeExceptionally(new IllegalStateException("Minecraft disconnected")));
-        ticks.forEach(t -> t.result().completeExceptionally(new IllegalStateException("Minecraft disconnected")));
+        requests.forEach(
+                request -> request.result().completeExceptionally(new IllegalStateException("Minecraft disconnected")));
+        ticks.forEach(tick -> tick.result().completeExceptionally(new IllegalStateException("Minecraft disconnected")));
         ticks.clear();
     }
 

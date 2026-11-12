@@ -14,11 +14,11 @@ public final class EffectViewNavigation
         {
             throw new IllegalArgumentException("Invalid Effect view navigation");
         }
-        int w = Math.max(1, Math.min(sourceWidth, (int) Math.round(base.width() / zoom)));
-        int h = Math.max(1, Math.min(sourceHeight, (int) Math.round(base.height() / zoom)));
-        int x = (int) Math.round(base.x() + base.width() / 2.0 - w / 2.0 + panX * base.width());
-        int y = (int) Math.round(base.y() + base.height() / 2.0 - h / 2.0 + panY * base.height());
-        return new EditorLayout.Rect(Math.max(0, Math.min(sourceWidth - w, x)),
-                Math.max(0, Math.min(sourceHeight - h, y)), w, h);
+        int visibleWidth = Math.max(1, Math.min(sourceWidth, (int) Math.round(base.width() / zoom)));
+        int visibleHeight = Math.max(1, Math.min(sourceHeight, (int) Math.round(base.height() / zoom)));
+        int x = (int) Math.round(base.x() + base.width() / 2.0 - visibleWidth / 2.0 + panX * base.width());
+        int y = (int) Math.round(base.y() + base.height() / 2.0 - visibleHeight / 2.0 + panY * base.height());
+        return new EditorLayout.Rect(Math.max(0, Math.min(sourceWidth - visibleWidth, x)),
+                Math.max(0, Math.min(sourceHeight - visibleHeight, y)), visibleWidth, visibleHeight);
     }
 }

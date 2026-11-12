@@ -14,8 +14,7 @@ final class CanvasSnapping
     static final Result NONE = new Result(0.0, 0.0, Double.NaN, Double.NaN);
 
     private CanvasSnapping()
-    {
-    }
+    {}
 
     /** Axis-aligned rectangle in menu coordinates. */
     record Box(double left, double right, double bottom, double top)

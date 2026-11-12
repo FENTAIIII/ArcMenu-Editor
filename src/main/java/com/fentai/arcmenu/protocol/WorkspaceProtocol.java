@@ -37,21 +37,21 @@ public final class WorkspaceProtocol
             var out = new DataOutputStream(buffer);
             out.writeInt(MAGIC);
             out.writeByte(VERSION);
-            if (packet instanceof Request p)
+            if (packet instanceof Request request)
             {
                 out.writeByte(1);
-                out.writeLong(p.requestId());
-                string(out, p.action(), 64);
-                string(out, p.json(), 26_000);
+                out.writeLong(request.requestId());
+                string(out, request.action(), 64);
+                string(out, request.json(), 26_000);
             }
-            else if (packet instanceof Reply p)
+            else if (packet instanceof Reply reply)
             {
                 out.writeByte(64);
-                out.writeLong(p.requestId());
-                out.writeBoolean(p.ok());
-                string(out, p.action(), 64);
-                string(out, p.json(), EditorProtocol.MAX_PACKET_BYTES - 8192);
-                string(out, p.error(), 4096);
+                out.writeLong(reply.requestId());
+                out.writeBoolean(reply.ok());
+                string(out, reply.action(), 64);
+                string(out, reply.json(), EditorProtocol.MAX_PACKET_BYTES - 8192);
+                string(out, reply.error(), 4096);
             }
             else
             {

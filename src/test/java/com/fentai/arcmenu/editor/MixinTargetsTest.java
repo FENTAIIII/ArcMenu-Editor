@@ -223,7 +223,8 @@ final class MixinTargetsTest
             {
                 var mixin = read(prefix + entry.getAsString());
                 var annotation = annotations(mixin.visibleAnnotations, mixin.invisibleAnnotations).stream()
-                        .filter(a -> a.desc.equals("Lorg/spongepowered/asm/mixin/Mixin;")).findFirst().orElseThrow();
+                        .filter(mixinAnnotation -> mixinAnnotation.desc.equals("Lorg/spongepowered/asm/mixin/Mixin;"))
+                        .findFirst().orElseThrow();
                 var targets = (List<?>) value(annotation, "value");
                 for (var targetType : targets)
                 {
@@ -241,9 +242,8 @@ final class MixinTargetsTest
                             var ats = atValue instanceof List<?> list ? list : List.of(atValue);
                             for (var methodName : methods)
                             {
-                                var candidates = target.methods.stream()
-                                        .filter(m -> m.name.equals(methodName) || (m.name + m.desc).equals(methodName))
-                                        .toList();
+                                var candidates = target.methods.stream().filter(method -> method.name.equals(methodName)
+                                        || (method.name + method.desc).equals(methodName)).toList();
                                 String context = mixin.name + "." + handler.name + " -> " + target.name + "."
                                         + methodName;
                                 assertFalse(candidates.isEmpty(), context + " missing method");
@@ -268,10 +268,10 @@ final class MixinTargetsTest
                                         continue;
                                     }
                                     String invocation = (String) value(at, "target");
-                                    long matches = candidates.stream().flatMap(m ->
+                                    long matches = candidates.stream().flatMap(method ->
                                     {
                                         var calls = new ArrayList<String>();
-                                        for (var instruction : m.instructions)
+                                        for (var instruction : method.instructions)
                                         {
                                             if (instruction instanceof MethodInsnNode call)
                                             {

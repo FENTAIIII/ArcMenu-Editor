@@ -128,9 +128,8 @@ class WorkspaceModalTest
     @Test
     void publicationAndMetadataFormsRetainMultilineUnicodeValues()
     {
-        var pack = new LocalPack("starter-1.0.0.arcpack", "starter", "1.0.0", "Starter",
-                "Original description", new JsonObject(), new JsonArray(), new JsonArray(), 1024, "", new JsonArray(),
-                "", false);
+        var pack = new LocalPack("starter-1.0.0.arcpack", "starter", "1.0.0", "Starter", "Original description",
+                new JsonObject(), new JsonArray(), new JsonArray(), 1024, "", new JsonArray(), "", false);
         var publish = new WorkspaceModal("publish", List.of(), pack, new JsonObject());
         assertEquals("Starter", publish.values.get("title"));
         String description = "First paragraph.\n\nUnicode preservation: 菜单 🎨";

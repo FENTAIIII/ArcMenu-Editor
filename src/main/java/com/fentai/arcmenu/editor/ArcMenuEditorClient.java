@@ -116,8 +116,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
                 .register(client -> EffectAudioPreview.INSTANCE.update(client.screen instanceof EffectEditorScreen
                         || client.screen instanceof EffectWorkspaceChild || client.screen instanceof McpScreen));
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> EffectAudioPreview.INSTANCE.close());
-        ClientPlayConnectionEvents.JOIN
-                .register((listener, sender, client) -> send(new HelloPacket(CLIENT_VERSION)));
+        ClientPlayConnectionEvents.JOIN.register((listener, sender, client) -> send(new HelloPacket(CLIENT_VERSION)));
         ClientPlayConnectionEvents.JOIN.register((listener, sender, client) ->
         {
             effectWireVersion = 2;
@@ -353,8 +352,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
             try
             {
                 byte[] bytes = EditorProtocol.encode(packet);
-                if (EFFECT.active() && !(packet instanceof HelloPacket)
-                        && !(packet instanceof ClosePacket))
+                if (EFFECT.active() && !(packet instanceof HelloPacket) && !(packet instanceof ClosePacket))
                 {
                     SCENE_REPLIES.enqueue(packet);
                     sceneRequestCount++;
@@ -570,36 +568,35 @@ public final class ArcMenuEditorClient implements ClientModInitializer
         {
             return switch (packet)
             {
-            case MovePacket v -> new MovePacket(revision, v.tab(), v.nodeId(),
-                    v.pointer(), v.grabOffsetX(), v.grabOffsetY(), v.gestureId(), v.finalUpdate());
-            case ResizePacket v -> new ResizePacket(revision, v.tab(), v.nodeId(),
-                    v.pointer(), v.gestureId(), v.finalUpdate());
+            case MovePacket move -> new MovePacket(revision, move.tab(), move.nodeId(), move.pointer(),
+                    move.grabOffsetX(), move.grabOffsetY(), move.gestureId(), move.finalUpdate());
+            case ResizePacket resize -> new ResizePacket(revision, resize.tab(), resize.nodeId(), resize.pointer(),
+                    resize.gestureId(), resize.finalUpdate());
             case UndoPacket ignored -> new UndoPacket(revision);
             case RedoPacket ignored -> new RedoPacket(revision);
             case SavePacket ignored -> new SavePacket(revision);
             case ApplyPacket ignored -> new ApplyPacket(revision);
-            case ProbePacket v -> new ProbePacket(revision, v.tab(), v.pointer());
-            case CreatePacket v ->
-                new CreatePacket(revision, v.tab(), v.kind(), v.parentId(), v.initialSource());
-            case DeletePacket v -> new DeletePacket(revision, v.tab(), v.nodeId());
-            case DeleteManyPacket v ->
-                new DeleteManyPacket(revision, v.tab(), v.nodeIds());
-            case DuplicatePacket v -> new DuplicatePacket(revision, v.tab(), v.nodeIds(),
-                    v.targetParentId(), v.preserveParents());
-            case GroupPacket v -> new GroupPacket(revision, v.nodeIds());
-            case UngroupPacket v -> new UngroupPacket(revision, v.nodeId());
-            case ReorderPacket v ->
-                new ReorderPacket(revision, v.tab(), v.nodeIds(), v.beforeId());
-            case ReparentPacket v ->
-                new ReparentPacket(revision, v.nodeIds(), v.targetParentId(), v.beforeId());
-            case SetPropertyPacket v -> new SetPropertyPacket(revision, v.tab(),
-                    v.nodeId(), v.key(), v.value(), v.gestureId(), v.finalUpdate());
-            case SaveTemplatePacket v ->
-                new SaveTemplatePacket(revision, v.nodeId(), v.templateId());
-            case InstantiateTemplatePacket v ->
-                new InstantiateTemplatePacket(revision, v.templateId());
-            case DeleteTemplatePacket v ->
-                new DeleteTemplatePacket(revision, v.templateId());
+            case ProbePacket probe -> new ProbePacket(revision, probe.tab(), probe.pointer());
+            case CreatePacket create ->
+                new CreatePacket(revision, create.tab(), create.kind(), create.parentId(), create.initialSource());
+            case DeletePacket delete -> new DeletePacket(revision, delete.tab(), delete.nodeId());
+            case DeleteManyPacket deleteMany -> new DeleteManyPacket(revision, deleteMany.tab(), deleteMany.nodeIds());
+            case DuplicatePacket duplicate -> new DuplicatePacket(revision, duplicate.tab(), duplicate.nodeIds(),
+                    duplicate.targetParentId(), duplicate.preserveParents());
+            case GroupPacket group -> new GroupPacket(revision, group.nodeIds());
+            case UngroupPacket ungroup -> new UngroupPacket(revision, ungroup.nodeId());
+            case ReorderPacket reorder ->
+                new ReorderPacket(revision, reorder.tab(), reorder.nodeIds(), reorder.beforeId());
+            case ReparentPacket reparent ->
+                new ReparentPacket(revision, reparent.nodeIds(), reparent.targetParentId(), reparent.beforeId());
+            case SetPropertyPacket setProperty ->
+                new SetPropertyPacket(revision, setProperty.tab(), setProperty.nodeId(), setProperty.key(),
+                        setProperty.value(), setProperty.gestureId(), setProperty.finalUpdate());
+            case SaveTemplatePacket saveTemplate ->
+                new SaveTemplatePacket(revision, saveTemplate.nodeId(), saveTemplate.templateId());
+            case InstantiateTemplatePacket instantiate ->
+                new InstantiateTemplatePacket(revision, instantiate.templateId());
+            case DeleteTemplatePacket deleteTemplate -> new DeleteTemplatePacket(revision, deleteTemplate.templateId());
             default -> packet;
             };
         }

@@ -18,15 +18,14 @@ public final class EffectTransforms
 {
     public static double number(NodeSnapshot node, String key, double fallback)
     {
-        return node.properties().stream().filter(p -> p.key().equals(key)).map(PropertySnapshot::value)
+        return node.properties().stream().filter(property -> property.key().equals(key)).map(PropertySnapshot::value)
                 .mapToDouble(Double::parseDouble).findFirst().orElse(fallback);
     }
 
-    public static Vector3d localDelta(NodeSnapshot node, List<NodeSnapshot> nodes,
-            double x, double y)
+    public static Vector3d localDelta(NodeSnapshot node, List<NodeSnapshot> nodes, double x, double y)
     {
         Map<String, NodeSnapshot> indexed = new HashMap<>();
-        nodes.forEach(n -> indexed.put(n.id(), n));
+        nodes.forEach(indexedNode -> indexed.put(indexedNode.id(), indexedNode));
         var parents = new ArrayList<NodeSnapshot>();
         var seen = new HashSet<String>();
         String id = node.parentId();

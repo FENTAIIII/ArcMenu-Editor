@@ -63,14 +63,15 @@ public final class WorkspaceState
             return previewOnly() ? "preview-open" : "open";
         }
 
-        static Project from(JsonObject p)
+        static Project from(JsonObject json)
         {
-            String id = string(p, "id", "");
-            String type = string(p, "type", "menu");
-            return new Project(type, id, string(p, "path", id + ".yml"), number(p, "width", DEFAULT_WIDTH),
-                    number(p, "height", DEFAULT_HEIGHT), number(p, "pixelsPerBlock", DEFAULT_PIXELS_PER_BLOCK),
-                    number(p, "distance", DEFAULT_DISTANCE), string(p, "permission", ""), string(p, "rootId", ""),
-                    (int) number(p, "nodeCount", 0), string(p, "depthMode", "perspective"));
+            String id = string(json, "id", "");
+            String type = string(json, "type", "menu");
+            return new Project(type, id, string(json, "path", id + ".yml"), number(json, "width", DEFAULT_WIDTH),
+                    number(json, "height", DEFAULT_HEIGHT), number(json, "pixelsPerBlock", DEFAULT_PIXELS_PER_BLOCK),
+                    number(json, "distance", DEFAULT_DISTANCE), string(json, "permission", ""),
+                    string(json, "rootId", ""), (int) number(json, "nodeCount", 0),
+                    string(json, "depthMode", "perspective"));
         }
     }
 
@@ -90,13 +91,13 @@ public final class WorkspaceState
             JsonObject author, JsonArray projects, JsonArray dependencies, long size, String modifiedAt,
             JsonArray previews, String cover, boolean prepared)
     {
-        public static LocalPack from(JsonObject p)
+        public static LocalPack from(JsonObject json)
         {
-            return new LocalPack(string(p, "filename", ""), string(p, "id", ""), string(p, "version", ""),
-                    string(p, "title", ""), string(p, "description", ""), object(p, "author"), array(p, "projects"),
-                    array(p, "dependencies"), (long) number(p, "size", 0), string(p, "modifiedAt", ""),
-                    array(p, "previews"), string(p, "cover", ""),
-                    p.has("prepared") && p.get("prepared").getAsBoolean());
+            return new LocalPack(string(json, "filename", ""), string(json, "id", ""), string(json, "version", ""),
+                    string(json, "title", ""), string(json, "description", ""), object(json, "author"),
+                    array(json, "projects"), array(json, "dependencies"), (long) number(json, "size", 0),
+                    string(json, "modifiedAt", ""), array(json, "previews"), string(json, "cover", ""),
+                    json.has("prepared") && json.get("prepared").getAsBoolean());
         }
 
         public List<Project> captureProjects()
@@ -178,7 +179,7 @@ public final class WorkspaceState
     public JsonArray references()
     {
         var json = new JsonArray();
-        selection().forEach(p -> json.add(p.reference()));
+        selection().forEach(project -> json.add(project.reference()));
         return json;
     }
 
@@ -215,8 +216,9 @@ public final class WorkspaceState
         {
             for (var value : json.getAsJsonArray("packs"))
             {
-                var p = value.getAsJsonObject();
-                installed.add(new Pack(string(p, "id", ""), string(p, "title", ""), string(p, "version", "")));
+                var entry = value.getAsJsonObject();
+                installed.add(
+                        new Pack(string(entry, "id", ""), string(entry, "title", ""), string(entry, "version", "")));
             }
         }
         packs = List.copyOf(installed);
@@ -241,31 +243,31 @@ public final class WorkspaceState
 
     public List<Row> rows(String query, String type)
     {
-        String q = query.trim().toLowerCase(Locale.ROOT);
+        String needle = query.trim().toLowerCase(Locale.ROOT);
         var rows = new ArrayList<Row>();
         var added = new HashSet<String>();
-        for (var p : projects)
+        for (var project : projects)
         {
-            if (!type.equals("all") && !p.type().equals(type))
+            if (!type.equals("all") && !project.type().equals(type))
             {
                 continue;
             }
-            if (!(p.type() + " " + p.id() + " " + p.path()).toLowerCase(Locale.ROOT).contains(q))
+            if (!(project.type() + " " + project.id() + " " + project.path()).toLowerCase(Locale.ROOT).contains(needle))
             {
                 continue;
             }
-            String normalized = p.path().replace('\\', '/');
+            String normalized = project.path().replace('\\', '/');
             String[] parts = normalized.split("/");
-            String key = p.type();
+            String key = project.type();
             boolean hidden = false;
             for (int i = 0; i < parts.length; i++)
             {
-                String label = i == 0 ? p.type() : parts[i - 1];
+                String label = i == 0 ? project.type() : parts[i - 1];
                 if (added.add(key))
                 {
                     rows.add(new Row(key, label, i, null, !collapsed.contains(key)));
                 }
-                if (q.isEmpty() && collapsed.contains(key))
+                if (needle.isEmpty() && collapsed.contains(key))
                 {
                     hidden = true;
                     break;
@@ -277,7 +279,7 @@ public final class WorkspaceState
             }
             if (!hidden)
             {
-                rows.add(new Row(p.key(), p.id(), parts.length, p, false));
+                rows.add(new Row(project.key(), project.id(), parts.length, project, false));
             }
         }
         return List.copyOf(rows);
@@ -295,16 +297,17 @@ public final class WorkspaceState
     {
         if (shift && !anchor.isEmpty())
         {
-            var ids = visible.stream().filter(r -> !r.folder()).map(Row::key).toList();
-            int a = ids.indexOf(anchor);
-            int b = ids.indexOf(project.key());
-            if (a >= 0 && b >= 0)
+            var ids = visible.stream().filter(row -> !row.folder()).map(Row::key).toList();
+            int anchorIndex = ids.indexOf(anchor);
+            int targetIndex = ids.indexOf(project.key());
+            if (anchorIndex >= 0 && targetIndex >= 0)
             {
                 if (!control)
                 {
                     selected.clear();
                 }
-                selected.addAll(ids.subList(Math.min(a, b), Math.max(a, b) + 1));
+                selected.addAll(
+                        ids.subList(Math.min(anchorIndex, targetIndex), Math.max(anchorIndex, targetIndex) + 1));
                 return;
             }
         }
@@ -326,7 +329,7 @@ public final class WorkspaceState
     public void selectAll(List<Row> visible)
     {
         selected.clear();
-        visible.stream().filter(r -> !r.folder()).forEach(r -> selected.add(r.key()));
+        visible.stream().filter(row -> !row.folder()).forEach(row -> selected.add(row.key()));
     }
 
     public void clearSelection()

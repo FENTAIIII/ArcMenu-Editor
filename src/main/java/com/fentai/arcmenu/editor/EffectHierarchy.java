@@ -131,7 +131,8 @@ final class EffectHierarchy
         boolean after = !inside && y >= rect.y() + rect.height() / 2.0;
         if (after)
         {
-            var siblings = scene.nodes().stream().filter(n -> n.parentId().equals(parent) && !ids.contains(n.id()))
+            var siblings = scene.nodes().stream()
+                    .filter(sibling -> sibling.parentId().equals(parent) && !ids.contains(sibling.id()))
                     .map(NodeSnapshot::id).toList();
             int next = siblings.indexOf(node.id()) + 1;
             before = next < siblings.size() ? siblings.get(next) : "";
@@ -147,8 +148,9 @@ final class EffectHierarchy
 
     static String reorderBefore(EditorState scene, List<String> ids, String action)
     {
-        var siblings = scene.nodes().stream().filter(n -> n.parentId().equals(scene.find(ids.getFirst()).parentId()))
-                .map(NodeSnapshot::id).toList();
+        var siblings = scene.nodes().stream()
+                .filter(node -> node.parentId().equals(scene.find(ids.getFirst()).parentId())).map(NodeSnapshot::id)
+                .toList();
         var rest = new ArrayList<>(siblings);
         rest.removeAll(ids);
         int first = siblings.indexOf(ids.getFirst());

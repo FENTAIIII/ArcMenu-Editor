@@ -112,7 +112,7 @@ final class WorkspacePublication
 
     private static CompletableFuture<JsonObject> request(String action, JsonObject json)
     {
-        return main(() -> WorkspaceClient.request(action, json)).thenCompose(f -> f);
+        return main(() -> WorkspaceClient.request(action, json)).thenCompose(future -> future);
     }
 
     static CompletableFuture<JsonObject> publish(WorkspaceScreen screen, String filename,
@@ -246,7 +246,8 @@ final class WorkspacePublication
                     var reply = new JsonObject();
                     reply.addProperty("filename", filename);
                     var previews = new JsonArray();
-                    projects.forEach(p -> previews.add(p.type() + "-" + p.id() + ".png"));
+                    projects.forEach(selectedProject -> previews
+                            .add(selectedProject.type() + "-" + selectedProject.id() + ".png"));
                     reply.add("previews", previews);
                     return reply;
                 });
@@ -298,22 +299,23 @@ final class WorkspacePublication
                 var geometryCrop = WorkspacePreviewGeometry.crop(captured.getWidth(), captured.getHeight(), plane);
                 int x = geometryCrop.x();
                 int y = geometryCrop.y();
-                int w = geometryCrop.width();
-                int h = geometryCrop.height();
+                int cropWidth = geometryCrop.width();
+                int cropHeight = geometryCrop.height();
                 int targetW = geometryCrop.outputWidth();
                 int targetH = geometryCrop.outputHeight();
                 try (var crop = new NativeImage(captured.format(), targetW, targetH, false);
                         var output = new NativeImage(captured.format(), 1280, 720, false))
                 {
-                    captured.resizeSubRectTo(x, y, w, h, crop);
+                    captured.resizeSubRectTo(x, y, cropWidth, cropHeight, crop);
                     output.fillRect(0, 0, 1280, 720, 0xFF101010);
-                    int ox = geometryCrop.offsetX();
-                    int oy = geometryCrop.offsetY();
-                    for (int py = 0; py < targetH; py++)
+                    int cropOffsetX = geometryCrop.offsetX();
+                    int cropOffsetY = geometryCrop.offsetY();
+                    for (int targetY = 0; targetY < targetH; targetY++)
                     {
-                        for (int px = 0; px < targetW; px++)
+                        for (int targetX = 0; targetX < targetW; targetX++)
                         {
-                            output.setPixel(ox + px, oy + py, crop.getPixel(px, py));
+                            output.setPixel(cropOffsetX + targetX, cropOffsetY + targetY,
+                                    crop.getPixel(targetX, targetY));
                         }
                     }
                     Path temp = Files.createTempFile("arcmenu-publication-", ".png");

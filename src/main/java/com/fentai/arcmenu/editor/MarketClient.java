@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -132,7 +131,7 @@ public final class MarketClient
             var uri = URI.create(base);
             return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null;
         }
-        catch (RuntimeException e)
+        catch (RuntimeException failure)
         {
             return false;
         }
@@ -379,12 +378,8 @@ public final class MarketClient
 
     private static String message(Throwable error)
     {
-        while (error.getCause() != null
-                && (error instanceof CompletionException || error instanceof ExecutionException))
-        {
-            error = error.getCause();
-        }
-        return Objects.toString(error.getMessage(), error.getClass().getSimpleName());
+        Throwable cause = MarketMessages.unwrap(error);
+        return Objects.toString(cause.getMessage(), cause.getClass().getSimpleName());
     }
 
     public void authenticate(JsonObject reply)
@@ -512,8 +507,7 @@ public final class MarketClient
                 request.header("Content-Type", "application/json").method(method,
                         BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8));
             }
-            var transportRequest = transport.sendAsync(request.build(),
-                    BodyHandlers.ofString(StandardCharsets.UTF_8));
+            var transportRequest = transport.sendAsync(request.build(), BodyHandlers.ofString(StandardCharsets.UTF_8));
             var result = transportRequest.thenApply(response -> handleResponse(response.statusCode(), response.body(),
                     requestGeneration, requestToken, requireAuth));
             result.whenComplete((reply, error) ->

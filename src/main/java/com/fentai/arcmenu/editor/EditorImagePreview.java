@@ -27,8 +27,9 @@ final class EditorImagePreview
     static EditorLayout.Rect fit(int width, int height, EditorLayout.Rect box)
     {
         double scale = Math.min((double) box.width() / Math.max(1, width), (double) box.height() / Math.max(1, height));
-        int w = Math.max(1, (int) Math.round(width * scale));
-        int h = Math.max(1, (int) Math.round(height * scale));
-        return new EditorLayout.Rect(box.x() + (box.width() - w) / 2, box.y() + (box.height() - h) / 2, w, h);
+        int scaledWidth = Math.max(1, (int) Math.round(width * scale));
+        int scaledHeight = Math.max(1, (int) Math.round(height * scale));
+        return new EditorLayout.Rect(box.x() + (box.width() - scaledWidth) / 2,
+                box.y() + (box.height() - scaledHeight) / 2, scaledWidth, scaledHeight);
     }
 }

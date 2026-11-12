@@ -20,7 +20,7 @@ final class EffectColorPicker extends Screen implements EffectWorkspaceChild
     private int color;
     private int left;
     private int top;
-    private int w;
+    private int panelWidth;
     private int slider;
 
     EffectColorPicker(EffectEditorScreen parent, String value, Consumer<String> commit)
@@ -34,20 +34,20 @@ final class EffectColorPicker extends Screen implements EffectWorkspaceChild
 
     static int parse(String value)
     {
-        String s = value.trim().replace("#", "");
-        if (s.startsWith("0x"))
+        String hex = value.trim().replace("#", "");
+        if (hex.startsWith("0x"))
         {
-            s = s.substring(2);
+            hex = hex.substring(2);
         }
-        if (s.length() == 6)
+        if (hex.length() == 6)
         {
-            s = "FF" + s;
+            hex = "FF" + hex;
         }
-        if (s.length() != 8)
+        if (hex.length() != 8)
         {
             throw new IllegalArgumentException("Color must use RRGGBB or AARRGGBB hexadecimal notation");
         }
-        return (int) Long.parseLong(s, 16);
+        return (int) Long.parseLong(hex, 16);
     }
 
     @Override
@@ -65,10 +65,10 @@ final class EffectColorPicker extends Screen implements EffectWorkspaceChild
     @Override
     protected void init()
     {
-        w = Math.min(340, width - 24);
-        left = (width - w) / 2;
+        panelWidth = Math.min(340, width - 24);
+        left = (width - panelWidth) / 2;
         top = Math.max(16, (height - 210) / 2);
-        hex = new EditBox(font, left + 12, top + 32, w - 24, 20, title);
+        hex = new EditBox(font, left + 12, top + 32, panelWidth - 24, 20, title);
         hex.setMaxLength(9);
         updateHex();
         addRenderableWidget(hex);
@@ -84,9 +84,9 @@ final class EffectColorPicker extends Screen implements EffectWorkspaceChild
             {
                 hex.setTextColor(0xFFFF8888);
             }
-        }).bounds(left + w - 170, top + 176, 76, 20).build());
+        }).bounds(left + panelWidth - 170, top + 176, 76, 20).build());
         addRenderableWidget(Button.builder(EditorI18n.component("arcmenu_editor.effect.cancel"), button -> onClose())
-                .bounds(left + w - 88, top + 176, 76, 20).build());
+                .bounds(left + panelWidth - 88, top + 176, 76, 20).build());
     }
 
     private void updateHex()
@@ -103,24 +103,26 @@ final class EffectColorPicker extends Screen implements EffectWorkspaceChild
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta)
     {
         graphics.fill(0, 0, width, height, 0xE0101010);
-        graphics.fill(left, top, left + w, top + 204, EffectUi.PANEL);
-        graphics.outline(left, top, w, 204, EffectUi.BORDER);
+        graphics.fill(left, top, left + panelWidth, top + 204, EffectUi.PANEL);
+        graphics.outline(left, top, panelWidth, 204, EffectUi.BORDER);
         EffectUi.text(graphics, font, title.getString(), left + 12, top + 10, EffectUi.TEXT);
-        for (int c = 0; c < 4; c++)
+        for (int channel = 0; channel < 4; channel++)
         {
-            int y = top + 66 + c * 23;
-            int bit = c == 3 ? 24 : 16 - c * 8;
-            EffectUi.mono(graphics, font, new String[] { "R", "G", "B", "A" }[c], left + 12, y + 3, EffectUi.TEXT);
-            for (int i = 0; i < w - 74; i++)
+            int y = top + 66 + channel * 23;
+            int bit = channel == 3 ? 24 : 16 - channel * 8;
+            EffectUi.mono(graphics, font, new String[] { "R", "G", "B", "A" }[channel], left + 12, y + 3,
+                    EffectUi.TEXT);
+            for (int i = 0; i < panelWidth - 74; i++)
             {
-                int n = i * 255 / Math.max(1, w - 75);
-                int v = (color & ~(255 << bit)) | (n << bit);
-                graphics.fill(left + 36 + i, y, left + 37 + i, y + 12, 0xFF000000 | v);
+                int channelValue = i * 255 / Math.max(1, panelWidth - 75);
+                int sampleColor = (color & ~(255 << bit)) | (channelValue << bit);
+                graphics.fill(left + 36 + i, y, left + 37 + i, y + 12, 0xFF000000 | sampleColor);
             }
-            int n = (color >>> bit) & 255;
-            int x = left + 36 + n * (w - 75) / 255;
+            int currentValue = (color >>> bit) & 255;
+            int x = left + 36 + currentValue * (panelWidth - 75) / 255;
             graphics.outline(x - 1, y - 2, 3, 16, 0xFFFFFFFF);
-            EffectUi.mono(graphics, font, Integer.toString(n), left + w - 31, y + 3, EffectUi.MUTED);
+            EffectUi.mono(graphics, font, Integer.toString(currentValue), left + panelWidth - 31, y + 3,
+                    EffectUi.MUTED);
         }
         graphics.fill(left + 12, top + 165, left + 47, top + 175, original);
         graphics.fill(left + 47, top + 165, left + 82, top + 175, color);
@@ -130,8 +132,8 @@ final class EffectColorPicker extends Screen implements EffectWorkspaceChild
     private void slide(double x)
     {
         int bit = slider == 4 ? 24 : 16 - (slider - 1) * 8;
-        int n = (int) Math.round(Math.max(0, Math.min(1, (x - left - 36) / (w - 75))) * 255);
-        color = (color & ~(255 << bit)) | (n << bit);
+        int channelValue = (int) Math.round(Math.max(0, Math.min(1, (x - left - 36) / (panelWidth - 75))) * 255);
+        color = (color & ~(255 << bit)) | (channelValue << bit);
         updateHex();
     }
 
@@ -140,7 +142,7 @@ final class EffectColorPicker extends Screen implements EffectWorkspaceChild
     {
         int row = (int) ((event.y() - top - 66) / 23);
         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && row >= 0 && row < 4 && event.y() >= top + 66
-                && event.y() < top + 66 + row * 23 + 13 && event.x() >= left + 36 && event.x() < left + w - 38)
+                && event.y() < top + 66 + row * 23 + 13 && event.x() >= left + 36 && event.x() < left + panelWidth - 38)
         {
             slider = row + 1;
             slide(event.x());

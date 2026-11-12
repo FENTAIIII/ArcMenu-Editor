@@ -46,26 +46,26 @@ final class EffectUi
         graphics.text(font, mono(value), x, y, color, false);
     }
 
-    static void line(GuiGraphicsExtractor graphics, int x, int y, int tx, int ty, int color)
+    static void line(GuiGraphicsExtractor graphics, int x, int y, int toX, int toY, int color)
     {
-        int steps = Math.min(8192, Math.max(Math.abs(tx - x), Math.abs(ty - y)));
+        int steps = Math.min(8192, Math.max(Math.abs(toX - x), Math.abs(toY - y)));
         for (int i = 0; i <= steps; i++)
         {
             double t = steps == 0 ? 0 : i / (double) steps;
-            int px = (int) Math.round(x + (tx - x) * t);
-            int py = (int) Math.round(y + (ty - y) * t);
-            graphics.fill(px, py, px + 1, py + 1, color);
+            int pointX = (int) Math.round(x + (toX - x) * t);
+            int pointY = (int) Math.round(y + (toY - y) * t);
+            graphics.fill(pointX, pointY, pointX + 1, pointY + 1, color);
         }
     }
 
     static String fit(Font font, String value, int max)
     {
-        String s = value;
-        while (!s.isEmpty() && font.width(component(s)) > max)
+        String text = value;
+        while (!text.isEmpty() && font.width(component(text)) > max)
         {
-            s = s.substring(0, s.length() - 1);
+            text = text.substring(0, text.length() - 1);
         }
-        return s;
+        return text;
     }
 
     static int width(Font font, String value)

@@ -25,7 +25,6 @@ import com.fentai.arcmenu.protocol.EffectProtocol;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -180,12 +179,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             return;
         }
-        var p = panels.properties();
+        var panel = panels.properties();
         int index = 0;
         for (var property : node.properties())
         {
-            int y = p.y() + 56 + index++ * 21 - propertyScroll;
-            if (y < p.y() + 52 || y + 19 > p.bottom() - 16)
+            int y = panel.y() + 56 + index++ * 21 - propertyScroll;
+            if (y < panel.y() + 52 || y + 19 > panel.bottom() - 16)
             {
                 continue;
             }
@@ -194,8 +193,9 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 fields.add(new Field(node.id(), property, null, y));
                 continue;
             }
-            int labelWidth = Math.min(84, p.width() * 43 / 100);
-            EditBox box = new EditBox(font, p.x() + labelWidth + 13, y + 5, Math.max(16, p.width() - labelWidth - 24
+            int labelWidth = Math.min(84, panel.width() * 43 / 100);
+            EditBox box = new EditBox(font, panel.x() + labelWidth + 13, y + 5, Math.max(16, panel.width() - labelWidth
+                    - 24
                     - (property.type() == EditorProtocol.PROPERTY_COLOR
                             || property.key().equals("source") && EditorImageTypes.imageKind(node.kind()) ? 14 : 0)),
                     12, EffectUi.component(property.key()));
@@ -247,7 +247,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         boolean projectFocused = projectSearch != null && projectSearch.isFocused();
         int projectCursor = projectFocused ? projectSearch.getCursorPosition() : 0;
-        Field focused = fields.stream().filter(f -> f.box != null && f.box.isFocused()).findFirst().orElse(null);
+        Field focused = fields.stream().filter(field -> field.box != null && field.box.isFocused()).findFirst()
+                .orElse(null);
         String value = focused == null ? "" : focused.box.getValue();
         int cursor = focused == null ? 0 : focused.box.getCursorPosition();
         rebuildWidgets();
@@ -259,13 +260,13 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (focused != null && focused.target.equals(scene.selectedId()))
         {
-            fields.stream().filter(f -> f.box != null && f.property.key().equals(focused.property.key())).findFirst()
-                    .ifPresent(f ->
+            fields.stream().filter(field -> field.box != null && field.property.key().equals(focused.property.key()))
+                    .findFirst().ifPresent(field ->
                     {
-                        f.box.setValue(value);
-                        setFocused(f.box);
-                        f.box.setCursorPosition(cursor);
-                        f.box.setHighlightPos(cursor);
+                        field.box.setValue(value);
+                        setFocused(field.box);
+                        field.box.setCursorPosition(cursor);
+                        field.box.setHighlightPos(cursor);
                     });
         }
         drainDeferredUI();
@@ -388,11 +389,11 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         lastMouseY = mouseY;
         if (openedMenu.isEmpty() && !popup.active())
         {
-            controls.stream().filter(c -> c.rect.contains(mouseX, mouseY) && !c.hint.isEmpty()).findFirst()
-                    .ifPresent(c ->
+            controls.stream().filter(control -> control.rect.contains(mouseX, mouseY) && !control.hint.isEmpty())
+                    .findFirst().ifPresent(control ->
                     {
-                        EditorTooltips.draw(graphics, font, EffectUi.component(c.hint), mouseX + 8, mouseY + 13, width,
-                                height, 0xF0171717, EffectUi.BORDER, EffectUi.TEXT);
+                        EditorTooltips.draw(graphics, font, EffectUi.component(control.hint), mouseX + 8, mouseY + 13,
+                                width, height, 0xF0171717, EffectUi.BORDER, EffectUi.TEXT);
                     });
         }
         if (openedMenu.isEmpty() && !popup.active() && !propertyHint.isEmpty())
@@ -404,20 +405,25 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
 
     private void mask(GuiGraphicsExtractor graphics)
     {
-        var v = panels.viewport();
-        graphics.fill(0, 0, width, v.y(), EffectUi.BACKGROUND);
-        graphics.fill(0, v.bottom(), width, height, EffectUi.BACKGROUND);
-        graphics.fill(0, v.y(), v.x(), v.bottom(), EffectUi.BACKGROUND);
-        graphics.fill(v.right(), v.y(), width, v.bottom(), EffectUi.BACKGROUND);
+        var viewportPanel = panels.viewport();
+        graphics.fill(0, 0, width, viewportPanel.y(), EffectUi.BACKGROUND);
+        graphics.fill(0, viewportPanel.bottom(), width, height, EffectUi.BACKGROUND);
+        graphics.fill(0, viewportPanel.y(), viewportPanel.x(), viewportPanel.bottom(), EffectUi.BACKGROUND);
+        graphics.fill(viewportPanel.right(), viewportPanel.y(), width, viewportPanel.bottom(), EffectUi.BACKGROUND);
         EffectUi.panel(graphics, panels.project());
         EffectUi.panel(graphics, panels.preview());
         EffectUi.panel(graphics, panels.properties());
-        var c = panels.composition();
-        graphics.fill(c.x(), c.y(), c.right(), v.y(), EffectUi.PANEL);
-        graphics.fill(c.x(), v.bottom(), c.right(), c.bottom(), EffectUi.PANEL);
-        graphics.fill(c.x(), v.y(), v.x(), v.bottom(), EffectUi.PANEL);
-        graphics.fill(v.right(), v.y(), c.right(), v.bottom(), EffectUi.PANEL);
-        graphics.outline(c.x(), c.y(), c.width(), c.height(), EffectUi.BORDER);
+        var compositionPanel = panels.composition();
+        graphics.fill(compositionPanel.x(), compositionPanel.y(), compositionPanel.right(), viewportPanel.y(),
+                EffectUi.PANEL);
+        graphics.fill(compositionPanel.x(), viewportPanel.bottom(), compositionPanel.right(), compositionPanel.bottom(),
+                EffectUi.PANEL);
+        graphics.fill(compositionPanel.x(), viewportPanel.y(), viewportPanel.x(), viewportPanel.bottom(),
+                EffectUi.PANEL);
+        graphics.fill(viewportPanel.right(), viewportPanel.y(), compositionPanel.right(), viewportPanel.bottom(),
+                EffectUi.PANEL);
+        graphics.outline(compositionPanel.x(), compositionPanel.y(), compositionPanel.width(),
+                compositionPanel.height(), EffectUi.BORDER);
     }
 
     private void header(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
@@ -427,13 +433,13 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         for (String name : List.of("file", "edit", "composition", "layer", "animation", "view", "window", "help"))
         {
             String label = EffectUi.label(name);
-            int w = EffectUi.width(font, label) + 13;
-            button(graphics, new EditorLayout.Rect(x, 1, w, 15), label, "", () ->
+            int buttonWidth = EffectUi.width(font, label) + 13;
+            button(graphics, new EditorLayout.Rect(x, 1, buttonWidth, 15), label, "", () ->
             {
                 popup.close();
                 openedMenu = openedMenu.equals(name) ? "" : name;
             }, openedMenu.equals(name), mouseX, mouseY);
-            x += w;
+            x += buttonWidth;
         }
         String id = effect.active() ? effect.snapshot().id() : "";
         String title = "ArcMenu Effect  /  " + id + (effect.active() && effect.snapshot().dirty() ? " *" : "");
@@ -443,14 +449,14 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         graphics.fill(0, 17, width, 38, EffectUi.PANEL);
         graphics.fill(0, 38, width, 39, EffectUi.BORDER);
-        int tx = 8;
+        int toolX = 8;
         String[] actions = { "select", "rectangle", "frame", "text", "item", "block", "image", "gif", "line", "group" };
         byte[] kinds = { -1, 1, 2, 3, 4, 5, 7, 9, 8, 0 };
         for (int i = 0; i < actions.length; i++)
         {
             String action = actions[i];
             byte kind = kinds[i];
-            button(graphics, new EditorLayout.Rect(tx, 20, 20, 16), "",
+            button(graphics, new EditorLayout.Rect(toolX, 20, 20, 16), "",
                     kind < 0 ? EffectUi.label("select") : EditorI18n.text("arcmenu_editor.tool." + toolKey(kind)), () ->
                     {
                         tool = action;
@@ -459,16 +465,17 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                             create(kind, "");
                         }
                     }, tool.equals(action), mouseX, mouseY);
-            EffectToolIcons.draw(graphics, action, tx + 4, 22, tool.equals(action) ? EffectUi.ACCENT : EffectUi.TEXT);
-            tx += 24;
+            EffectToolIcons.draw(graphics, action, toolX + 4, 22,
+                    tool.equals(action) ? EffectUi.ACCENT : EffectUi.TEXT);
+            toolX += 24;
         }
-        graphics.fill(tx + 2, 22, tx + 3, 34, EffectUi.BORDER);
-        button(graphics, new EditorLayout.Rect(tx + 9, 20, 20, 16), "", EditorI18n.text("arcmenu_editor.effect.undo"),
-                () -> workspaceCommand("undo"), false, mouseX, mouseY);
-        button(graphics, new EditorLayout.Rect(tx + 32, 20, 20, 16), "", EditorI18n.text("arcmenu_editor.effect.redo"),
-                () -> workspaceCommand("redo"), false, mouseX, mouseY);
-        EffectToolIcons.draw(graphics, "undo", tx + 13, 22, EffectUi.TEXT);
-        EffectToolIcons.draw(graphics, "redo", tx + 36, 22, EffectUi.TEXT);
+        graphics.fill(toolX + 2, 22, toolX + 3, 34, EffectUi.BORDER);
+        button(graphics, new EditorLayout.Rect(toolX + 9, 20, 20, 16), "",
+                EditorI18n.text("arcmenu_editor.effect.undo"), () -> workspaceCommand("undo"), false, mouseX, mouseY);
+        button(graphics, new EditorLayout.Rect(toolX + 32, 20, 20, 16), "",
+                EditorI18n.text("arcmenu_editor.effect.redo"), () -> workspaceCommand("redo"), false, mouseX, mouseY);
+        EffectToolIcons.draw(graphics, "undo", toolX + 13, 22, EffectUi.TEXT);
+        EffectToolIcons.draw(graphics, "redo", toolX + 36, 22, EffectUi.TEXT);
         button(graphics, new EditorLayout.Rect(width - 64, 20, 56, 16), "MCP",
                 EditorI18n.text("arcmenu_editor.mcp.title"), () -> minecraft.setScreen(new McpScreen(this)), false,
                 mouseX, mouseY);
@@ -482,24 +489,24 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
 
     private void project(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
     {
-        var p = panels.project();
-        int x = p.x() + 8;
+        var panel = panels.project();
+        int x = panel.x() + 8;
         for (String tab : List.of("project", "assets"))
         {
             String label = EffectUi.label(tab);
-            int w = EffectUi.width(font, label) + 12;
-            EffectUi.tab(graphics, font, label, x, p.y() + 6, projectTab.equals(tab));
-            control(new EditorLayout.Rect(x - 3, p.y() + 2, w, 18), label, "", () ->
+            int tabWidth = EffectUi.width(font, label) + 12;
+            EffectUi.tab(graphics, font, label, x, panel.y() + 6, projectTab.equals(tab));
+            control(new EditorLayout.Rect(x - 3, panel.y() + 2, tabWidth, 18), label, "", () ->
             {
                 projectTab = tab;
                 projectScroll = 0;
             }, false);
-            x += w;
+            x += tabWidth;
         }
-        graphics.fill(p.x(), p.y() + 21, p.right(), p.y() + 22, EffectUi.BORDER);
-        var s = scene.snapshot();
-        var e = effect.snapshot();
-        if (s == null || e == null)
+        graphics.fill(panel.x(), panel.y() + 21, panel.right(), panel.y() + 22, EffectUi.BORDER);
+        var sceneSnapshot = scene.snapshot();
+        var effectSnapshot = effect.snapshot();
+        if (sceneSnapshot == null || effectSnapshot == null)
         {
             return;
         }
@@ -514,51 +521,55 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 selected = scene.find(selected.parentId());
             }
         }
-        int y = p.y() + 30;
-        EffectUi.text(graphics, font, EffectUi.fit(font, e.id(), p.width() - 18), p.x() + 9, y, EffectUi.TEXT);
-        EffectUi.mono(graphics, font, String.format(Locale.ROOT, "%.0f × %.0f", s.canvasWidth(), s.canvasHeight()),
-                p.x() + 9, y + 16, EffectUi.MUTED);
-        EffectUi.mono(graphics, font, String.format(Locale.ROOT, "%.2f fps / %s", e.fps(), timecode(e.duration())),
-                p.x() + 9, y + 30, EffectUi.MUTED);
-        graphics.fill(p.x() + 6, p.y() + 77, p.right() - 6, p.y() + 96, 0xFF171717);
-        graphics.outline(p.x() + 6, p.y() + 77, p.width() - 12, 19,
+        int y = panel.y() + 30;
+        EffectUi.text(graphics, font, EffectUi.fit(font, effectSnapshot.id(), panel.width() - 18), panel.x() + 9, y,
+                EffectUi.TEXT);
+        EffectUi.mono(graphics, font,
+                String.format(Locale.ROOT, "%.0f × %.0f", sceneSnapshot.canvasWidth(), sceneSnapshot.canvasHeight()),
+                panel.x() + 9, y + 16, EffectUi.MUTED);
+        EffectUi.mono(graphics, font,
+                String.format(Locale.ROOT, "%.2f fps / %s", effectSnapshot.fps(), timecode(effectSnapshot.duration())),
+                panel.x() + 9, y + 30, EffectUi.MUTED);
+        graphics.fill(panel.x() + 6, panel.y() + 77, panel.right() - 6, panel.y() + 96, 0xFF171717);
+        graphics.outline(panel.x() + 6, panel.y() + 77, panel.width() - 12, 19,
                 projectSearch != null && projectSearch.isFocused() ? EffectUi.ACCENT : EffectUi.BORDER);
         if (projectQuery.isEmpty() && (projectSearch == null || !projectSearch.isFocused()))
         {
-            EffectUi.text(graphics, font, EffectUi.label("search_project"), p.x() + 12, p.y() + 82, EffectUi.MUTED);
+            EffectUi.text(graphics, font, EffectUi.label("search_project"), panel.x() + 12, panel.y() + 82,
+                    EffectUi.MUTED);
         }
-        EffectUi.text(graphics, font, EffectUi.label("name"), p.x() + 8, y + 75, EffectUi.MUTED);
+        EffectUi.text(graphics, font, EffectUi.label("name"), panel.x() + 8, y + 75, EffectUi.MUTED);
         List<ProjectEntry> items = new ArrayList<>();
         if (projectTab.equals("project"))
         {
-            items.add(new ProjectEntry(e.id(), "composition", null, () ->
+            items.add(new ProjectEntry(effectSnapshot.id(), "composition", null, () ->
             {
                 scene.clearSelection();
                 rebuildWidgets();
             }));
-            for (var node : s.frontend())
+            for (var node : sceneSnapshot.frontend())
             {
                 if (!projectQuery.isEmpty() || !projectHidden(node))
                 {
                     items.add(new ProjectEntry(node.id(), "layer", null, () -> select(node.id())));
                 }
             }
-            for (var template : s.templates())
+            for (var template : sceneSnapshot.templates())
             {
                 items.add(new ProjectEntry(template.id(), "template", null, () -> ArcMenuEditorClient
-                        .send(new InstantiateTemplatePacket(s.revision(), template.id()))));
+                        .send(new InstantiateTemplatePacket(sceneSnapshot.revision(), template.id()))));
             }
         }
         else
         {
-            for (String asset : e.assets())
+            for (String asset : effectSnapshot.assets())
             {
                 items.add(new ProjectEntry(asset, asset.endsWith(".nbs") ? "nbs" : "audio", null,
                         () -> effectDialog("cue", "", "", (int) effect.playhead(), null,
-                                new EffectProtocol.Cue("cue-" + e.cues().size(), (int) effect.playhead(), -1,
-                                        asset.endsWith(".nbs") ? "nbs" : "sound", asset, 1, 1, true))));
+                                new EffectProtocol.Cue("cue-" + effectSnapshot.cues().size(), (int) effect.playhead(),
+                                        -1, asset.endsWith(".nbs") ? "nbs" : "sound", asset, 1, 1, true))));
             }
-            for (var image : s.images())
+            for (var image : sceneSnapshot.images())
             {
                 items.add(new ProjectEntry(image.path(), EditorImageTypes.gif(image.path()) ? "gif" : "image", null,
                         () -> create(EditorImageTypes.kind(image.path()), image.path())));
@@ -570,13 +581,13 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         visibleProjectLayers = items.stream().filter(item -> item.kind.equals("layer")).map(ProjectEntry::id).toList();
         int start = y + 91;
-        int visible = Math.max(1, (p.bottom() - start - 21) / 19);
+        int visible = Math.max(1, (panel.bottom() - start - 21) / 19);
         projectScroll = Math.min(projectScroll, Math.max(0, items.size() - visible));
         for (int i = projectScroll; i < Math.min(items.size(), projectScroll + visible); i++)
         {
             var item = items.get(i);
             int rowY = start + (i - projectScroll) * 19;
-            var rect = new EditorLayout.Rect(p.x() + 3, rowY, p.width() - 6, 18);
+            var rect = new EditorLayout.Rect(panel.x() + 3, rowY, panel.width() - 6, 18);
             if (scene.selected(item.id) || rect.contains(mouseX, mouseY))
             {
                 graphics.fill(rect.x(), rect.y(), rect.right(), rect.bottom(),
@@ -590,53 +601,54 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             };
             var node = item.kind.equals("layer") ? scene.find(item.id) : null;
             int depth = node == null ? 0 : depth(node);
-            int inset = Math.min(p.width() / 3, depth * 8);
+            int inset = Math.min(panel.width() / 3, depth * 8);
             if (node != null && node.kind() == EditorProtocol.KIND_GROUP)
             {
-                int ax = rect.x() + 5 + inset;
-                int ay = rowY + 7;
+                int arrowX = rect.x() + 5 + inset;
+                int arrowY = rowY + 7;
                 boolean expanded = scene.expanded().contains(node.id());
                 if (expanded)
                 {
-                    EffectUi.line(graphics, ax, ay, ax + 3, ay + 3, color);
-                    EffectUi.line(graphics, ax + 3, ay + 3, ax + 6, ay, color);
+                    EffectUi.line(graphics, arrowX, arrowY, arrowX + 3, arrowY + 3, color);
+                    EffectUi.line(graphics, arrowX + 3, arrowY + 3, arrowX + 6, arrowY, color);
                 }
                 else
                 {
-                    EffectUi.line(graphics, ax + 1, ay - 2, ax + 4, ay + 1, color);
-                    EffectUi.line(graphics, ax + 4, ay + 1, ax + 1, ay + 4, color);
+                    EffectUi.line(graphics, arrowX + 1, arrowY - 2, arrowX + 4, arrowY + 1, color);
+                    EffectUi.line(graphics, arrowX + 4, arrowY + 1, arrowX + 1, arrowY + 4, color);
                 }
             }
             else
             {
                 graphics.outline(rect.x() + 5 + inset, rowY + 5, 7, 8, color);
             }
-            EffectUi.text(graphics, font, EffectUi.fit(font, item.id, p.width() - 30 - inset), p.x() + 20 + inset,
-                    rowY + 5, EffectUi.TEXT);
+            EffectUi.text(graphics, font, EffectUi.fit(font, item.id, panel.width() - 30 - inset),
+                    panel.x() + 20 + inset, rowY + 5, EffectUi.TEXT);
             entries.add(new ProjectEntry(item.id, item.kind, rect, item.action));
         }
-        button(graphics, new EditorLayout.Rect(p.x() + 5, p.bottom() - 19, 19, 15), "+", EffectUi.label("add_layer"),
-                () -> openedMenu = "layer", false, mouseX, mouseY);
-        button(graphics, new EditorLayout.Rect(p.x() + 28, p.bottom() - 19, 19, 15), "×", EffectUi.label("delete"),
-                this::delete, false, mouseX, mouseY);
+        button(graphics, new EditorLayout.Rect(panel.x() + 5, panel.bottom() - 19, 19, 15), "+",
+                EffectUi.label("add_layer"), () -> openedMenu = "layer", false, mouseX, mouseY);
+        button(graphics, new EditorLayout.Rect(panel.x() + 28, panel.bottom() - 19, 19, 15), "×",
+                EffectUi.label("delete"), this::delete, false, mouseX, mouseY);
         EffectUi.text(graphics, font,
                 EffectUi.fit(font,
                         projectTab.equals("assets") ? EffectUi.label("asset_hint") : EffectUi.label("project_hint"),
-                        p.width() - 57),
-                p.x() + 53, p.bottom() - 15, EffectUi.MUTED);
+                        panel.width() - 57),
+                panel.x() + 53, panel.bottom() - 15, EffectUi.MUTED);
     }
 
     private void composition(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
     {
-        var p = panels.composition();
-        var v = panels.viewport();
+        var panel = panels.composition();
+        var viewportPanel = panels.viewport();
         String id = effect.active() ? effect.snapshot().id() : "";
-        EffectUi.tab(graphics, font, EffectUi.label("composition") + "  " + id, p.x() + 9, p.y() + 6, true);
-        graphics.fill(p.x(), p.y() + 21, p.right(), p.y() + 22, EffectUi.BORDER);
-        graphics.outline(v.x() - 1, v.y() - 1, v.width() + 2, v.height() + 2, 0xFF383838);
+        EffectUi.tab(graphics, font, EffectUi.label("composition") + "  " + id, panel.x() + 9, panel.y() + 6, true);
+        graphics.fill(panel.x(), panel.y() + 21, panel.right(), panel.y() + 22, EffectUi.BORDER);
+        graphics.outline(viewportPanel.x() - 1, viewportPanel.y() - 1, viewportPanel.width() + 2,
+                viewportPanel.height() + 2, 0xFF383838);
         if (showGuides && !EditorScreen.captureClean && scene.snapshot() != null)
         {
-            graphics.enableScissor(v.x(), v.y(), v.right(), v.bottom());
+            graphics.enableScissor(viewportPanel.x(), viewportPanel.y(), viewportPanel.right(), viewportPanel.bottom());
             for (String idSelected : scene.selectedIds())
             {
                 var node = scene.find(idSelected);
@@ -644,85 +656,88 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 {
                     continue;
                 }
-                var c = nodeCalibration(node.kind());
-                int left = sx(c.proxyX(node.x(), node.width()) - c.proxyWidth(node.width()) / 2);
-                int right = sx(c.proxyX(node.x(), node.width()) + c.proxyWidth(node.width()) / 2);
-                int top = sy(c.proxyY(node.y(), node.height()) + c.proxyHeight(node.height()) / 2);
-                int bottom = sy(c.proxyY(node.y(), node.height()) - c.proxyHeight(node.height()) / 2);
+                var calibration = nodeCalibration(node.kind());
+                int left = sx(calibration.proxyX(node.x(), node.width()) - calibration.proxyWidth(node.width()) / 2);
+                int right = sx(calibration.proxyX(node.x(), node.width()) + calibration.proxyWidth(node.width()) / 2);
+                int top = sy(calibration.proxyY(node.y(), node.height()) + calibration.proxyHeight(node.height()) / 2);
+                int bottom = sy(
+                        calibration.proxyY(node.y(), node.height()) - calibration.proxyHeight(node.height()) / 2);
                 graphics.outline(left, top, Math.max(1, right - left), Math.max(1, bottom - top), EffectUi.ACCENT);
                 for (int[] point : new int[][] { { left, top }, { right, top }, { left, bottom }, { right, bottom } })
                 {
                     graphics.fill(point[0] - 2, point[1] - 2, point[0] + 3, point[1] + 3, EffectUi.ACCENT);
                 }
-                int cx = sx(node.x());
-                int cy = sy(node.y());
-                EffectUi.line(graphics, cx - 4, cy, cx + 4, cy, EffectUi.ACCENT);
-                EffectUi.line(graphics, cx, cy - 4, cx, cy + 4, EffectUi.ACCENT);
+                int centerX = sx(node.x());
+                int centerY = sy(node.y());
+                EffectUi.line(graphics, centerX - 4, centerY, centerX + 4, centerY, EffectUi.ACCENT);
+                EffectUi.line(graphics, centerX, centerY - 4, centerX, centerY + 4, EffectUi.ACCENT);
             }
             graphics.disableScissor();
         }
         if (safeGuides && !EditorScreen.captureClean)
         {
-            graphics.outline(v.x() + v.width() / 20, v.y() + v.height() / 20, v.width() * 9 / 10, v.height() * 9 / 10,
-                    0x9970A5A0);
-            graphics.outline(v.x() + v.width() / 10, v.y() + v.height() / 10, v.width() * 4 / 5, v.height() * 4 / 5,
-                    0x9970A5A0);
+            graphics.outline(viewportPanel.x() + viewportPanel.width() / 20,
+                    viewportPanel.y() + viewportPanel.height() / 20, viewportPanel.width() * 9 / 10,
+                    viewportPanel.height() * 9 / 10, 0x9970A5A0);
+            graphics.outline(viewportPanel.x() + viewportPanel.width() / 10,
+                    viewportPanel.y() + viewportPanel.height() / 10, viewportPanel.width() * 4 / 5,
+                    viewportPanel.height() * 4 / 5, 0x9970A5A0);
         }
         if (marquee || drawShape)
         {
-            int lx = (int) Math.min(marqueeX, marqueeEndX);
-            int ty = (int) Math.min(marqueeY, marqueeEndY);
-            int rw = (int) Math.abs(marqueeEndX - marqueeX);
-            int rh = (int) Math.abs(marqueeEndY - marqueeY);
-            graphics.fill(lx, ty, lx + rw, ty + rh, 0x202D8CEB);
-            graphics.outline(lx, ty, rw, rh, EffectUi.ACCENT);
+            int marqueeLeft = (int) Math.min(marqueeX, marqueeEndX);
+            int marqueeTop = (int) Math.min(marqueeY, marqueeEndY);
+            int marqueeWidth = (int) Math.abs(marqueeEndX - marqueeX);
+            int marqueeHeight = (int) Math.abs(marqueeEndY - marqueeY);
+            graphics.fill(marqueeLeft, marqueeTop, marqueeLeft + marqueeWidth, marqueeTop + marqueeHeight, 0x202D8CEB);
+            graphics.outline(marqueeLeft, marqueeTop, marqueeWidth, marqueeHeight, EffectUi.ACCENT);
         }
         if (!draggedAsset.isEmpty())
         {
             EffectUi.text(graphics, font, EffectUi.fit(font, draggedAsset, 160), mouseX + 8, mouseY + 8,
                     EffectUi.ACCENT);
         }
-        int y = p.bottom() - 17;
+        int y = panel.bottom() - 17;
         String viewLabel = fitView ? EditorI18n.text("arcmenu_editor.workspace.fit_zoom", previewZoom())
                 : EffectUi.label("playback_view");
         int viewButtonWidth = Math.max(72, Math.min(120, EffectUi.width(font, viewLabel) + 12));
-        button(graphics, new EditorLayout.Rect(p.x() + 5, y, viewButtonWidth, 15), viewLabel,
+        button(graphics, new EditorLayout.Rect(panel.x() + 5, y, viewButtonWidth, 15), viewLabel,
                 EffectUi.label("fit_view"), () ->
                 {
                     fitView = !fitView;
                     viewZoom = 1;
                     viewPanX = viewPanY = 0;
                 }, fitView, mouseX, mouseY);
-        EffectUi.mono(graphics, font, timecode((int) effect.playhead()), p.x() + viewButtonWidth + 14, y + 4,
+        EffectUi.mono(graphics, font, timecode((int) effect.playhead()), panel.x() + viewButtonWidth + 14, y + 4,
                 EffectUi.ACCENT);
-        button(graphics, new EditorLayout.Rect(p.right() - 47, y, 18, 15), "#", EffectUi.label("guides"),
+        button(graphics, new EditorLayout.Rect(panel.right() - 47, y, 18, 15), "#", EffectUi.label("guides"),
                 () -> showGuides = !showGuides, showGuides, mouseX, mouseY);
-        button(graphics, new EditorLayout.Rect(p.right() - 25, y, 18, 15), "…",
+        button(graphics, new EditorLayout.Rect(panel.right() - 25, y, 18, 15), "…",
                 EditorI18n.text("arcmenu_editor.effect.settings"),
                 () -> effectDialog("settings", "", "", 0, null, null), false, mouseX, mouseY);
     }
 
     private void preview(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
     {
-        var p = panels.preview();
-        title(graphics, p, "preview");
+        var panel = panels.preview();
+        title(graphics, panel, "preview");
         var audio = EffectAudioPreview.INSTANCE;
-        int ax = p.right() - 24;
-        int ay = p.y() + 3;
-        button(graphics, new EditorLayout.Rect(ax, ay, 18, 14), "",
+        int audioX = panel.right() - 24;
+        int audioY = panel.y() + 3;
+        button(graphics, new EditorLayout.Rect(audioX, audioY, 18, 14), "",
                 EffectUi.label(audio.enabled() ? "audio_on" : "audio_off") + "  " + EffectUi.label("audio_hint"),
                 () -> audio.enabled(!audio.enabled()), audio.enabled(), mouseX, mouseY);
         int audioColor = audio.enabled() ? 0xFFFFFFFF : EffectUi.MUTED;
-        graphics.fill(ax + 4, ay + 5, ax + 7, ay + 9, audioColor);
-        graphics.fill(ax + 7, ay + 3, ax + 9, ay + 11, audioColor);
-        EffectUi.line(graphics, ax + 11, ay + 4, ax + 13, ay + 7, audioColor);
-        EffectUi.line(graphics, ax + 13, ay + 7, ax + 11, ay + 10, audioColor);
+        graphics.fill(audioX + 4, audioY + 5, audioX + 7, audioY + 9, audioColor);
+        graphics.fill(audioX + 7, audioY + 3, audioX + 9, audioY + 11, audioColor);
+        EffectUi.line(graphics, audioX + 11, audioY + 4, audioX + 13, audioY + 7, audioColor);
+        EffectUi.line(graphics, audioX + 13, audioY + 7, audioX + 11, audioY + 10, audioColor);
         if (!audio.enabled())
         {
-            EffectUi.line(graphics, ax + 3, ay + 12, ax + 14, ay + 2, 0xFFD5A458);
+            EffectUi.line(graphics, audioX + 3, audioY + 12, audioX + 14, audioY + 2, 0xFFD5A458);
         }
-        int y = p.y() + 29;
-        int x = p.x() + Math.max(6, (p.width() - 102) / 2);
+        int y = panel.y() + 29;
+        int x = panel.x() + Math.max(6, (panel.width() - 102) / 2);
         String[] glyphs = { "|◀", "◀", effect.active() && effect.snapshot().playing() ? "Ⅱ" : "▶", "▶|", "■" };
         Runnable[] actions = { () -> effect.seek(effect.snapshot().workStart()),
                 () -> effect.seek(Math.max(0, (int) effect.playhead() - 1)), () -> effect.action("play"),
@@ -737,55 +752,60 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             return;
         }
-        var e = effect.snapshot();
+        var effectSnapshot = effect.snapshot();
         EffectUi.text(graphics, font, EffectUi.label("shortcut") + "  " + EditorI18n.text("key.keyboard.space"),
-                p.x() + 8, y + 29, EffectUi.MUTED);
-        EffectUi.text(graphics, font, EffectUi.label("range") + "  " + e.workStart() + " – " + e.workEnd(), p.x() + 8,
-                y + 45, EffectUi.TEXT);
-        if (y + 81 < p.bottom())
+                panel.x() + 8, y + 29, EffectUi.MUTED);
+        EffectUi.text(graphics, font,
+                EffectUi.label("range") + "  " + effectSnapshot.workStart() + " – " + effectSnapshot.workEnd(),
+                panel.x() + 8, y + 45, EffectUi.TEXT);
+        if (y + 81 < panel.bottom())
         {
-            button(graphics, new EditorLayout.Rect(p.x() + 7, y + 64, p.width() - 14, 16),
-                    EffectUi.label(e.loop() ? "loop_on" : "loop_off"), "",
-                    () -> effect.submit("settings", "", Boolean.toString(!e.loop()), e.workStart(), e.duration(),
-                            Integer.toString(e.workEnd()), "linear", e.fps(), 0, 0, 0),
-                    e.loop(), mouseX, mouseY);
+            button(graphics, new EditorLayout.Rect(panel.x() + 7, y + 64, panel.width() - 14, 16),
+                    EffectUi.label(effectSnapshot.loop() ? "loop_on" : "loop_off"), "",
+                    () -> effect.submit("settings", "", Boolean.toString(!effectSnapshot.loop()),
+                            effectSnapshot.workStart(), effectSnapshot.duration(),
+                            Integer.toString(effectSnapshot.workEnd()), "linear", effectSnapshot.fps(), 0, 0, 0),
+                    effectSnapshot.loop(), mouseX, mouseY);
         }
         String audioStatus = EffectAudioPreview.INSTANCE.statusKey();
-        int audioStatusY = y + (y + 81 < p.bottom() ? 85 : 61);
-        if (!audioStatus.isEmpty() && audioStatusY + 9 <= p.bottom())
+        int audioStatusY = y + (y + 81 < panel.bottom() ? 85 : 61);
+        if (!audioStatus.isEmpty() && audioStatusY + 9 <= panel.bottom())
         {
-            EffectUi.text(graphics, font, EffectUi.fit(font, EffectUi.label(audioStatus), p.width() - 16), p.x() + 8,
-                    audioStatusY, audioStatus.equals("audio_missing") ? 0xFFD5A458 : EffectUi.MUTED);
+            EffectUi.text(graphics, font, EffectUi.fit(font, EffectUi.label(audioStatus), panel.width() - 16),
+                    panel.x() + 8, audioStatusY, audioStatus.equals("audio_missing") ? 0xFFD5A458 : EffectUi.MUTED);
         }
     }
 
     private void properties(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
     {
-        var p = panels.properties();
-        title(graphics, p, "properties");
+        var panel = panels.properties();
+        title(graphics, panel, "properties");
         var node = scene.find(scene.selectedId());
         EffectUi.text(graphics, font,
-                EffectUi.fit(font, node == null ? EffectUi.label("no_selection") : node.id(), p.width() - 18),
-                p.x() + 8, p.y() + 29, EffectUi.TEXT);
+                EffectUi.fit(font, node == null ? EffectUi.label("no_selection") : node.id(), panel.width() - 18),
+                panel.x() + 8, panel.y() + 29, EffectUi.TEXT);
         if (node == null)
         {
             if (scene.snapshot() != null)
             {
-                EffectUi.text(graphics, font, EffectUi.label("composition"), p.x() + 8, p.y() + 56, EffectUi.MUTED);
-                EffectUi.mono(graphics, font, timecode((int) effect.playhead()), p.x() + 8, p.y() + 74,
+                EffectUi.text(graphics, font, EffectUi.label("composition"), panel.x() + 8, panel.y() + 56,
+                        EffectUi.MUTED);
+                EffectUi.mono(graphics, font, timecode((int) effect.playhead()), panel.x() + 8, panel.y() + 74,
                         EffectUi.ACCENT);
-                EffectUi.text(graphics, font, EffectUi.label("select_hint"), p.x() + 8, p.y() + 97, EffectUi.MUTED);
+                EffectUi.text(graphics, font, EffectUi.label("select_hint"), panel.x() + 8, panel.y() + 97,
+                        EffectUi.MUTED);
             }
             return;
         }
-        EffectUi.text(graphics, font, EditorI18n.text("arcmenu_editor.tool." + toolKey(node.kind())), p.x() + 8,
-                p.y() + 43, EffectUi.MUTED);
-        int labelWidth = Math.min(84, p.width() * 43 / 100);
+        EffectUi.text(graphics, font, EditorI18n.text("arcmenu_editor.tool." + toolKey(node.kind())), panel.x() + 8,
+                panel.y() + 43, EffectUi.MUTED);
+        int labelWidth = Math.min(84, panel.width() * 43 / 100);
         for (var field : fields)
         {
             var property = field.property;
             String label = EditorI18n.property(property.key());
-            if (mouseX >= p.x() && mouseX < p.x() + labelWidth + 8 && mouseY >= field.y && mouseY < field.y + 21)
+            if (mouseX >= panel.x() && mouseX < panel.x() + labelWidth + 8 && mouseY >= field.y
+                    && mouseY < field.y + 21)
             {
                 propertyHint = EditorImageTypes.hint(node.kind(), property.key());
                 if (propertyHint.isEmpty())
@@ -797,42 +817,42 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             {
                 label = property.key();
             }
-            EffectUi.text(graphics, font, EffectUi.fit(font, label, labelWidth - 8), p.x() + 17, field.y + 6,
+            EffectUi.text(graphics, font, EffectUi.fit(font, label, labelWidth - 8), panel.x() + 17, field.y + 6,
                     EffectUi.MUTED);
             if (EffectPropertyRules.animated(node.kind(), property.key()))
             {
                 boolean animated = effect.active() && effect.snapshot().tracks().stream()
-                        .anyMatch(t -> t.target().equals(node.id()) && t.property().equals(property.key()));
+                        .anyMatch(track -> track.target().equals(node.id()) && track.property().equals(property.key()));
                 int color = animated ? EffectUi.ACCENT : 0xFF757575;
-                graphics.outline(p.x() + 5, field.y + 7, 5, 6, color);
-                control(new EditorLayout.Rect(p.x() + 2, field.y, 12, 19), "", EffectUi.label("add_key"),
+                graphics.outline(panel.x() + 5, field.y + 7, 5, 6, color);
+                control(new EditorLayout.Rect(panel.x() + 2, field.y, 12, 19), "", EffectUi.label("add_key"),
                         () -> togglePropertyKey(node.id(), property.key()), false);
             }
-            int valueX = p.x() + labelWidth + 8;
-            graphics.fill(valueX, field.y + 2, p.right() - 6, field.y + 19, 0xFF171717);
+            int valueX = panel.x() + labelWidth + 8;
+            graphics.fill(valueX, field.y + 2, panel.right() - 6, field.y + 19, 0xFF171717);
             if (property.type() == EditorProtocol.PROPERTY_COLOR)
             {
                 try
                 {
-                    graphics.fill(p.right() - 18, field.y + 5, p.right() - 9, field.y + 15,
+                    graphics.fill(panel.right() - 18, field.y + 5, panel.right() - 9, field.y + 15,
                             EffectColorPicker.parse(property.value()));
                 }
                 catch (IllegalArgumentException ignored)
                 {}
-                control(new EditorLayout.Rect(p.right() - 21, field.y + 2, 16, 17), "", EffectUi.label("color_picker"),
-                        () -> colorPicker(field), false);
+                control(new EditorLayout.Rect(panel.right() - 21, field.y + 2, 16, 17), "",
+                        EffectUi.label("color_picker"), () -> colorPicker(field), false);
             }
             if (property.key().equals("source") && EditorImageTypes.imageKind(node.kind()))
             {
-                EffectToolIcons.draw(graphics, toolKey(node.kind()), p.right() - 18, field.y + 4, EffectUi.ACCENT);
-                control(new EditorLayout.Rect(p.right() - 21, field.y + 2, 16, 17), "",
+                EffectToolIcons.draw(graphics, toolKey(node.kind()), panel.right() - 18, field.y + 4, EffectUi.ACCENT);
+                control(new EditorLayout.Rect(panel.right() - 21, field.y + 2, 16, 17), "",
                         EditorI18n.text("arcmenu_editor.images.choose_source"), () -> sourcePicker(field), false);
             }
             if (field.box == null)
             {
-                EffectUi.text(graphics, font, EffectUi.fit(font, property.value(), p.right() - valueX - 12), valueX + 5,
-                        field.y + 6, EffectUi.ACCENT);
-                control(new EditorLayout.Rect(valueX, field.y + 2, p.right() - valueX - 6, 17), "", "", () ->
+                EffectUi.text(graphics, font, EffectUi.fit(font, property.value(), panel.right() - valueX - 12),
+                        valueX + 5, field.y + 6, EffectUi.ACCENT);
+                control(new EditorLayout.Rect(valueX, field.y + 2, panel.right() - valueX - 6, 17), "", "", () ->
                 {
                     String value = property.type() == EditorProtocol.PROPERTY_BOOLEAN
                             ? Boolean.toString(!Boolean.parseBoolean(property.value()))
@@ -844,14 +864,14 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 }, false);
             }
         }
-        EffectUi.text(graphics, font, EffectUi.fit(font, scene.status(), p.width() - 14), p.x() + 7, p.bottom() - 12,
-                scene.errorStatus() ? 0xFFE58D8D : EffectUi.MUTED);
+        EffectUi.text(graphics, font, EffectUi.fit(font, scene.status(), panel.width() - 14), panel.x() + 7,
+                panel.bottom() - 12, scene.errorStatus() ? 0xFFE58D8D : EffectUi.MUTED);
     }
 
-    private void title(GuiGraphicsExtractor graphics, EditorLayout.Rect p, String key)
+    private void title(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, String key)
     {
-        EffectUi.tab(graphics, font, EffectUi.label(key), p.x() + 8, p.y() + 6, true);
-        graphics.fill(p.x(), p.y() + 21, p.right(), p.y() + 22, EffectUi.BORDER);
+        EffectUi.tab(graphics, font, EffectUi.label(key), panel.x() + 8, panel.y() + 6, true);
+        graphics.fill(panel.x(), panel.y() + 21, panel.right(), panel.y() + 22, EffectUi.BORDER);
     }
 
     private void control(EditorLayout.Rect rect, String label, String hint, Runnable action, boolean active)
@@ -874,8 +894,9 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
 
     private EffectPopup.Item commandItem(String id)
     {
-        String label = EffectCommands.list().stream().filter(c -> c.id().equals(id)).map(c -> EffectUi.label(c.label()))
-                .findFirst().orElse(EffectUi.label(id.replace('-', '_')));
+        String label = EffectCommands.list().stream().filter(command -> command.id().equals(id))
+                .map(command -> EffectUi.label(command.label())).findFirst()
+                .orElse(EffectUi.label(id.replace('-', '_')));
         String shortcut = EffectCommands.shortcut(id);
         if (shortcut.isEmpty())
         {
@@ -911,8 +932,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             case "window" -> commandItems("assets", "expand-all", "collapse-all", "reset-workspace");
             default -> commandItems("shortcuts", "command-search", "mcp");
             };
-            var anchor = controls.stream().filter(c -> c.label.equals(EffectUi.label(openedMenu))).findFirst()
-                    .orElse(null);
+            var anchor = controls.stream().filter(control -> control.label.equals(EffectUi.label(openedMenu)))
+                    .findFirst().orElse(null);
             popup.open(anchor == null ? 8 : anchor.rect.x(), 18, items);
         }
     }
@@ -1021,13 +1042,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         scene.expanded().add(parent);
         if (ids.stream().allMatch(id -> scene.find(id).parentId().equals(parent)))
         {
-            ArcMenuEditorClient.send(new ReorderPacket(scene.snapshot().revision(),
-                    EditorProtocol.TAB_FRONTEND, ids, before));
+            ArcMenuEditorClient
+                    .send(new ReorderPacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, ids, before));
         }
         else
         {
-            ArcMenuEditorClient
-                    .send(new ReparentPacket(scene.snapshot().revision(), ids, parent, before));
+            ArcMenuEditorClient.send(new ReparentPacket(scene.snapshot().revision(), ids, parent, before));
         }
     }
 
@@ -1072,19 +1092,19 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
         {
-            for (int ci = controls.size() - 1; ci >= 0; ci--)
+            for (int controlIndex = controls.size() - 1; controlIndex >= 0; controlIndex--)
             {
-                var c = controls.get(ci);
-                if (c.rect.contains(event.x(), event.y()))
+                var hitControl = controls.get(controlIndex);
+                if (hitControl.rect.contains(event.x(), event.y()))
                 {
                     commitFocused();
                     if (effect.busy())
                     {
-                        deferredUI.add(c.action);
+                        deferredUI.add(hitControl.action);
                     }
                     else
                     {
-                        c.action.run();
+                        hitControl.action.run();
                     }
                     return true;
                 }
@@ -1108,60 +1128,63 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (panels.properties().contains(event.x(), event.y()))
         {
-            for (var f : fields)
+            for (var field : fields)
             {
-                if (event.y() >= f.y && event.y() < f.y + 21)
+                if (event.y() >= field.y && event.y() < field.y + 21)
                 {
                     if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
                     {
                         commitFocused();
-                        var node = scene.find(f.target);
+                        var node = scene.find(field.target);
                         boolean animatable = node != null
-                                && EffectPropertyRules.animated(node.kind(), f.property.key());
+                                && EffectPropertyRules.animated(node.kind(), field.property.key());
                         boolean tracked = effect.snapshot().tracks().stream()
-                                .anyMatch(t -> t.target().equals(f.target) && t.property().equals(f.property.key()));
+                                .anyMatch(track -> track.target().equals(field.target)
+                                        && track.property().equals(field.property.key()));
                         popup.open((int) event.x(), (int) event.y(), List.of(
                                 new EffectPopup.Item(EffectUi.label("add_key"), "",
-                                        () -> togglePropertyKey(f.target, f.property.key()), animatable),
+                                        () -> togglePropertyKey(field.target, field.property.key()), animatable),
                                 new EffectPopup.Item(EffectUi.label("key_settings"), "",
-                                        () -> effectDialog("key", f.target, f.property.key(), (int) effect.playhead(),
-                                                keyAt(f.target, f.property.key()), null),
+                                        () -> effectDialog("key", field.target, field.property.key(),
+                                                (int) effect.playhead(), keyAt(field.target, field.property.key()),
+                                                null),
                                         animatable),
-                                new EffectPopup.Item(EffectUi.label("remove_animation"), "",
-                                        () -> effect.submit("delete-track", f.target, f.property.key(), 0, 0, "",
-                                                "linear", 0, 0, 0, 0),
+                                new EffectPopup.Item(
+                                        EffectUi.label("remove_animation"), "", () -> effect.submit("delete-track",
+                                                field.target, field.property.key(), 0, 0, "", "linear", 0, 0, 0, 0),
                                         tracked)));
                         return true;
                     }
                     int valueX = panels.properties().x() + Math.min(84, panels.properties().width() * 43 / 100) + 8;
-                    if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && f.box != null && event.x() >= valueX
-                            && event.x() < panels.properties().right() - 6 && event.y() >= f.y + 2
-                            && event.y() < f.y + 19)
+                    if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && field.box != null && event.x() >= valueX
+                            && event.x() < panels.properties().right() - 6 && event.y() >= field.y + 2
+                            && event.y() < field.y + 19)
                     {
-                        if (getFocused() != f.box)
+                        if (getFocused() != field.box)
                         {
                             commitFocused();
                         }
-                        setFocused(f.box);
+                        setFocused(field.box);
                         timelineFocused = false;
-                        if (!f.box.mouseClicked(event, doubleClick))
+                        if (!field.box.mouseClicked(event, doubleClick))
                         {
-                            f.box.moveCursorToEnd(false);
+                            field.box.moveCursorToEnd(false);
                         }
                         return true;
                     }
                     if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
                             && event.x() < panels.properties().x()
                                     + Math.min(84, panels.properties().width() * 43 / 100) + 8
-                            && (f.property.type() == EditorProtocol.PROPERTY_NUMBER
-                                    || f.property.type() == EditorProtocol.PROPERTY_INTEGER))
+                            && (field.property.type() == EditorProtocol.PROPERTY_NUMBER
+                                    || field.property.type() == EditorProtocol.PROPERTY_INTEGER))
                     {
                         try
                         {
                             commitFocused();
-                            scrubValue = Double.parseDouble(f.box == null ? f.property.value() : f.box.getValue());
+                            scrubValue = Double
+                                    .parseDouble(field.box == null ? field.property.value() : field.box.getValue());
                             scrubStartX = event.x();
-                            scrubField = f;
+                            scrubField = field;
                             setFocused(null);
                             return true;
                         }
@@ -1356,10 +1379,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 return true;
             }
             dragging = node.id();
-            var c = nodeCalibration(node.kind());
-            resizing = Math.abs(event.x() - sx(c.proxyX(node.x(), node.width()) + c.proxyWidth(node.width()) / 2)) < 7
-                    && Math.abs(
-                            event.y() - sy(c.proxyY(node.y(), node.height()) - c.proxyHeight(node.height()) / 2)) < 7;
+            var calibration = nodeCalibration(node.kind());
+            resizing = Math
+                    .abs(event.x() - sx(
+                            calibration.proxyX(node.x(), node.width()) + calibration.proxyWidth(node.width()) / 2)) < 7
+                    && Math.abs(event.y() - sy(calibration.proxyY(node.y(), node.height())
+                            - calibration.proxyHeight(node.height()) / 2)) < 7;
             grabX = menuX(event.x()) - node.x();
             grabY = menuY(event.y()) - node.y();
             gesture = nextGesture++;
@@ -1409,10 +1434,10 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (!rotationTarget.isEmpty())
         {
-            var n = scene.find(rotationTarget);
-            if (n != null)
+            var node = scene.find(rotationTarget);
+            if (node != null)
             {
-                double angle = Math.atan2(menuY(event.y()) - n.y(), menuX(event.x()) - n.x());
+                double angle = Math.atan2(menuY(event.y()) - node.y(), menuX(event.x()) - node.x());
                 rotationValue = rotationBase + Math
                         .toDegrees(Math.atan2(Math.sin(angle - rotationOrigin), Math.cos(angle - rotationOrigin)));
                 if (shift())
@@ -1505,22 +1530,22 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             rotationTarget = "";
             var root = new JsonObject();
             var changes = new JsonArray();
-            var c = new JsonObject();
-            c.addProperty("target", id);
-            c.addProperty("property", "rotation.z");
-            c.addProperty("value", formatNumber(rotationValue));
-            changes.add(c);
+            var change = new JsonObject();
+            change.addProperty("target", id);
+            change.addProperty("property", "rotation.z");
+            change.addProperty("value", formatNumber(rotationValue));
+            changes.add(change);
             root.add("changes", changes);
             effect.submit("properties", "", "", (int) effect.playhead(), 0, root.toString(), "linear", 0, 0, 0, 0);
             return true;
         }
         if (scrubField != null)
         {
-            var f = scrubField;
+            var field = scrubField;
             scrubField = null;
-            if (f.box != null)
+            if (field.box != null)
             {
-                property(f, f.box.getValue());
+                property(field, field.box.getValue());
             }
             return true;
         }
@@ -1539,16 +1564,17 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         if (marquee)
         {
             marquee = false;
-            double lx = Math.min(marqueeX, marqueeEndX);
-            double rx = Math.max(marqueeX, marqueeEndX);
-            double ty = Math.min(marqueeY, marqueeEndY);
-            double by = Math.max(marqueeY, marqueeEndY);
-            for (var n : scene.nodes())
+            double left = Math.min(marqueeX, marqueeEndX);
+            double right = Math.max(marqueeX, marqueeEndX);
+            double top = Math.min(marqueeY, marqueeEndY);
+            double bottom = Math.max(marqueeY, marqueeEndY);
+            for (var node : scene.nodes())
             {
-                if (n.visible() && !scene.locked(n.id()) && !n.locked() && sx(n.x()) >= lx && sx(n.x()) <= rx
-                        && sy(n.y()) >= ty && sy(n.y()) <= by && !scene.selected(n.id()))
+                if (node.visible() && !scene.locked(node.id()) && !node.locked() && sx(node.x()) >= left
+                        && sx(node.x()) <= right && sy(node.y()) >= top && sy(node.y()) <= bottom
+                        && !scene.selected(node.id()))
                 {
-                    scene.toggleSelection(n.id());
+                    scene.toggleSelection(node.id());
                 }
             }
             rebuildWidgets();
@@ -1670,19 +1696,19 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             }
             return super.keyPressed(event);
         }
-        for (var f : fields)
+        for (var field : fields)
         {
-            if (f.box != null && f.box.isFocused())
+            if (field.box != null && field.box.isFocused())
             {
                 if (event.isConfirmation())
                 {
-                    property(f, submit(f.property, f.box.getValue()));
+                    property(field, submit(field.property, field.box.getValue()));
                     setFocused(null);
                     return true;
                 }
                 if (event.isEscape())
                 {
-                    f.box.setValue(display(f.property));
+                    field.box.setValue(display(field.property));
                     setFocused(null);
                     return true;
                 }
@@ -1822,8 +1848,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (id.equals("move-into"))
         {
-            return scene.nodes().stream().anyMatch(
-                    n -> n.kind() == EditorProtocol.KIND_GROUP && EffectHierarchy.canMove(scene, ids, n.id(), ""));
+            return scene.nodes().stream().anyMatch(node -> node.kind() == EditorProtocol.KIND_GROUP
+                    && EffectHierarchy.canMove(scene, ids, node.id(), ""));
         }
         if (id.equals("move-root"))
         {
@@ -1906,18 +1932,19 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             propertyScroll = 0;
             rebuildWidgets();
-            fields.stream().filter(f -> f.box != null && f.property.key().equals("id")).findFirst().ifPresent(f ->
-            {
-                setFocused(f.box);
-                f.box.setCursorPosition(0);
-                f.box.setHighlightPos(f.box.getValue().length());
-            });
+            fields.stream().filter(field -> field.box != null && field.property.key().equals("id")).findFirst()
+                    .ifPresent(field ->
+                    {
+                        setFocused(field.box);
+                        field.box.setCursorPosition(0);
+                        field.box.setHighlightPos(field.box.getValue().length());
+                    });
         }
         case "group", "group-layers" -> group();
         case "focus-properties" ->
         {
-            fields.stream().filter(f -> f.box != null && !f.property.key().equals("id")).findFirst()
-                    .ifPresent(f -> setFocused(f.box));
+            fields.stream().filter(field -> field.box != null && !field.property.key().equals("id")).findFirst()
+                    .ifPresent(field -> setFocused(field.box));
         }
         case "ungroup" -> effect.submit("ungroup-layer", scene.selectedId(), "", 0, 0, "", "linear", 0, 0, 0, 0);
         case "lock" ->
@@ -2002,8 +2029,9 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     private EffectProtocol.Key keyAt(String target, String property)
     {
         return effect.snapshot().tracks().stream()
-                .filter(t -> t.target().equals(target) && t.property().equals(property)).flatMap(t -> t.keys().stream())
-                .filter(k -> k.frame() == (int) effect.playhead()).findFirst().orElse(null);
+                .filter(track -> track.target().equals(target) && track.property().equals(property))
+                .flatMap(track -> track.keys().stream()).filter(key -> key.frame() == (int) effect.playhead())
+                .findFirst().orElse(null);
     }
 
     private void togglePropertyKey(String target, String property)
@@ -2015,13 +2043,15 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         else
         {
-            var n = scene.find(target);
-            if (n != null)
+            var node = scene.find(target);
+            if (node != null)
             {
-                n.properties().stream().filter(p -> p.key().equals(property)).findFirst().ifPresent(p -> effect.key(
-                        target, property,
-                        new EffectProtocol.Key((int) effect.playhead(), p.value(), "linear", 1.0 / 3, 0, 2.0 / 3, 1),
-                        (int) effect.playhead()));
+                node.properties().stream().filter(nodeProperty -> nodeProperty.key().equals(property)).findFirst()
+                        .ifPresent(
+                                nodeProperty -> effect.key(
+                                        target, property, new EffectProtocol.Key((int) effect.playhead(),
+                                                nodeProperty.value(), "linear", 1.0 / 3, 0, 2.0 / 3, 1),
+                                        (int) effect.playhead()));
             }
         }
     }
@@ -2076,13 +2106,13 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         double y = key == GLFW.GLFW_KEY_UP ? amount : key == GLFW.GLFW_KEY_DOWN ? -amount : 0;
         for (String id : selection())
         {
-            var n = scene.find(id);
-            if (n == null || scene.locked(id) || n.locked())
+            var node = scene.find(id);
+            if (node == null || scene.locked(id) || node.locked())
             {
                 continue;
             }
             boolean selectedAncestor = false;
-            String parent = n.parentId();
+            String parent = node.parentId();
             var seen = new HashSet<String>();
             while (!parent.isEmpty() && seen.add(parent))
             {
@@ -2091,8 +2121,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                     selectedAncestor = true;
                     break;
                 }
-                var p = scene.find(parent);
-                parent = p == null ? "" : p.parentId();
+                var parentNode = scene.find(parent);
+                parent = parentNode == null ? "" : parentNode.parentId();
             }
             if (selectedAncestor)
             {
@@ -2100,18 +2130,19 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             }
             try
             {
-                var delta = EffectTransforms.localDelta(n, scene.nodes(), x, y);
+                var delta = EffectTransforms.localDelta(node, scene.nodes(), x, y);
                 double[] values = { delta.x, delta.y, delta.z };
                 String[] axes = { "offset.x", "offset.y", "offset.z" };
                 for (int i = 0; i < 3; i++)
                 {
                     if (Math.abs(values[i]) > 1e-9)
                     {
-                        var c = new JsonObject();
-                        c.addProperty("target", id);
-                        c.addProperty("property", axes[i]);
-                        c.addProperty("value", formatNumber(EffectTransforms.number(n, axes[i], 0) + values[i]));
-                        changes.add(c);
+                        var change = new JsonObject();
+                        change.addProperty("target", id);
+                        change.addProperty("property", axes[i]);
+                        change.addProperty("value",
+                                formatNumber(EffectTransforms.number(node, axes[i], 0) + values[i]));
+                        changes.add(change);
                     }
                 }
             }
@@ -2136,8 +2167,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             return;
         }
-        ArcMenuEditorClient.send(new ReorderPacket(scene.snapshot().revision(),
-                EditorProtocol.TAB_FRONTEND, ids, EffectHierarchy.reorderBefore(scene, ids, action)));
+        ArcMenuEditorClient.send(new ReorderPacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, ids,
+                EffectHierarchy.reorderBefore(scene, ids, action)));
     }
 
     private void createShape()
@@ -2146,10 +2177,10 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             return;
         }
-        double x1 = menuX(marqueeX);
-        double x2 = menuX(marqueeEndX);
-        double y1 = menuY(marqueeY);
-        double y2 = menuY(marqueeEndY);
+        double startX = menuX(marqueeX);
+        double endX = menuX(marqueeEndX);
+        double startY = menuY(marqueeY);
+        double endY = menuY(marqueeEndY);
         byte kind = switch (tool)
         {
         case "frame" -> EditorProtocol.KIND_FRAME;
@@ -2157,24 +2188,23 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         case "line" -> EditorProtocol.KIND_LINE;
         default -> EditorProtocol.KIND_RECTANGLE;
         };
-        double w = Math.max(1, Math.abs(x2 - x1));
-        double h = Math.max(1, Math.abs(y2 - y1));
+        double selectionWidth = Math.max(1, Math.abs(endX - startX));
+        double selectionHeight = Math.max(1, Math.abs(endY - startY));
         var initial = new JsonObject();
         initial.addProperty("type", tool);
         var offset = new JsonObject();
-        offset.addProperty("x", (x1 + x2) / 2);
-        offset.addProperty("y", (y1 + y2) / 2);
+        offset.addProperty("x", (startX + endX) / 2);
+        offset.addProperty("y", (startY + endY) / 2);
         initial.add("offset", offset);
-        initial.addProperty("width", w);
-        initial.addProperty("height", h);
+        initial.addProperty("width", selectionWidth);
+        initial.addProperty("height", selectionHeight);
         if (kind == EditorProtocol.KIND_TEXT)
         {
             initial.addProperty("content", "Text");
         }
         var selected = scene.find(scene.selectedId());
-        ArcMenuEditorClient
-                .send(new CreatePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, kind,
-                        selected != null && selected.kind() == 0 ? selected.id() : "", initial.toString()));
+        ArcMenuEditorClient.send(new CreatePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, kind,
+                selected != null && selected.kind() == 0 ? selected.id() : "", initial.toString()));
         tool = "select";
     }
 
@@ -2189,7 +2219,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         result.addProperty("zoom", viewZoom);
         result.addProperty("selectedKeys", timeline.selectedKeyCount());
         var commands = new LinkedHashMap<String, String>();
-        EffectCommands.list().forEach(c -> commands.put(c.id(), c.shortcut()));
+        EffectCommands.list().forEach(command -> commands.put(command.id(), command.shortcut()));
         EffectTimeline.shortcuts().forEach(commands::putIfAbsent);
         result.add("commands", json.toJsonTree(commands));
         result.add("timeline", timeline.workspaceMetadata());
@@ -2414,8 +2444,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null)
         {
-            ArcMenuEditorClient.send(redo ? new RedoPacket(scene.snapshot().revision())
-                    : new UndoPacket(scene.snapshot().revision()));
+            ArcMenuEditorClient.send(
+                    redo ? new RedoPacket(scene.snapshot().revision()) : new UndoPacket(scene.snapshot().revision()));
         }
     }
 
@@ -2433,8 +2463,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             return;
         }
         String parent = EffectHierarchy.creationParent(scene);
-        ArcMenuEditorClient.send(new CreatePacket(scene.snapshot().revision(),
-                EditorProtocol.TAB_FRONTEND, kind, parent, source));
+        ArcMenuEditorClient
+                .send(new CreatePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, kind, parent, source));
     }
 
     private List<String> selection()
@@ -2446,8 +2476,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null && !selection().isEmpty())
         {
-            ArcMenuEditorClient.send(new DeleteManyPacket(scene.snapshot().revision(),
-                    EditorProtocol.TAB_FRONTEND, selection()));
+            ArcMenuEditorClient
+                    .send(new DeleteManyPacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, selection()));
         }
     }
 
@@ -2455,8 +2485,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null && !selection().isEmpty())
         {
-            ArcMenuEditorClient.send(new DuplicatePacket(scene.snapshot().revision(),
-                    EditorProtocol.TAB_FRONTEND, selection(), "", true));
+            ArcMenuEditorClient.send(new DuplicatePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND,
+                    selection(), "", true));
         }
     }
 
@@ -2464,8 +2494,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null && !selection().isEmpty())
         {
-            ArcMenuEditorClient.send(new GroupPacket(scene.snapshot().revision(),
-                    EffectHierarchy.roots(scene, scene.selectedIds())));
+            ArcMenuEditorClient.send(
+                    new GroupPacket(scene.snapshot().revision(), EffectHierarchy.roots(scene, scene.selectedIds())));
         }
     }
 
@@ -2495,8 +2525,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null && !value.equals(field.property.value()))
         {
-            ArcMenuEditorClient.send(new SetPropertyPacket(scene.snapshot().revision(),
-                    EditorProtocol.TAB_FRONTEND, field.target, field.property.key(), value));
+            ArcMenuEditorClient.send(new SetPropertyPacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND,
+                    field.target, field.property.key(), value));
         }
     }
 
@@ -2526,11 +2556,11 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
 
     private void commitFocused()
     {
-        for (var f : fields)
+        for (var field : fields)
         {
-            if (f.box != null && f.box.isFocused())
+            if (field.box != null && field.box.isFocused())
             {
-                property(f, submit(f.property, f.box.getValue()));
+                property(field, submit(field.property, field.box.getValue()));
                 setFocused(null);
                 break;
             }
@@ -2575,45 +2605,46 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         deferredPointerEvents.addLast(input);
     }
 
-    private static String display(PropertySnapshot p)
+    private static String display(PropertySnapshot property)
     {
-        return p.type() == EditorProtocol.PROPERTY_MULTILINE ? p.value().replace("\\", "\\\\").replace("\n", "\\n")
-                : p.value();
+        return property.type() == EditorProtocol.PROPERTY_MULTILINE
+                ? property.value().replace("\\", "\\\\").replace("\n", "\\n")
+                : property.value();
     }
 
-    private static String submit(PropertySnapshot p, String value)
+    private static String submit(PropertySnapshot property, String value)
     {
-        if (p.type() != EditorProtocol.PROPERTY_MULTILINE)
+        if (property.type() != EditorProtocol.PROPERTY_MULTILINE)
         {
             return value.trim();
         }
         StringBuilder out = new StringBuilder();
         boolean escape = false;
-        for (char c : value.toCharArray())
+        for (char character : value.toCharArray())
         {
             if (escape)
             {
-                if (c == 'n')
+                if (character == 'n')
                 {
                     out.append('\n');
                 }
-                else if (c == '\\')
+                else if (character == '\\')
                 {
                     out.append('\\');
                 }
                 else
                 {
-                    out.append('\\').append(c);
+                    out.append('\\').append(character);
                 }
                 escape = false;
             }
-            else if (c == '\\')
+            else if (character == '\\')
             {
                 escape = true;
             }
             else
             {
-                out.append(c);
+                out.append(character);
             }
         }
         if (escape)
@@ -2625,20 +2656,20 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
 
     private ElementSelectionCalibration.Calibration nodeCalibration(byte kind)
     {
-        var s = scene.snapshot();
-        return calibration.forNode(kind, s != null && s.exactRectangles());
+        var sceneSnapshot = scene.snapshot();
+        return calibration.forNode(kind, sceneSnapshot != null && sceneSnapshot.exactRectangles());
     }
 
     private NodeSnapshot hit(double x, double y)
     {
-        return scene.nodes().stream().filter(n ->
+        return scene.nodes().stream().filter(node ->
         {
-            var c = nodeCalibration(n.kind());
-            double px = c.proxyX(n.x(), n.width());
-            double py = c.proxyY(n.y(), n.height());
-            return n.visible() && Math.abs(menuX(x) - px) <= c.proxyWidth(n.width()) / 2
-                    && Math.abs(menuY(y) - py) <= c.proxyHeight(n.height()) / 2;
-        }).max(Comparator.comparingInt(n -> scene.nodes().indexOf(n))).orElse(null);
+            var calibration = nodeCalibration(node.kind());
+            double drawX = calibration.proxyX(node.x(), node.width());
+            double drawY = calibration.proxyY(node.y(), node.height());
+            return node.visible() && Math.abs(menuX(x) - drawX) <= calibration.proxyWidth(node.width()) / 2
+                    && Math.abs(menuY(y) - drawY) <= calibration.proxyHeight(node.height()) / 2;
+        }).max(Comparator.comparingInt(node -> scene.nodes().indexOf(node))).orElse(null);
     }
 
     private int previewZoom()
@@ -2655,8 +2686,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         var window = minecraft.getWindow();
         var physical = EditorViewport.physical(window);
         var nominal = panels.viewport();
-        var aperture = physical == null
-                ? new ScreenRect(nominal.x(), nominal.y(), nominal.width(), nominal.height())
+        var aperture = physical == null ? new ScreenRect(nominal.x(), nominal.y(), nominal.width(), nominal.height())
                 : EffectProjection.guiAperture(
                         new EditorLayout.Rect(physical.x(), physical.y(), physical.width(), physical.height()),
                         window.getWidth(), window.getHeight(), window.getGuiScaledWidth(), window.getGuiScaledHeight());
@@ -2699,28 +2729,28 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
 
     private int sx(double x)
     {
-        var v = virtualScreen();
-        return (int) Math
-                .round(v.x() + (x + scene.snapshot().canvasWidth() / 2) / scene.snapshot().canvasWidth() * v.width());
+        var view = virtualScreen();
+        return (int) Math.round(
+                view.x() + (x + scene.snapshot().canvasWidth() / 2) / scene.snapshot().canvasWidth() * view.width());
     }
 
     private int sy(double y)
     {
-        var v = virtualScreen();
+        var view = virtualScreen();
         return (int) Math.round(
-                v.y() + (scene.snapshot().canvasHeight() / 2 - y) / scene.snapshot().canvasHeight() * v.height());
+                view.y() + (scene.snapshot().canvasHeight() / 2 - y) / scene.snapshot().canvasHeight() * view.height());
     }
 
     private double menuX(double x)
     {
-        var v = virtualScreen();
-        return (x - v.x()) / v.width() * scene.snapshot().canvasWidth() - scene.snapshot().canvasWidth() / 2;
+        var view = virtualScreen();
+        return (x - view.x()) / view.width() * scene.snapshot().canvasWidth() - scene.snapshot().canvasWidth() / 2;
     }
 
     private double menuY(double y)
     {
-        var v = virtualScreen();
-        return scene.snapshot().canvasHeight() / 2 - (y - v.y()) / v.height() * scene.snapshot().canvasHeight();
+        var view = virtualScreen();
+        return scene.snapshot().canvasHeight() / 2 - (y - view.y()) / view.height() * scene.snapshot().canvasHeight();
     }
 
     private EditorProtocol.Pointer pointer(double x, double y)
@@ -2728,21 +2758,24 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         var aperture = panels.viewport();
         x = Math.max(aperture.x(), Math.min(aperture.right() - .001, x));
         y = Math.max(aperture.y(), Math.min(aperture.bottom() - .001, y));
-        var v = virtualScreen();
-        double px = Math.max(-scene.snapshot().canvasWidth() * 1.9,
+        var view = virtualScreen();
+        double menuPointX = Math.max(-scene.snapshot().canvasWidth() * 1.9,
                 Math.min(scene.snapshot().canvasWidth() * 1.9, menuX(x)));
-        double py = Math.max(-scene.snapshot().canvasHeight() * 1.9,
+        double menuPointY = Math.max(-scene.snapshot().canvasHeight() * 1.9,
                 Math.min(scene.snapshot().canvasHeight() * 1.9, menuY(y)));
-        var n = scene.find(dragging);
-        if (resizing && n != null)
+        var node = scene.find(dragging);
+        if (resizing && node != null)
         {
-            var c = nodeCalibration(n.kind());
-            px = c.serverRightX(n.x(), px);
-            py = c.serverBottomY(n.y(), py);
+            var calibration = nodeCalibration(node.kind());
+            menuPointX = calibration.serverRightX(node.x(), menuPointX);
+            menuPointY = calibration.serverBottomY(node.y(), menuPointY);
         }
-        x = v.x() + (px + scene.snapshot().canvasWidth() / 2) / scene.snapshot().canvasWidth() * v.width();
-        y = v.y() + (scene.snapshot().canvasHeight() / 2 - py) / scene.snapshot().canvasHeight() * v.height();
-        return new EditorProtocol.Pointer(x, y, v.x(), v.y(), v.width(), v.height(), px, py);
+        x = view.x()
+                + (menuPointX + scene.snapshot().canvasWidth() / 2) / scene.snapshot().canvasWidth() * view.width();
+        y = view.y()
+                + (scene.snapshot().canvasHeight() / 2 - menuPointY) / scene.snapshot().canvasHeight() * view.height();
+        return new EditorProtocol.Pointer(x, y, view.x(), view.y(), view.width(), view.height(), menuPointX,
+                menuPointY);
     }
 
     private void flushDrag()
@@ -2761,10 +2794,10 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         sent = pending;
         lastSend = System.nanoTime();
         ArcMenuEditorClient.send(resizing
-                ? new ResizePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, dragging,
-                        pending, gesture, released)
-                : new MovePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, dragging,
-                        pending, grabX, grabY, gesture, released));
+                ? new ResizePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, dragging, pending, gesture,
+                        released)
+                : new MovePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, dragging, pending, grabX,
+                        grabY, gesture, released));
     }
 
     private void finishDrag()
@@ -2782,8 +2815,9 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         double fps = effect.active() ? effect.snapshot().fps() : 30;
         int second = (int) (frame / fps);
-        int f = (int) Math.floor(frame - second * fps);
-        return String.format(Locale.ROOT, "%d:%02d:%02d:%02d", second / 3600, second / 60 % 60, second % 60, f);
+        int frameInSecond = (int) Math.floor(frame - second * fps);
+        return String.format(Locale.ROOT, "%d:%02d:%02d:%02d", second / 3600, second / 60 % 60, second % 60,
+                frameInSecond);
     }
 
     private static String toolKey(byte kind)
@@ -2797,8 +2831,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             return (syntheticModifiers & 2) != 0;
         }
-        return InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LCONTROL)
-                || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RCONTROL);
+        return KeyboardModifiers.controlDown(minecraft);
     }
 
     private boolean shift()
@@ -2807,7 +2840,6 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             return (syntheticModifiers & 1) != 0;
         }
-        return InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LSHIFT)
-                || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RSHIFT);
+        return KeyboardModifiers.shiftDown(minecraft);
     }
 }

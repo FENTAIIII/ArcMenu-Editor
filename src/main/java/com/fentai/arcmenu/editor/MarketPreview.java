@@ -126,9 +126,10 @@ final class MarketPreview implements AutoCloseable
         }
         MarketPreview image = this;
         double scale = Math.min(box.width() / (double) width(), box.height() / (double) height());
-        int w = Math.max(1, (int) (width() * scale));
-        int h = Math.max(1, (int) (height() * scale));
-        var fit = new EditorLayout.Rect(box.x() + (box.width() - w) / 2, box.y() + (box.height() - h) / 2, w, h);
+        int scaledWidth = Math.max(1, (int) (width() * scale));
+        int scaledHeight = Math.max(1, (int) (height() * scale));
+        var fit = new EditorLayout.Rect(box.x() + (box.width() - scaledWidth) / 2,
+                box.y() + (box.height() - scaledHeight) / 2, scaledWidth, scaledHeight);
         graphics.blit(RenderPipelines.GUI_TEXTURED, texture, fit.x(), fit.y(), 0f, 0f, fit.width(), fit.height(),
                 image.width(), image.height(), image.width(), image.height());
     }

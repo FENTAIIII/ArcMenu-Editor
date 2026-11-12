@@ -148,157 +148,157 @@ public final class EffectProtocol
             var out = new DataOutputStream(bytes);
             out.writeInt(MAGIC);
             out.writeByte(version);
-            if (packet instanceof Hello p)
+            if (packet instanceof Hello hello)
             {
                 out.writeByte(1);
-                out.writeInt(p.version());
+                out.writeInt(hello.version());
             }
-            else if (packet instanceof Exit p)
+            else if (packet instanceof Exit exit)
             {
                 out.writeByte(3);
-                out.writeLong(p.sessionId());
+                out.writeLong(exit.sessionId());
             }
-            else if (packet instanceof Playback p)
+            else if (packet instanceof Playback playback)
             {
                 out.writeByte(72);
-                out.writeLong(p.sessionId());
+                out.writeLong(playback.sessionId());
             }
-            else if (packet instanceof Edit p)
+            else if (packet instanceof Edit edit)
             {
                 out.writeByte(2);
-                out.writeLong(p.revision());
-                string(out, p.action());
-                string(out, p.target());
-                string(out, p.property());
-                out.writeInt(p.frame());
-                out.writeInt(p.end());
-                string(out, p.value());
-                string(out, p.interpolation());
-                out.writeDouble(p.x1());
-                out.writeDouble(p.y1());
-                out.writeDouble(p.x2());
-                out.writeDouble(p.y2());
-                out.writeLong(p.requestId());
+                out.writeLong(edit.revision());
+                string(out, edit.action());
+                string(out, edit.target());
+                string(out, edit.property());
+                out.writeInt(edit.frame());
+                out.writeInt(edit.end());
+                string(out, edit.value());
+                string(out, edit.interpolation());
+                out.writeDouble(edit.x1());
+                out.writeDouble(edit.y1());
+                out.writeDouble(edit.x2());
+                out.writeDouble(edit.y2());
+                out.writeLong(edit.requestId());
             }
-            else if (packet instanceof Snapshot p)
+            else if (packet instanceof Snapshot snapshot)
             {
                 out.writeByte(64);
-                out.writeLong(p.revision());
-                string(out, p.id());
-                out.writeDouble(p.fps());
-                out.writeInt(p.duration());
-                out.writeInt(p.workStart());
-                out.writeInt(p.workEnd());
-                out.writeBoolean(p.loop());
-                out.writeBoolean(p.dirty());
-                out.writeBoolean(p.playing());
-                out.writeBoolean(p.autoKey());
-                out.writeDouble(p.playhead());
-                count(out, p.tracks().size());
-                for (var t : p.tracks())
+                out.writeLong(snapshot.revision());
+                string(out, snapshot.id());
+                out.writeDouble(snapshot.fps());
+                out.writeInt(snapshot.duration());
+                out.writeInt(snapshot.workStart());
+                out.writeInt(snapshot.workEnd());
+                out.writeBoolean(snapshot.loop());
+                out.writeBoolean(snapshot.dirty());
+                out.writeBoolean(snapshot.playing());
+                out.writeBoolean(snapshot.autoKey());
+                out.writeDouble(snapshot.playhead());
+                count(out, snapshot.tracks().size());
+                for (var track : snapshot.tracks())
                 {
-                    string(out, t.target());
-                    string(out, t.property());
-                    out.writeBoolean(t.enabled());
-                    count(out, t.keys().size());
-                    for (var k : t.keys())
+                    string(out, track.target());
+                    string(out, track.property());
+                    out.writeBoolean(track.enabled());
+                    count(out, track.keys().size());
+                    for (var keyframe : track.keys())
                     {
-                        out.writeInt(k.frame());
-                        string(out, k.value());
-                        string(out, k.interpolation());
-                        out.writeDouble(k.x1());
-                        out.writeDouble(k.y1());
-                        out.writeDouble(k.x2());
-                        out.writeDouble(k.y2());
+                        out.writeInt(keyframe.frame());
+                        string(out, keyframe.value());
+                        string(out, keyframe.interpolation());
+                        out.writeDouble(keyframe.x1());
+                        out.writeDouble(keyframe.y1());
+                        out.writeDouble(keyframe.x2());
+                        out.writeDouble(keyframe.y2());
                     }
                 }
-                count(out, p.layers().size());
-                for (var l : p.layers())
+                count(out, snapshot.layers().size());
+                for (var layer : snapshot.layers())
                 {
-                    string(out, l.target());
-                    out.writeInt(l.start());
-                    out.writeInt(l.end());
-                    out.writeBoolean(l.enabled());
-                    out.writeBoolean(l.solo());
+                    string(out, layer.target());
+                    out.writeInt(layer.start());
+                    out.writeInt(layer.end());
+                    out.writeBoolean(layer.enabled());
+                    out.writeBoolean(layer.solo());
                 }
-                count(out, p.cues().size());
-                for (var c : p.cues())
+                count(out, snapshot.cues().size());
+                for (var cue : snapshot.cues())
                 {
-                    string(out, c.id());
-                    out.writeInt(c.frame());
-                    out.writeInt(c.end());
-                    string(out, c.kind());
-                    string(out, c.source());
-                    out.writeDouble(c.volume());
-                    out.writeDouble(c.pitch());
-                    out.writeBoolean(c.enabled());
+                    string(out, cue.id());
+                    out.writeInt(cue.frame());
+                    out.writeInt(cue.end());
+                    string(out, cue.kind());
+                    string(out, cue.source());
+                    out.writeDouble(cue.volume());
+                    out.writeDouble(cue.pitch());
+                    out.writeBoolean(cue.enabled());
                 }
-                count(out, p.markers().size());
-                for (var m : p.markers())
+                count(out, snapshot.markers().size());
+                for (var marker : snapshot.markers())
                 {
-                    out.writeInt(m.frame());
-                    string(out, m.label());
+                    out.writeInt(marker.frame());
+                    string(out, marker.label());
                 }
-                count(out, p.assets().size());
-                for (var a : p.assets())
+                count(out, snapshot.assets().size());
+                for (var asset : snapshot.assets())
                 {
-                    string(out, a);
+                    string(out, asset);
                 }
             }
             else if (packet instanceof Closed)
             {
                 out.writeByte(65);
             }
-            else if (packet instanceof Error p)
+            else if (packet instanceof Error error)
             {
                 out.writeByte(66);
-                out.writeLong(p.revision());
-                string(out, p.message());
+                out.writeLong(error.revision());
+                string(out, error.message());
             }
-            else if (packet instanceof Ack p)
+            else if (packet instanceof Ack ack)
             {
                 out.writeByte(67);
-                out.writeLong(p.requestId());
+                out.writeLong(ack.requestId());
             }
-            else if (packet instanceof Viewport p)
+            else if (packet instanceof Viewport viewport)
             {
                 out.writeByte(68);
-                out.writeDouble(p.pixelsPerBlock());
-                out.writeDouble(p.distance());
-                out.writeDouble(p.offsetX());
-                out.writeDouble(p.offsetY());
+                out.writeDouble(viewport.pixelsPerBlock());
+                out.writeDouble(viewport.distance());
+                out.writeDouble(viewport.offsetX());
+                out.writeDouble(viewport.offsetY());
             }
-            else if (packet instanceof Selection p)
+            else if (packet instanceof Selection selection)
             {
                 out.writeByte(69);
-                out.writeLong(p.requestId());
-                count(out, p.ids().size());
-                for (String id : p.ids())
+                out.writeLong(selection.requestId());
+                count(out, selection.ids().size());
+                for (String id : selection.ids())
                 {
                     string(out, id);
                 }
             }
-            else if (packet instanceof Transport p)
+            else if (packet instanceof Transport transport)
             {
                 out.writeByte(70);
-                out.writeLong(p.revision());
-                string(out, p.id());
-                out.writeBoolean(p.dirty());
-                out.writeBoolean(p.playing());
-                out.writeBoolean(p.autoKey());
-                out.writeDouble(p.playhead());
+                out.writeLong(transport.revision());
+                string(out, transport.id());
+                out.writeBoolean(transport.dirty());
+                out.writeBoolean(transport.playing());
+                out.writeBoolean(transport.autoKey());
+                out.writeDouble(transport.playhead());
             }
-            else if (packet instanceof SceneFrame p)
+            else if (packet instanceof SceneFrame sceneFrame)
             {
-                if (p.nodes().size() > 10_000)
+                if (sceneFrame.nodes().size() > 10_000)
                 {
                     throw new IllegalArgumentException("Too many Effect frame nodes");
                 }
                 out.writeByte(71);
-                out.writeLong(p.revision());
-                string(out, p.menuId());
-                count(out, p.nodes().size());
-                for (var node : p.nodes())
+                out.writeLong(sceneFrame.revision());
+                string(out, sceneFrame.menuId());
+                count(out, sceneFrame.nodes().size());
+                for (var node : sceneFrame.nodes())
                 {
                     if (node.properties().size() > 256)
                     {

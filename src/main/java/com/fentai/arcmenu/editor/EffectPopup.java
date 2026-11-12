@@ -24,11 +24,11 @@ final class EffectPopup
     private int selected;
     private int scroll;
 
-    void open(int px, int py, List<Item> value)
+    void open(int anchorX, int anchorY, List<Item> value)
     {
         items = List.copyOf(value);
-        x = px;
-        y = py;
+        x = anchorX;
+        y = anchorY;
         selected = -1;
         scroll = 0;
     }
@@ -63,35 +63,35 @@ final class EffectPopup
         for (int j = 0; j < visible; j++)
         {
             int i = j + scroll;
-            int ry = y + 2 + j * 21;
+            int rowY = y + 2 + j * 21;
             var item = items.get(i);
-            boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= ry && mouseY < ry + 20;
+            boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= rowY && mouseY < rowY + 20;
             if (hovered || selected == i)
             {
-                graphics.fill(x + 2, ry, x + width - 2, ry + 20, item.enabled ? 0xFF384A60 : 0xFF292929);
+                graphics.fill(x + 2, rowY, x + width - 2, rowY + 20, item.enabled ? 0xFF384A60 : 0xFF292929);
             }
             EffectUi.text(graphics, font,
-                    EffectUi.fit(font, item.label, width - EffectUi.width(font, item.shortcut) - 24), x + 8, ry + 6,
+                    EffectUi.fit(font, item.label, width - EffectUi.width(font, item.shortcut) - 24), x + 8, rowY + 6,
                     item.enabled ? EffectUi.TEXT : 0xFF666666);
-            EffectUi.text(graphics, font, item.shortcut, x + width - EffectUi.width(font, item.shortcut) - 8, ry + 6,
+            EffectUi.text(graphics, font, item.shortcut, x + width - EffectUi.width(font, item.shortcut) - 8, rowY + 6,
                     item.enabled ? EffectUi.MUTED : 0xFF555555);
         }
         if (items.size() > visible)
         {
-            int h = Math.max(6, visible * 21 * visible / items.size());
-            int top = y + 2 + scroll * (visible * 21 - h) / Math.max(1, items.size() - visible);
-            graphics.fill(x + width - 3, top, x + width - 1, top + h, EffectUi.ACCENT);
+            int thumbHeight = Math.max(6, visible * 21 * visible / items.size());
+            int top = y + 2 + scroll * (visible * 21 - thumbHeight) / Math.max(1, items.size() - visible);
+            graphics.fill(x + width - 3, top, x + width - 1, top + thumbHeight, EffectUi.ACCENT);
         }
     }
 
-    boolean click(double px, double py, boolean primary)
+    boolean click(double pointX, double pointY, boolean primary)
     {
         if (!active())
         {
             return false;
         }
-        int row = (int) ((py - y - 2) / 21) + scroll;
-        if (primary && px >= x && px < x + width && py >= y + 2 && py < y + 2 + visible * 21 && row >= 0
+        int row = (int) ((pointY - y - 2) / 21) + scroll;
+        if (primary && pointX >= x && pointX < x + width && pointY >= y + 2 && pointY < y + 2 + visible * 21 && row >= 0
                 && row < items.size())
         {
             var item = items.get(row);

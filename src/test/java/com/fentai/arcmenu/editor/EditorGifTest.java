@@ -89,15 +89,13 @@ class EditorGifTest
         assertEquals(8, EditorProtocol.KIND_LINE);
         assertEquals(9, EditorProtocol.KIND_GIF);
         assertEquals(11, EditorProtocol.VERSION);
-        var create = new CreatePacket(4, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_GIF, "group",
-                "/example.gif");
+        var create = new CreatePacket(4, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_GIF, "group", "/example.gif");
         assertEquals(create, EditorProtocol.decode(EditorProtocol.encode(create)));
-        var node = new NodeSnapshot("gif", "group", EditorProtocol.KIND_GIF, 20, 30, 120, 60, 0, true,
-                false,
+        var node = new NodeSnapshot("gif", "group", EditorProtocol.KIND_GIF, 20, 30, 120, 60, 0, true, false,
                 List.of(new PropertySnapshot("source", EditorProtocol.PROPERTY_TEXT, "/example.gif"),
                         new PropertySnapshot("speed", EditorProtocol.PROPERTY_NUMBER, "0.5")));
-        var snapshot = new SnapshotPacket(5, "gif-project", 800, 450, true, false, "26.3", List.of(node),
-                List.of(), List.of(image("/example.gif")), List.of());
+        var snapshot = new SnapshotPacket(5, "gif-project", 800, 450, true, false, "26.3", List.of(node), List.of(),
+                List.of(image("/example.gif")), List.of());
         assertEquals(snapshot, EditorProtocol.decode(EditorProtocol.encode(snapshot)));
         var state = new EditorState();
         state.update(snapshot);

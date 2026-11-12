@@ -117,8 +117,7 @@ public final class VisionVisualClient
                 transform.m31(transform.m31() + (float) offset.y());
                 transform.m32(transform.m32() + (float) offset.z());
                 var original = state.renderState;
-                state.renderState = new RenderState(
-                        GenericInterpolator.constant(new Transformation(transform)),
+                state.renderState = new RenderState(GenericInterpolator.constant(new Transformation(transform)),
                         original.billboardConstraints(), original.brightnessOverride(), original.shadowRadius(),
                         original.shadowStrength(), original.glowColorOverride());
             }

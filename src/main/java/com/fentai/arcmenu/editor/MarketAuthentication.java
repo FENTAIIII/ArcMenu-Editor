@@ -5,8 +5,6 @@ import com.google.gson.JsonObject;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -45,16 +43,6 @@ public final class MarketAuthentication
                 Objects.requireNonNull(retryExecutor, "retryExecutor"));
         result.start(false);
         return result;
-    }
-
-    private static Throwable cause(Throwable error)
-    {
-        while ((error instanceof CompletionException || error instanceof ExecutionException)
-                && error.getCause() != null)
-        {
-            error = error.getCause();
-        }
-        return error;
     }
 
     private static final class Retry extends CompletableFuture<JsonObject>
@@ -103,7 +91,7 @@ public final class MarketAuthentication
                 complete(value);
                 return;
             }
-            Throwable failure = cause(error);
+            Throwable failure = MarketMessages.unwrap(error);
             try
             {
                 if (secondAttempt || !transientFailure.test(failure))

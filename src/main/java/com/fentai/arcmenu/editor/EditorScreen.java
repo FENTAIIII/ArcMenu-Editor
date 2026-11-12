@@ -30,7 +30,6 @@ import com.fentai.arcmenu.protocol.EditorProtocol.UndoPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.UngroupPacket;
 import com.fentai.arcmenu.protocol.EffectProtocol;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -452,15 +451,15 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
 
     private void drawWorkspaceMask(GuiGraphicsExtractor graphics)
     {
-        var l = currentLayout;
-        fill(graphics, l.header(), HEADER);
-        fill(graphics, l.tools(), PANEL);
-        fill(graphics, l.manager(), PANEL);
-        fill(graphics, l.properties(), PANEL_ALT);
-        fill(graphics, l.templates(), PANEL);
+        var panels = currentLayout;
+        fill(graphics, panels.header(), HEADER);
+        fill(graphics, panels.tools(), PANEL);
+        fill(graphics, panels.manager(), PANEL);
+        fill(graphics, panels.properties(), PANEL_ALT);
+        fill(graphics, panels.templates(), PANEL);
 
-        var host = l.viewportHost();
-        var view = l.viewport();
+        var host = panels.viewportHost();
+        var view = panels.viewport();
         graphics.fill(host.x(), host.y(), host.right(), view.y(), PANEL_ALT);
         graphics.fill(host.x(), view.bottom(), host.right(), host.bottom(), PANEL_ALT);
         graphics.fill(host.x(), view.y(), view.x(), view.bottom(), PANEL_ALT);
@@ -680,14 +679,14 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             double drawHeight = calibration.proxyHeight(node.height());
             int x = screenX(drawX - drawWidth / 2);
             int y = screenY(drawY + drawHeight / 2);
-            int w = Math.max(2, screenX(drawX + drawWidth / 2) - x);
-            int h = Math.max(2, screenY(drawY - drawHeight / 2) - y);
+            int boxWidth = Math.max(2, screenX(drawX + drawWidth / 2) - x);
+            int boxHeight = Math.max(2, screenY(drawY - drawHeight / 2) - y);
             int color = state.selected(node.id()) ? (node.id().equals(state.selectedId()) ? 0xFFFFC857 : 0xFF8FB7ED)
                     : state.activeTab() == EditorProtocol.TAB_BACKEND ? 0xB04096FF : 0x885D88C7;
-            graphics.outline(x, y, w, h, color);
+            graphics.outline(x, y, boxWidth, boxHeight, color);
             if (node.id().equals(state.selectedId()))
             {
-                graphics.fill(x + w - 3, y + h - 3, x + w + 3, y + h + 3, ACCENT);
+                graphics.fill(x + boxWidth - 3, y + boxHeight - 3, x + boxWidth + 3, y + boxHeight + 3, ACCENT);
             }
         }
         int virtualX = (int) Math.round(virtual.x());
@@ -831,8 +830,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 height, 0xFF161920, BORDER, TEXT);
     }
 
-    private void appendRows(Map<String, List<NodeSnapshot>> children, String parent, int depth,
-            int[] row)
+    private void appendRows(Map<String, List<NodeSnapshot>> children, String parent, int depth, int[] row)
     {
         for (NodeSnapshot node : children.getOrDefault(parent, List.of()))
         {
@@ -922,8 +920,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         int cardY = panel.y() + 45 - templateScroll;
         int cardW = 126;
         templateCards.clear();
-        List<TemplateSnapshot> templates = state.snapshot() == null ? List.of()
-                : state.snapshot().templates();
+        List<TemplateSnapshot> templates = state.snapshot() == null ? List.of() : state.snapshot().templates();
         int columns = Math.max(1, (panel.width() - 18) / (cardW + 9));
         int cardCount = Math.max(1, templates.size());
         templateContentHeight = ((cardCount + columns - 1) / columns) * 86;
@@ -1078,14 +1075,15 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             else
             {
                 // Checkerboard makes transparent artwork readable without altering its texture.
-                for (int cy = preview.y(); cy < preview.bottom(); cy += 6)
+                for (int checkerY = preview.y(); checkerY < preview.bottom(); checkerY += 6)
                 {
-                    for (int cx = preview.x(); cx < preview.right(); cx += 6)
+                    for (int checkerX = preview.x(); checkerX < preview.right(); checkerX += 6)
                     {
-                        int color = (((cx - preview.x()) / 6 + (cy - preview.y()) / 6) & 1) == 0 ? 0xFF343A45
+                        int color = (((checkerX - preview.x()) / 6 + (checkerY - preview.y()) / 6) & 1) == 0
+                                ? 0xFF343A45
                                 : 0xFF282D37;
-                        graphics.fill(cx, cy, Math.min(cx + 6, preview.right()), Math.min(cy + 6, preview.bottom()),
-                                color);
+                        graphics.fill(checkerX, checkerY, Math.min(checkerX + 6, preview.right()),
+                                Math.min(checkerY + 6, preview.bottom()), color);
                     }
                 }
                 if (!EditorImagePreview.draw(graphics, entry.image(), preview))
@@ -1175,8 +1173,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             var target = state.find(imageSourceTarget);
             if (target != null && EditorImageTypes.imageKind(target.kind()))
             {
-                ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(),
-                        EditorProtocol.TAB_FRONTEND, target.id(), "source", image.path()));
+                ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(), EditorProtocol.TAB_FRONTEND,
+                        target.id(), "source", image.path()));
                 imageSourceTarget = "";
             }
             else
@@ -1213,25 +1211,25 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         graphics.text(font, ellipsize(value, 35), x + 6, y + 6, TEXT, false);
     }
 
-    private void property2(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double a,
-            double b)
+    private void property2(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double xValue,
+            double yValue)
     {
         graphics.text(font, label, panel.x() + 8, y, MUTED, false);
         int x = panel.x() + 8;
-        int w = (panel.width() - 25) / 2;
-        smallField(graphics, x, y + 12, w, "X  " + format(a), 0xFFE95C66);
-        smallField(graphics, x + w + 7, y + 12, w, "Y  " + format(b), 0xFF56D364);
+        int fieldWidth = (panel.width() - 25) / 2;
+        smallField(graphics, x, y + 12, fieldWidth, "X  " + format(xValue), 0xFFE95C66);
+        smallField(graphics, x + fieldWidth + 7, y + 12, fieldWidth, "Y  " + format(yValue), 0xFF56D364);
     }
 
-    private void property3(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double a,
-            double b, double c)
+    private void property3(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double xValue,
+            double yValue, double zValue)
     {
         graphics.text(font, label, panel.x() + 8, y, MUTED, false);
         int x = panel.x() + 8;
-        int w = (panel.width() - 30) / 3;
-        smallField(graphics, x, y + 12, w, "X " + format(a), 0xFFE95C66);
-        smallField(graphics, x + w + 5, y + 12, w, "Y " + format(b), 0xFF56D364);
-        smallField(graphics, x + (w + 5) * 2, y + 12, w, "Z " + format(c), 0xFF55A6F1);
+        int fieldWidth = (panel.width() - 30) / 3;
+        smallField(graphics, x, y + 12, fieldWidth, "X " + format(xValue), 0xFFE95C66);
+        smallField(graphics, x + fieldWidth + 5, y + 12, fieldWidth, "Y " + format(yValue), 0xFF56D364);
+        smallField(graphics, x + (fieldWidth + 5) * 2, y + 12, fieldWidth, "Z " + format(zValue), 0xFF55A6F1);
     }
 
     private void smallField(GuiGraphicsExtractor graphics, int x, int y, int width, String value, int stripe)
@@ -1453,9 +1451,9 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                                 .filter(property -> property.key().equals("visible")).findFirst().orElse(null);
                         if (visible != null)
                         {
-                            ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(),
-                                    state.activeTab(), row.node.id(), "visible",
-                                    Boolean.toString(!Boolean.parseBoolean(visible.value()))));
+                            ArcMenuEditorClient.send(
+                                    new SetPropertyPacket(state.snapshot().revision(), state.activeTab(), row.node.id(),
+                                            "visible", Boolean.toString(!Boolean.parseBoolean(visible.value()))));
                         }
                     }
                     else if (x >= currentLayout.manager().right() - 22)
@@ -1737,8 +1735,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             parent = selected.id();
             state.expanded().add(parent);
         }
-        ArcMenuEditorClient.send(
-                new CreatePacket(snapshot.revision(), state.activeTab(), kind, parent, imageSource));
+        ArcMenuEditorClient.send(new CreatePacket(snapshot.revision(), state.activeTab(), kind, parent, imageSource));
     }
 
     private void performHeaderAction(HeaderAction action)
@@ -1903,13 +1900,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                     state.expanded().add(target.node.id());
                     if (sameParent(selected, target.node.id()))
                     {
-                        ArcMenuEditorClient.send(new ReorderPacket(state.snapshot().revision(),
-                                state.activeTab(), selected, ""));
+                        ArcMenuEditorClient
+                                .send(new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected, ""));
                     }
                     else
                     {
-                        ArcMenuEditorClient.send(new ReparentPacket(state.snapshot().revision(),
-                                selected, target.node.id(), ""));
+                        ArcMenuEditorClient
+                                .send(new ReparentPacket(state.snapshot().revision(), selected, target.node.id(), ""));
                     }
                 }
                 else
@@ -1921,8 +1918,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             {
                 if (sameParent(selected, target.node.parentId()))
                 {
-                    ArcMenuEditorClient.send(new ReorderPacket(state.snapshot().revision(),
-                            state.activeTab(), selected, target.node.id()));
+                    ArcMenuEditorClient.send(new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected,
+                            target.node.id()));
                 }
                 else if (canMoveToParent(selected, target.node.parentId()))
                 {
@@ -1938,21 +1935,19 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             {
                 if (sameParent(selected, ""))
                 {
-                    ArcMenuEditorClient.send(new ReorderPacket(state.snapshot().revision(),
-                            state.activeTab(), selected, ""));
+                    ArcMenuEditorClient
+                            .send(new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected, ""));
                 }
                 else if (canMoveToParent(selected, ""))
                 {
-                    ArcMenuEditorClient
-                            .send(new ReparentPacket(state.snapshot().revision(), selected, "", ""));
+                    ArcMenuEditorClient.send(new ReparentPacket(state.snapshot().revision(), selected, "", ""));
                 }
             }
         }
         if (!draggingTemplate.isBlank() && currentLayout != null
                 && currentLayout.manager().contains(event.x(), event.y()) && state.snapshot() != null)
         {
-            ArcMenuEditorClient
-                    .send(new InstantiateTemplatePacket(state.snapshot().revision(), draggingTemplate));
+            ArcMenuEditorClient.send(new InstantiateTemplatePacket(state.snapshot().revision(), draggingTemplate));
         }
         dragCandidateNode = "";
         draggingTemplate = "";
@@ -2004,13 +1999,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         if (resizingNode)
         {
-            ArcMenuEditorClient.send(new ResizePacket(state.snapshot().revision(), state.activeTab(),
-                    draggingNode, pendingDragPointer, activeGestureId, finalUpdate));
+            ArcMenuEditorClient.send(new ResizePacket(state.snapshot().revision(), state.activeTab(), draggingNode,
+                    pendingDragPointer, activeGestureId, finalUpdate));
         }
         else if (!draggingNode.isBlank())
         {
-            ArcMenuEditorClient.send(new MovePacket(state.snapshot().revision(), state.activeTab(),
-                    draggingNode, pendingDragPointer, grabOffsetX, grabOffsetY, activeGestureId, finalUpdate));
+            ArcMenuEditorClient.send(new MovePacket(state.snapshot().revision(), state.activeTab(), draggingNode,
+                    pendingDragPointer, grabOffsetX, grabOffsetY, activeGestureId, finalUpdate));
         }
         else
         {
@@ -2147,10 +2142,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     {
         if (effectTimeline.active())
         {
-            boolean control = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LCONTROL)
-                    || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RCONTROL);
-            boolean shift = InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LSHIFT)
-                    || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RSHIFT);
+            boolean control = KeyboardModifiers.controlDown(minecraft);
+            boolean shift = KeyboardModifiers.shiftDown(minecraft);
             if (effectTimeline.scroll(mouseX, mouseY, vertical, control, shift))
             {
                 return true;
@@ -2240,8 +2233,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             if (event.isConfirmation() && templateNameBox != null && state.snapshot() != null)
             {
                 String templateId = templateNameBox.getValue().trim().toLowerCase(Locale.ROOT);
-                ArcMenuEditorClient.send(new SaveTemplatePacket(state.snapshot().revision(),
-                        pendingTemplateNode, templateId));
+                ArcMenuEditorClient
+                        .send(new SaveTemplatePacket(state.snapshot().revision(), pendingTemplateNode, templateId));
                 pendingTemplateNode = "";
                 rebuildWidgets();
                 return true;
@@ -2273,9 +2266,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             if (event.key() == GLFW.GLFW_KEY_Z)
             {
-                ArcMenuEditorClient
-                        .send(event.hasShiftDown() ? new RedoPacket(state.snapshot().revision())
-                                : new UndoPacket(state.snapshot().revision()));
+                ArcMenuEditorClient.send(event.hasShiftDown() ? new RedoPacket(state.snapshot().revision())
+                        : new UndoPacket(state.snapshot().revision()));
                 return true;
             }
             if (event.key() == GLFW.GLFW_KEY_Y)
@@ -2381,8 +2373,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             state.status(EditorI18n.text("arcmenu_editor.status.clipboard_unavailable"));
             return;
         }
-        ArcMenuEditorClient.send(new DuplicatePacket(state.snapshot().revision(), state.activeTab(),
-                clipboardIds, targetParent, preserveParents));
+        ArcMenuEditorClient.send(new DuplicatePacket(state.snapshot().revision(), state.activeTab(), clipboardIds,
+                targetParent, preserveParents));
     }
 
     private void duplicateSelection()
@@ -2391,8 +2383,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             return;
         }
-        ArcMenuEditorClient.send(new DuplicatePacket(state.snapshot().revision(), state.activeTab(),
-                selectedOrder(), "", true));
+        ArcMenuEditorClient
+                .send(new DuplicatePacket(state.snapshot().revision(), state.activeTab(), selectedOrder(), "", true));
     }
 
     private void groupSelection()
@@ -2428,13 +2420,11 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         List<String> ids = selectedOrder();
         if (ids.size() == 1)
         {
-            ArcMenuEditorClient.send(
-                    new DeletePacket(state.snapshot().revision(), state.activeTab(), ids.getFirst()));
+            ArcMenuEditorClient.send(new DeletePacket(state.snapshot().revision(), state.activeTab(), ids.getFirst()));
         }
         else
         {
-            ArcMenuEditorClient
-                    .send(new DeleteManyPacket(state.snapshot().revision(), state.activeTab(), ids));
+            ArcMenuEditorClient.send(new DeleteManyPacket(state.snapshot().revision(), state.activeTab(), ids));
         }
     }
 
@@ -2468,8 +2458,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             return;
         }
-        ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(), field.tab,
-                field.nodeId, field.property.key(), value));
+        ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(), field.tab, field.nodeId,
+                field.property.key(), value));
     }
 
     private Optional<PropertyField> propertyField(String key)
@@ -3149,8 +3139,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         private final long gestureId;
         private boolean dragging;
 
-        private PropertyDrag(String nodeId, PropertySnapshot property, double initialValue,
-                double startX, double startY, long gestureId)
+        private PropertyDrag(String nodeId, PropertySnapshot property, double initialValue, double startX,
+                double startY, long gestureId)
         {
             this.nodeId = nodeId;
             this.property = property;

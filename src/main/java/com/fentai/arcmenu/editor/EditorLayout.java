@@ -194,9 +194,9 @@ public final class EditorLayout
             return y + height;
         }
 
-        public boolean contains(double px, double py)
+        public boolean contains(double pointX, double pointY)
         {
-            return px >= x && px < right() && py >= y && py < bottom();
+            return pointX >= x && pointX < right() && pointY >= y && pointY < bottom();
         }
 
         public Rect inset(int amount)
@@ -217,9 +217,9 @@ public final class EditorLayout
             return y + height;
         }
 
-        public boolean contains(double px, double py)
+        public boolean contains(double pointX, double pointY)
         {
-            return px >= x && px < right() && py >= y && py < bottom();
+            return pointX >= x && pointX < right() && pointY >= y && pointY < bottom();
         }
     }
 

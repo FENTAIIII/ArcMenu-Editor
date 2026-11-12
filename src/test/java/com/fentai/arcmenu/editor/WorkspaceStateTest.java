@@ -28,11 +28,11 @@ class WorkspaceStateTest
     void foldersFollowRelativeDirectoriesAndCollapseOnlyTheirOwnType()
     {
         var state = state();
-        assertEquals(4, state.rows("").stream().filter(r -> !r.folder()).count());
+        assertEquals(4, state.rows("").stream().filter(row -> !row.folder()).count());
         state.toggleFolder("menu/folder");
         assertEquals(List.of("effect:a", "menu:a"),
-                state.rows("").stream().filter(r -> !r.folder()).map(WorkspaceState.Row::key).toList());
-        assertEquals(1, state.rows("folder/c").stream().filter(r -> !r.folder()).count());
+                state.rows("").stream().filter(row -> !row.folder()).map(WorkspaceState.Row::key).toList());
+        assertEquals(1, state.rows("folder/c").stream().filter(row -> !row.folder()).count());
     }
 
     @Test
@@ -40,12 +40,12 @@ class WorkspaceStateTest
     {
         var state = state();
         var rows = state.rows("");
-        var b = state.projects().stream().filter(p -> p.id().equals("b")).findFirst().orElseThrow();
-        var c = state.projects().stream().filter(p -> p.id().equals("c")).findFirst().orElseThrow();
-        state.select(b, false, false, rows);
-        state.select(c, false, true, rows);
+        var projectB = state.projects().stream().filter(project -> project.id().equals("b")).findFirst().orElseThrow();
+        var projectC = state.projects().stream().filter(project -> project.id().equals("c")).findFirst().orElseThrow();
+        state.select(projectB, false, false, rows);
+        state.select(projectC, false, true, rows);
         assertEquals(List.of("b", "c"), state.selection().stream().map(WorkspaceState.Project::id).toList());
-        state.select(b, true, false, rows);
+        state.select(projectB, true, false, rows);
         assertEquals(List.of("c"), state.selection().stream().map(WorkspaceState.Project::id).toList());
         assertEquals("menu", state.references().get(0).getAsJsonObject().get("type").getAsString());
     }
@@ -70,11 +70,11 @@ class WorkspaceStateTest
     {
         var state = state();
         assertEquals("abc", state.marketCertificateSha256());
-        var p = state.projects().stream().filter(project -> project.type().equals("menu")).findFirst().orElseThrow();
-        assertEquals(42.7, p.pixelsPerBlock());
-        assertEquals(3, p.distance());
-        assertEquals(320, p.width());
-        assertEquals(180, p.height());
+        var menu = state.projects().stream().filter(project -> project.type().equals("menu")).findFirst().orElseThrow();
+        assertEquals(42.7, menu.pixelsPerBlock());
+        assertEquals(3, menu.distance());
+        assertEquals(320, menu.width());
+        assertEquals(180, menu.height());
         var effect = state.projects().stream().filter(project -> project.type().equals("effect")).findFirst()
                 .orElseThrow();
         assertEquals(42.7, effect.pixelsPerBlock());
@@ -113,8 +113,9 @@ class WorkspaceStateTest
                                 {"projects":[{"type":"menu","id":"shared","path":"addon/shared.yml"},{"type":"effect","id":"shared","path":"shared/scene.yml"},{"type":"template","id":"shared","path":"arcpack-starter/groups/shared.yml","rootId":"card","nodeCount":4},{"type":"template","id":"bare","path":"bare.yml"}]}
                                 """)
                 .getAsJsonObject());
-        var template = state.projects().stream().filter(p -> p.type().equals("template") && p.id().equals("shared"))
-                .findFirst().orElseThrow();
+        var template = state.projects().stream()
+                .filter(candidate -> candidate.type().equals("template") && candidate.id().equals("shared")).findFirst()
+                .orElseThrow();
         assertEquals("card", template.rootId());
         assertEquals(4, template.nodeCount());
         assertTrue(template.previewOnly());
@@ -129,7 +130,8 @@ class WorkspaceStateTest
         assertEquals(List.of("bare"), state.rows("", "template").stream().filter(row -> !row.folder())
                 .map(row -> row.project().id()).toList());
         assertEquals(1, state.rows("", "menu").stream().filter(row -> !row.folder()).count());
-        var bare = state.projects().stream().filter(p -> p.id().equals("bare")).findFirst().orElseThrow();
+        var bare = state.projects().stream().filter(candidate -> candidate.id().equals("bare")).findFirst()
+                .orElseThrow();
         assertEquals("", bare.rootId());
         assertEquals(0, bare.nodeCount());
     }

@@ -157,7 +157,7 @@ public final class ApricityWorkspaceView implements AutoCloseable
         AuiServices.setClient((AuiClientService) Proxy.newProxyInstance(AuiClientService.class.getClassLoader(),
                 new Class<?>[] { AuiClientService.class }, (proxy, method, raw) ->
                 {
-                    Object[] a = raw == null ? new Object[0] : raw;
+                    Object[] arguments = raw == null ? new Object[0] : raw;
                     Minecraft client = Minecraft.getInstance();
                     var window = client == null ? null : client.getWindow();
                     return switch (method.getName())
@@ -175,13 +175,14 @@ public final class ApricityWorkspaceView implements AutoCloseable
                     case "isProduction" -> true;
                     case "getGameDirectory" -> FabricLoader.getInstance().getGameDir();
                     case "getConfigDirectory" -> FabricLoader.getInstance().getConfigDir();
-                    case "isKeyPressed" -> active != null && active.modifierDown((String) a[0]);
+                    case "isKeyPressed" -> active != null && active.modifierDown((String) arguments[0]);
                     case "getDefaultFontWidth" -> new Font(Font.SANS_SERIF, Font.PLAIN, 16)
-                            .getStringBounds((String) a[0], new FontRenderContext(null, true, true)).getBounds().width;
+                            .getStringBounds((String) arguments[0], new FontRenderContext(null, true, true))
+                            .getBounds().width;
                     case "drawDefaultFont" ->
                     {
-                        RENDERER.defaultText(((PoseStack) a[0]).last().pose(), (Text) a[1], (String) a[2],
-                                (Position) a[3]);
+                        RENDERER.defaultText(((PoseStack) arguments[0]).last().pose(), (Text) arguments[1],
+                                (String) arguments[2], (Position) arguments[3]);
                         yield null;
                     }
                     default -> AuiSurfaceRenderer.defaultValue(method.getReturnType());
@@ -738,8 +739,8 @@ public final class ApricityWorkspaceView implements AutoCloseable
             document.commitStyleRecalc();
             document.commitRenderState();
             var bounds = Rect.of(element).getVisualBounds();
-            Position p = document.documentToScreenPosition(new Position(bounds.x(), bounds.y()));
-            return new double[] { p.x, p.y, bounds.width() * document.getViewportScaleX(),
+            Position position = document.documentToScreenPosition(new Position(bounds.x(), bounds.y()));
+            return new double[] { position.x, position.y, bounds.width() * document.getViewportScaleX(),
                     bounds.height() * document.getViewportScaleY() };
         }
     }

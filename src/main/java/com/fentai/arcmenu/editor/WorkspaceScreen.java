@@ -196,7 +196,8 @@ public final class WorkspaceScreen extends Screen
     {
         String query = searchValue.toLowerCase(Locale.ROOT);
         return WorkspaceClient.STATE.localPacks().stream()
-                .filter(p -> (p.filename() + " " + p.title() + " " + p.id()).toLowerCase(Locale.ROOT).contains(query))
+                .filter(pack -> (pack.filename() + " " + pack.title() + " " + pack.id()).toLowerCase(Locale.ROOT)
+                        .contains(query))
                 .toList();
     }
 
@@ -204,7 +205,7 @@ public final class WorkspaceScreen extends Screen
     {
         String query = searchValue.toLowerCase(Locale.ROOT);
         return WorkspaceClient.STATE.packs().stream()
-                .filter(p -> (p.id() + " " + p.title()).toLowerCase(Locale.ROOT).contains(query)).toList();
+                .filter(pack -> (pack.id() + " " + pack.title()).toLowerCase(Locale.ROOT).contains(query)).toList();
     }
 
     public LocalPack selectedLocalPackage()
@@ -424,13 +425,13 @@ public final class WorkspaceScreen extends Screen
             }
             case "select_project", "toggle_project", "open_project" ->
             {
-                var p = WorkspaceClient.STATE.projects().stream().filter(item -> item.key().equals(id)).findFirst()
-                        .orElse(null);
-                if (p != null)
+                var project = WorkspaceClient.STATE.projects().stream().filter(item -> item.key().equals(id))
+                        .findFirst().orElse(null);
+                if (project != null)
                 {
                     int mods = view.lastActionModifiers();
                     boolean toggle = action.equals("toggle_project");
-                    WorkspaceClient.STATE.select(p, toggle || (mods & 2) != 0, !toggle && (mods & 1) != 0, rows);
+                    WorkspaceClient.STATE.select(project, toggle || (mods & 2) != 0, !toggle && (mods & 1) != 0, rows);
                     paint();
                     if (action.equals("open_project"))
                     {
@@ -675,14 +676,14 @@ public final class WorkspaceScreen extends Screen
                     });
         case "open" ->
         {
-            var p = selected.getFirst();
-            if (!p.previewOnly() && WorkspaceClient.dirty())
+            var project = selected.getFirst();
+            if (!project.previewOnly() && WorkspaceClient.dirty())
             {
-                form("discard", selected, json -> WorkspaceClient.openProject(p, true));
+                form("discard", selected, json -> WorkspaceClient.openProject(project, true));
             }
             else
             {
-                run("open", () -> WorkspaceClient.openProject(p, false), json ->
+                run("open", () -> WorkspaceClient.openProject(project, false), json ->
                 {});
             }
         }
@@ -1198,14 +1199,15 @@ public final class WorkspaceScreen extends Screen
                     .append("</div>");
             if (selected.size() == 1)
             {
-                var p = selected.getFirst();
-                inspect.append(WorkspaceMarkup.projectDetails(p));
+                var firstSelected = selected.getFirst();
+                inspect.append(WorkspaceMarkup.projectDetails(firstSelected));
             }
             else
             {
-                for (var p : selected)
+                for (var selectedProject : selected)
                 {
-                    inspect.append(WorkspaceMarkup.property(studio("type." + p.type()), p.id()));
+                    inspect.append(
+                            WorkspaceMarkup.property(studio("type." + selectedProject.type()), selectedProject.id()));
                 }
             }
             inspect.append("<div class='inspector-actions'>");
@@ -1277,7 +1279,7 @@ public final class WorkspaceScreen extends Screen
                         ? WorkspaceMarkup.empty(studio("empty.installed.title"), studio("empty.installed.hint"),
                                 "nav_market", studio("nav.market"))
                         : WorkspaceMarkup.installed(packs, selectedInstalled));
-        var selected = packs.stream().filter(p -> p.id().equals(selectedInstalled)).findFirst().orElse(null);
+        var selected = packs.stream().filter(pack -> pack.id().equals(selectedInstalled)).findFirst().orElse(null);
         html("inspector",
                 selected == null
                         ? WorkspaceMarkup.inspectorEmpty(studio("installed.select"), studio("installed.select_hint"))
@@ -1430,9 +1432,10 @@ public final class WorkspaceScreen extends Screen
                         .append("</h3>");
                 for (var value : detail.getAsJsonArray("projects"))
                 {
-                    var p = value.getAsJsonObject();
-                    content.append(WorkspaceMarkup.property(studio("type." + WorkspaceState.string(p, "type", "menu")),
-                            WorkspaceState.string(p, "id", "")));
+                    var entry = value.getAsJsonObject();
+                    content.append(
+                            WorkspaceMarkup.property(studio("type." + WorkspaceState.string(entry, "type", "menu")),
+                                    WorkspaceState.string(entry, "id", "")));
                 }
             }
             for (String key : List.of("compatibility", "dependencies"))
@@ -1591,14 +1594,14 @@ public final class WorkspaceScreen extends Screen
                 value.append("</div>");
             }
             int count = 0;
-            for (var p : modal.projects)
+            for (var modalProject : modal.projects)
             {
                 if (count++ >= 12)
                 {
                     break;
                 }
-                value.append("<div class='confirmation-resource'>").append(WorkspaceMarkup.icon(p.type()))
-                        .append("<span>").append(e(p.id())).append("</span></div>");
+                value.append("<div class='confirmation-resource'>").append(WorkspaceMarkup.icon(modalProject.type()))
+                        .append("<span>").append(e(modalProject.id())).append("</span></div>");
             }
             if (modal.projects.size() > 12)
             {
@@ -1787,15 +1790,15 @@ public final class WorkspaceScreen extends Screen
             }
             for (String id : ids)
             {
-                var c = new JsonObject();
-                c.addProperty("id", id);
+                var change = new JsonObject();
+                change.addProperty("id", id);
                 double[] bounds = view.bounds(id);
                 if (bounds == null && id.startsWith("control_"))
                 {
                     bounds = view.bounds("inspector_" + id);
                 }
-                c.add("bounds", gson.toJsonTree(bounds));
-                controls.add(c);
+                change.add("bounds", gson.toJsonTree(bounds));
+                controls.add(change);
             }
         }
         json.add("controls", controls);
@@ -1880,18 +1883,15 @@ public final class WorkspaceScreen extends Screen
     private int modifiers()
     {
         int result = 0;
-        if (InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LSHIFT)
-                || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RSHIFT))
+        if (KeyboardModifiers.shiftDown(minecraft))
         {
             result |= 1;
         }
-        if (InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LCONTROL)
-                || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RCONTROL))
+        if (KeyboardModifiers.controlDown(minecraft))
         {
             result |= 2;
         }
-        if (InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_LALT)
-                || InputConstants.isKeyDown(minecraft.getWindow(), InputConstants.KEY_RALT))
+        if (KeyboardModifiers.altDown(minecraft))
         {
             result |= 4;
         }

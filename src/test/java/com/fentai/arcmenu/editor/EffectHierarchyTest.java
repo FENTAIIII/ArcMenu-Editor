@@ -19,8 +19,8 @@ class EffectHierarchyTest
 {
     private static NodeSnapshot node(String id, String parent, boolean group)
     {
-        return new NodeSnapshot(id, parent, group ? EditorProtocol.KIND_GROUP : EditorProtocol.KIND_TEXT,
-                0, 0, 10, 10, 0, true, false, List.of());
+        return new NodeSnapshot(id, parent, group ? EditorProtocol.KIND_GROUP : EditorProtocol.KIND_TEXT, 0, 0, 10, 10,
+                0, true, false, List.of());
     }
 
     private static EditorState scene()

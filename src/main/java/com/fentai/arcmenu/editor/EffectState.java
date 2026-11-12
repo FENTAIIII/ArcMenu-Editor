@@ -361,15 +361,17 @@ public final class EffectState
         {
             beforeScene--;
         }
-        var p = next.edit();
+        var pendingEdit = next.edit();
         inFlight = nextRequest++;
-        inFlightEdit = p;
+        inFlightEdit = pendingEdit;
         if (next.scrub())
         {
             lastScrubSent = now;
             scrubSent = true;
         }
-        transport.accept(new EffectProtocol.Edit(snapshot.revision(), p.action(), p.target(), p.property(), p.frame(),
-                p.end(), p.value(), p.interpolation(), p.x1(), p.y1(), p.x2(), p.y2(), inFlight));
+        transport.accept(new EffectProtocol.Edit(snapshot.revision(), pendingEdit.action(), pendingEdit.target(),
+                pendingEdit.property(), pendingEdit.frame(), pendingEdit.end(), pendingEdit.value(),
+                pendingEdit.interpolation(), pendingEdit.x1(), pendingEdit.y1(), pendingEdit.x2(), pendingEdit.y2(),
+                inFlight));
     }
 }

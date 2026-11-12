@@ -18,8 +18,7 @@ final class WorkspaceModal
     boolean busy;
     String error = "";
 
-    WorkspaceModal(String mode, List<WorkspaceState.Project> projects, LocalPack pack,
-            JsonObject listing)
+    WorkspaceModal(String mode, List<WorkspaceState.Project> projects, LocalPack pack, JsonObject listing)
     {
         this.mode = mode;
         this.projects = List.copyOf(projects);
@@ -72,17 +71,24 @@ final class WorkspaceModal
 
     private void geometry(WorkspaceState.Project project)
     {
-        values.put("width", number(project == null ? WorkspaceState.DEFAULT_WIDTH : project.width()));
-        values.put("height", number(project == null ? WorkspaceState.DEFAULT_HEIGHT : project.height()));
+        putGeometry(values, project);
+    }
+
+    /** Fills the canvas geometry fields from a project, or with the defaults for a new one. */
+    static void putGeometry(Map<String, String> values, WorkspaceState.Project project)
+    {
+        values.put("width", plainNumber(project == null ? WorkspaceState.DEFAULT_WIDTH : project.width()));
+        values.put("height", plainNumber(project == null ? WorkspaceState.DEFAULT_HEIGHT : project.height()));
         values.put("pixelsPerBlock",
-                number(project == null ? WorkspaceState.DEFAULT_PIXELS_PER_BLOCK : project.pixelsPerBlock()));
-        values.put("distance", number(project == null ? WorkspaceState.DEFAULT_DISTANCE : project.distance()));
+                plainNumber(project == null ? WorkspaceState.DEFAULT_PIXELS_PER_BLOCK : project.pixelsPerBlock()));
+        values.put("distance", plainNumber(project == null ? WorkspaceState.DEFAULT_DISTANCE : project.distance()));
         values.put("depthMode", project == null ? "perspective" : project.depthMode());
     }
 
-    private static String number(double n)
+    /** Whole numbers without a trailing ".0", anything else as Java prints it. */
+    static String plainNumber(double value)
     {
-        return n == Math.rint(n) ? Long.toString((long) n) : Double.toString(n);
+        return value == Math.rint(value) ? Long.toString((long) value) : Double.toString(value);
     }
 
     JsonObject parameters(Map<String, String> input)
@@ -147,7 +153,7 @@ final class WorkspaceModal
         if (mode.equals("delete") || mode.equals("export"))
         {
             var references = new JsonArray();
-            projects.forEach(p -> references.add(p.reference()));
+            projects.forEach(project -> references.add(project.reference()));
             json.add("projects", references);
             json.addProperty("confirm", true);
         }

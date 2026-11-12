@@ -235,8 +235,8 @@ public final class VisionCursorClient
     {
         if (active() && ClientPlayNetworking.canSend(VisionPayload.TYPE))
         {
-            ClientPlayNetworking.send(new VisionPayload(
-                    VisionProtocol.encode(new TextInput(sessionId(), editId, action, value))));
+            ClientPlayNetworking
+                    .send(new VisionPayload(VisionProtocol.encode(new TextInput(sessionId(), editId, action, value))));
         }
     }
 

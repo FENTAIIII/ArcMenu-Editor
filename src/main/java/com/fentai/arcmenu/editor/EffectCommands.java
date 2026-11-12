@@ -46,14 +46,14 @@ public final class EffectCommands
 
     public static String shortcut(String id)
     {
-        return COMMANDS.stream().filter(c -> c.id.equals(id)).map(Command::shortcut).findFirst().orElse("");
+        return COMMANDS.stream().filter(command -> command.id.equals(id)).map(Command::shortcut).findFirst().orElse("");
     }
 
     public static String lookup(String key, boolean ctrl, boolean shift, boolean alt)
     {
         String chord = (ctrl ? "Ctrl+" : "") + (alt ? "Alt+" : "") + (shift ? "Shift+" : "") + key;
-        return COMMANDS.stream().filter(c -> !c.shortcut.isEmpty() && c.shortcut.equals(chord)).map(Command::id)
-                .findFirst().orElse("");
+        return COMMANDS.stream().filter(command -> !command.shortcut.isEmpty() && command.shortcut.equals(chord))
+                .map(Command::id).findFirst().orElse("");
     }
 
     public static List<String> layerMenu()

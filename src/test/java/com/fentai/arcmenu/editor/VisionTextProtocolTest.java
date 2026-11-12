@@ -25,7 +25,6 @@ final class VisionTextProtocolTest
     {
         assertThrows(IllegalArgumentException.class,
                 () -> new TextInput(12, 35, VisionProtocol.TEXT_UPDATE, "a".repeat(51)));
-        assertThrows(IllegalArgumentException.class,
-                () -> new TextInput(12, 35, VisionProtocol.TEXT_UPDATE, "\uD83D"));
+        assertThrows(IllegalArgumentException.class, () -> new TextInput(12, 35, VisionProtocol.TEXT_UPDATE, "\uD83D"));
     }
 }

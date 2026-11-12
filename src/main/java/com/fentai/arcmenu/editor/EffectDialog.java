@@ -98,22 +98,21 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
             });
             var node = scene.find(target);
             var properties = node == null ? List.<PropertySnapshot>of()
-                    : node.properties().stream().filter(p -> EffectPropertyRules.animated(node.kind(), p.key()))
-                            .toList();
+                    : node.properties().stream()
+                            .filter(animatable -> EffectPropertyRules.animated(node.kind(), animatable.key())).toList();
             if (property.isEmpty() && !properties.isEmpty())
             {
                 property = properties.getFirst().key();
             }
-            choose("property", property, properties.stream().map(PropertySnapshot::key).toList(),
-                    value ->
-                    {
-                        property = value;
-                        var box = fields.get("value");
-                        if (box != null)
-                        {
-                            box.setValue(defaultValue());
-                        }
-                    });
+            choose("property", property, properties.stream().map(PropertySnapshot::key).toList(), value ->
+            {
+                property = value;
+                var box = fields.get("value");
+                if (box != null)
+                {
+                    box.setValue(defaultValue());
+                }
+            });
             field("frame", Integer.toString(initialFrame));
             field("value", initialKey == null ? defaultValue() : initialKey.value());
             choose("interpolation", initialKey == null ? "linear" : initialKey.interpolation(),
@@ -150,8 +149,8 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
         }
         else if (mode.equals("layer"))
         {
-            var layer = state.snapshot().layers().stream().filter(l -> l.target().equals(target)).findFirst()
-                    .orElse(null);
+            var layer = state.snapshot().layers().stream().filter(candidate -> candidate.target().equals(target))
+                    .findFirst().orElse(null);
             field("target", target);
             field("start", Integer.toString(layer == null ? 0 : layer.start()));
             field("end", Integer.toString(layer == null ? state.snapshot().duration() : layer.end()));
@@ -162,18 +161,18 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
         }
         else if (mode.equals("settings"))
         {
-            var p = state.snapshot();
-            field("fps", Double.toString(p.fps()));
-            field("duration", Integer.toString(p.duration()));
-            field("start", Integer.toString(p.workStart()));
-            field("end", Integer.toString(p.workEnd()));
-            choose("loop", Boolean.toString(p.loop()), List.of("true", "false"), ignored ->
+            var effectSnapshot = state.snapshot();
+            field("fps", Double.toString(effectSnapshot.fps()));
+            field("duration", Integer.toString(effectSnapshot.duration()));
+            field("start", Integer.toString(effectSnapshot.workStart()));
+            field("end", Integer.toString(effectSnapshot.workEnd()));
+            choose("loop", Boolean.toString(effectSnapshot.loop()), List.of("true", "false"), ignored ->
             {});
         }
         else
         {
             field("frame", Integer.toString(initialFrame));
-            field("label", state.snapshot().markers().stream().filter(m -> m.frame() == initialFrame)
+            field("label", state.snapshot().markers().stream().filter(marker -> marker.frame() == initialFrame)
                     .map(EffectProtocol.Marker::label).findFirst().orElse(""));
         }
         preserved.forEach((key, value) ->
@@ -213,8 +212,9 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
     {
         var node = scene.find(target);
         return node == null ? "0"
-                : node.properties().stream().filter(p -> p.key().equals(property))
-                        .map(PropertySnapshot::value).findFirst().filter(v -> !v.isBlank()).orElse("1");
+                : node.properties().stream().filter(candidate -> candidate.key().equals(property))
+                        .map(PropertySnapshot::value).findFirst().filter(candidateValue -> !candidateValue.isBlank())
+                        .orElse("1");
     }
 
     private void field(String key, String value)
@@ -424,42 +424,42 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
             {
                 double t = i / 128.0;
                 double u = 1 - t;
-                double px = 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t;
-                double py = 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t;
+                double curveX = 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t;
+                double curveY = 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t;
                 if (interpolation.equals("auto-bezier"))
                 {
-                    px = t;
-                    py = automaticValue(t);
+                    curveX = t;
+                    curveY = automaticValue(t);
                 }
                 if (interpolation.equals("linear"))
                 {
-                    px = t;
-                    py = t;
+                    curveX = t;
+                    curveY = t;
                 }
                 if (interpolation.equals("hold"))
                 {
-                    px = t;
-                    py = i == 128 ? 1 : 0;
+                    curveX = t;
+                    curveY = i == 128 ? 1 : 0;
                 }
                 if (speedGraph)
                 {
                     double dx = 3 * u * u * x1 + 6 * u * t * (x2 - x1) + 3 * t * t * (1 - x2);
                     double dy = 3 * u * u * y1 + 6 * u * t * (y2 - y1) + 3 * t * t * (1 - y2);
-                    py = interpolation.equals("linear") ? .333333333
+                    curveY = interpolation.equals("linear") ? .333333333
                             : interpolation.equals("hold") ? 0
                                     : Math.max(-.5, Math.min(1.5, dy / Math.max(.000001, dx) / 3));
                     if (interpolation.equals("auto-bezier"))
                     {
-                        py = Math.max(-.5, Math.min(1.5,
+                        curveY = Math.max(-.5, Math.min(1.5,
                                 (automaticValue(Math.min(1, t + .0001)) - automaticValue(Math.max(0, t - .0001)))
                                         / (Math.min(1, t + .0001) - Math.max(0, t - .0001)) / 3));
                     }
                 }
-                int nx = graph.x() + (int) (Math.max(0, Math.min(1, px)) * graph.width());
-                int ny = graphY(py);
-                line(graphics, lastX, lastY, nx, ny, 0xFF79C0FF);
-                lastX = nx;
-                lastY = ny;
+                int nextX = graph.x() + (int) (Math.max(0, Math.min(1, curveX)) * graph.width());
+                int nextY = graphY(curveY);
+                line(graphics, lastX, lastY, nextX, nextY, 0xFF79C0FF);
+                lastX = nextX;
+                lastY = nextY;
             }
             if (!speedGraph && interpolation.equals("bezier"))
             {
@@ -504,19 +504,19 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
         var rightKey = keys.get(index + 1);
         var before = keys.get(Math.max(0, index - 1));
         var after = keys.get(Math.min(keys.size() - 1, index + 2));
-        double a = Double.parseDouble(leftKey.value());
-        double b = Double.parseDouble(rightKey.value());
+        double leftValue = Double.parseDouble(leftKey.value());
+        double rightValue = Double.parseDouble(rightKey.value());
         double span = rightKey.frame() - leftKey.frame();
-        if (Math.abs(b - a) < 1e-12)
+        if (Math.abs(rightValue - leftValue) < 1e-12)
         {
             return 0;
         }
-        double m0 = (b - Double.parseDouble(before.value())) / (rightKey.frame() - before.frame()) * span;
-        double m1 = (Double.parseDouble(after.value()) - a) / (after.frame() - leftKey.frame()) * span;
+        double m0 = (rightValue - Double.parseDouble(before.value())) / (rightKey.frame() - before.frame()) * span;
+        double m1 = (Double.parseDouble(after.value()) - leftValue) / (after.frame() - leftKey.frame()) * span;
         double t2 = t * t;
         double t3 = t2 * t;
-        return ((2 * t3 - 3 * t2 + 1) * a + (t3 - 2 * t2 + t) * m0 + (-2 * t3 + 3 * t2) * b + (t3 - t2) * m1 - a)
-                / (b - a);
+        return ((2 * t3 - 3 * t2 + 1) * leftValue + (t3 - 2 * t2 + t) * m0 + (-2 * t3 + 3 * t2) * rightValue
+                + (t3 - t2) * m1 - leftValue) / (rightValue - leftValue);
     }
 
     private int graphY(double value)
@@ -525,15 +525,15 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
                 graph.bottom() - 12 - (int) (Math.max(-2, Math.min(3, value)) * (graph.height() - 24))));
     }
 
-    private static void line(GuiGraphicsExtractor graphics, int x, int y, int tx, int ty, int color)
+    private static void line(GuiGraphicsExtractor graphics, int x, int y, int toX, int toY, int color)
     {
-        int steps = Math.max(Math.abs(tx - x), Math.abs(ty - y));
+        int steps = Math.max(Math.abs(toX - x), Math.abs(toY - y));
         for (int i = 0; i <= steps; i++)
         {
             double t = steps == 0 ? 0 : i / (double) steps;
-            int px = (int) (x + (tx - x) * t);
-            int py = (int) (y + (ty - y) * t);
-            graphics.fill(px, py, px + 1, py + 1, color);
+            int pointX = (int) (x + (toX - x) * t);
+            int pointY = (int) (y + (toY - y) * t);
+            graphics.fill(pointX, pointY, pointX + 1, pointY + 1, color);
         }
     }
 
@@ -607,9 +607,9 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
     }
 
     @Override
-    public boolean mouseScrolled(double x, double y, double h, double v)
+    public boolean mouseScrolled(double x, double y, double horizontalAmount, double verticalAmount)
     {
-        return popup.wheel(v) || super.mouseScrolled(x, y, h, v);
+        return popup.wheel(verticalAmount) || super.mouseScrolled(x, y, horizontalAmount, verticalAmount);
     }
 
     @Override

@@ -40,10 +40,9 @@ final class EditorHoverTest
     void multilineHoverReactionMapsAndListsSurviveTheWireAndAuthoritativeSceneUpdates()
     {
         var region = region(ENTER, LEAVE);
-        var front = new NodeSnapshot("card", "", EditorProtocol.KIND_RECTANGLE, 0, 0, 64, 24, 0, true,
-                false);
-        var snapshot = new SnapshotPacket(7, "shop", 320, 180, true, false, "26.3", List.of(front),
-                List.of(region), List.of(), List.of(new TemplateSnapshot("shop-card", "root", 2)));
+        var front = new NodeSnapshot("card", "", EditorProtocol.KIND_RECTANGLE, 0, 0, 64, 24, 0, true, false);
+        var snapshot = new SnapshotPacket(7, "shop", 320, 180, true, false, "26.3", List.of(front), List.of(region),
+                List.of(), List.of(new TemplateSnapshot("shop-card", "root", 2)));
         var decoded = (SnapshotPacket) EditorProtocol.decode(EditorProtocol.encode(snapshot));
         var state = new EditorState();
         state.update(decoded);
@@ -59,8 +58,8 @@ final class EditorHoverTest
                     .filter(value -> value.key().equals(property.key())).findFirst().orElseThrow());
         }
 
-        assertTrue(state.update(new SceneFrame(7, "shop",
-                List.of(new NodeFrame("card", 5, 10, 64, 24, 0, true, List.of())))));
+        assertTrue(state
+                .update(new SceneFrame(7, "shop", List.of(new NodeFrame("card", 5, 10, 64, 24, 0, true, List.of())))));
         assertEquals(List.of(region), state.snapshot().backend());
         assertEquals("shop-button", state.selectedId());
         assertEquals(snapshot.templates(), state.snapshot().templates());
@@ -94,8 +93,7 @@ final class EditorHoverTest
 
     private static NodeSnapshot region(String enter, String leave)
     {
-        return new NodeSnapshot("shop-button", "", EditorProtocol.KIND_REGION, 0, 0, 64, 24, 0, true,
-                false,
+        return new NodeSnapshot("shop-button", "", EditorProtocol.KIND_REGION, 0, 0, 64, 24, 0, true, false,
                 List.of(new PropertySnapshot("on-hover", EditorProtocol.PROPERTY_MULTILINE, enter),
                         new PropertySnapshot("on-leave", EditorProtocol.PROPERTY_MULTILINE, leave)));
     }

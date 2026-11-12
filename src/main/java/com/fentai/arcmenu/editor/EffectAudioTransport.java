@@ -61,9 +61,10 @@ public final class EffectAudioTransport
         });
     }
 
-    private static boolean sameClip(EffectAudioTimeline.Voice a, EffectAudioTimeline.Voice b)
+    private static boolean sameClip(EffectAudioTimeline.Voice first, EffectAudioTimeline.Voice second)
     {
-        return a.source().equals(b.source()) && a.gain() == b.gain() && a.pitch() == b.pitch();
+        return first.source().equals(second.source()) && first.gain() == second.gain()
+                && first.pitch() == second.pitch();
     }
 
     public void stop()

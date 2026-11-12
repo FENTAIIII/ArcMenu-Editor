@@ -98,127 +98,132 @@ final class AuiSurfaceRenderer implements InvocationHandler
         }
     }
 
-    void defaultText(Matrix4f pose, Text text, String content, Position p)
+    void defaultText(Matrix4f pose, Text text, String content, Position position)
     {
         if (graphics == null)
         {
             return;
         }
-        Graphics2D g = (Graphics2D) graphics.create();
-        g.transform(affine(pose));
-        g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 16).deriveFont((float) text.renderedFontSize()));
-        g.setColor(new Color(text.color.getValue(), true));
-        g.drawString(content, (float) p.x, (float) (p.y + g.getFontMetrics().getAscent()));
-        g.dispose();
+        Graphics2D canvas = (Graphics2D) graphics.create();
+        canvas.transform(affine(pose));
+        canvas.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 16).deriveFont((float) text.renderedFontSize()));
+        canvas.setColor(new Color(text.color.getValue(), true));
+        canvas.drawString(content, (float) position.x, (float) (position.y + canvas.getFontMetrics().getAscent()));
+        canvas.dispose();
     }
 
     @Override
     public Object invoke(Object ignored, Method method, Object[] raw)
     {
-        Object[] a = raw == null ? new Object[0] : raw;
+        Object[] arguments = raw == null ? new Object[0] : raw;
         return switch (method.getName())
         {
-        case "beginMesh" -> MeshBuilder.of(new Mesh((MeshMode) a[0]));
+        case "beginMesh" -> MeshBuilder.of(new Mesh((MeshMode) arguments[0]));
         case "emitVertex" ->
         {
-            ((Mesh) a[0]).add((Matrix4f) a[1], (float) a[2], (float) a[3],
-                    ((int) a[8] << 24) | ((int) a[5] << 16) | ((int) a[6] << 8) | (int) a[7]);
+            ((Mesh) arguments[0]).add((Matrix4f) arguments[1], (float) arguments[2], (float) arguments[3],
+                    ((int) arguments[8] << 24) | ((int) arguments[5] << 16) | ((int) arguments[6] << 8)
+                            | (int) arguments[7]);
             yield null;
         }
         case "emitVertexUV" -> null;
         case "submitMesh" ->
         {
-            paintMesh((Mesh) a[0]);
+            paintMesh((Mesh) arguments[0]);
             yield null;
         }
-        case "beginTextureBatch" -> new TextureBatch(((RenderHandle) a[0]).as());
+        case "beginTextureBatch" -> new TextureBatch(((RenderHandle) arguments[0]).as());
         case "emitTextureQuad" ->
         {
-            TextureBatch b = (TextureBatch) a[0];
-            b.quads.add(new Quad(new Matrix4f((Matrix4f) a[1]), (float) a[2], (float) a[3], (float) a[4], (float) a[5],
-                    (float) a[6], (float) a[7], (float) a[8], (float) a[9], a.length > 10 ? (int) a[10] : 0xffffffff));
+            TextureBatch batch = (TextureBatch) arguments[0];
+            batch.quads.add(new Quad(new Matrix4f((Matrix4f) arguments[1]), (float) arguments[2], (float) arguments[3],
+                    (float) arguments[4], (float) arguments[5], (float) arguments[6], (float) arguments[7],
+                    (float) arguments[8], (float) arguments[9],
+                    arguments.length > 10 ? (int) arguments[10] : 0xffffffff));
             yield null;
         }
         case "flushTextureBatch" ->
         {
-            paintTextures((TextureBatch) a[0]);
+            paintTextures((TextureBatch) arguments[0]);
             yield null;
         }
         case "createDynamicTexture" ->
         {
-            SurfaceTexture t = new SurfaceTexture(copy((NativeImage) a[1]));
-            textures.put(normalize(a[0]), t);
-            yield t;
+            SurfaceTexture texture = new SurfaceTexture(copy((NativeImage) arguments[1]));
+            textures.put(normalize(arguments[0]), texture);
+            yield texture;
         }
         case "uploadTextureRegion" ->
         {
-            SurfaceTexture t = (SurfaceTexture) a[0];
-            NativeImage image = (NativeImage) a[1];
-            int x = (int) a[2];
-            int y = (int) a[3];
-            int w = (int) a[4];
-            int h = (int) a[5];
-            for (int py = y; py < y + h; py++)
+            SurfaceTexture texture = (SurfaceTexture) arguments[0];
+            NativeImage image = (NativeImage) arguments[1];
+            int x = (int) arguments[2];
+            int y = (int) arguments[3];
+            int regionWidth = (int) arguments[4];
+            int regionHeight = (int) arguments[5];
+            for (int pixelY = y; pixelY < y + regionHeight; pixelY++)
             {
-                for (int px = x; px < x + w; px++)
+                for (int pixelX = x; pixelX < x + regionWidth; pixelX++)
                 {
-                    t.image.setRGB(px, py, AuiPixels.read(image, px, py));
+                    texture.image.setRGB(pixelX, pixelY, AuiPixels.read(image, pixelX, pixelY));
                 }
             }
-            t.tinted.clear();
+            texture.tinted.clear();
             yield null;
         }
         case "setImagePixel" ->
         {
-            AuiPixels.write((NativeImage) a[0], (int) a[1], (int) a[2], abgr((int) a[3]));
+            AuiPixels.write((NativeImage) arguments[0], (int) arguments[1], (int) arguments[2],
+                    abgr((int) arguments[3]));
             yield null;
         }
         case "writeImagePixels" ->
         {
-            NativeImage image = (NativeImage) a[0];
-            int x = (int) a[1];
-            int y = (int) a[2];
-            int w = (int) a[3];
-            int h = (int) a[4];
-            int[] pixels = (int[]) a[5];
-            for (int py = 0, i = 0; py < h; py++)
+            NativeImage image = (NativeImage) arguments[0];
+            int x = (int) arguments[1];
+            int y = (int) arguments[2];
+            int imageWidth = (int) arguments[3];
+            int imageHeight = (int) arguments[4];
+            int[] pixels = (int[]) arguments[5];
+            for (int pixelY = 0, i = 0; pixelY < imageHeight; pixelY++)
             {
-                for (int px = 0; px < w; px++)
+                for (int pixelX = 0; pixelX < imageWidth; pixelX++)
                 {
-                    AuiPixels.write(image, x + px, y + py, abgr(pixels[i++]));
+                    AuiPixels.write(image, x + pixelX, y + pixelY, abgr(pixels[i++]));
                 }
             }
             yield null;
         }
         case "registerTexture" ->
         {
-            textures.put(normalize(a[1]), (SurfaceTexture) a[0]);
+            textures.put(normalize(arguments[1]), (SurfaceTexture) arguments[0]);
             yield null;
         }
         case "releaseTexture" ->
         {
-            textures.remove(normalize(a[0]));
+            textures.remove(normalize(arguments[0]));
             yield null;
         }
         case "closeTexture" ->
         {
-            textures.values().removeIf(t -> t == a[0]);
+            textures.values().removeIf(texture -> texture == arguments[0]);
             yield null;
         }
-        case "createOffscreenTarget" -> FboHandle
-                .of(new BufferedImage((int) a[0], (int) a[1], BufferedImage.TYPE_INT_ARGB), (int) a[0], (int) a[1]);
+        case "createOffscreenTarget" ->
+            FboHandle.of(new BufferedImage((int) arguments[0], (int) arguments[1], BufferedImage.TYPE_INT_ARGB),
+                    (int) arguments[0], (int) arguments[1]);
         case "getMainRenderTarget" ->
             target == null ? null : FboHandle.of(target, target.getWidth(), target.getHeight());
         case "getProjectionMatrix" -> new Matrix4f(projection);
         case "setProjectionMatrix" ->
         {
-            projection.set((Matrix4f) a[0]);
+            projection.set((Matrix4f) arguments[0]);
             yield null;
         }
         case "isOnRenderThread" -> true;
         case "recordRenderCall" ->
         {
-            ((Runnable) a[0]).run();
+            ((Runnable) arguments[0]).run();
             yield null;
         }
         case "enableDepthTest" ->
@@ -234,7 +239,7 @@ final class AuiSurfaceRenderer implements InvocationHandler
         case "isDepthTestEnabled" -> depth;
         case "setDepthMask" ->
         {
-            depthWrite = (boolean) a[0];
+            depthWrite = (boolean) arguments[0];
             yield null;
         }
         case "isDepthMaskEnabled" -> depthWrite;
@@ -254,7 +259,7 @@ final class AuiSurfaceRenderer implements InvocationHandler
         case "getGLVersionString" -> "AUI retained surface";
         case "toString" -> "ArcMenu AUI retained renderer";
         case "hashCode" -> System.identityHashCode(this);
-        case "equals" -> ignored == a[0];
+        case "equals" -> ignored == arguments[0];
         default -> defaultValue(method.getReturnType());
         };
     }
@@ -283,8 +288,8 @@ final class AuiSurfaceRenderer implements InvocationHandler
             path.moveTo(first.x, first.y);
             for (int j = 1; j < stride; j++)
             {
-                Vertex v = mesh.vertices.get(i + j);
-                path.lineTo(v.x, v.y);
+                Vertex vertex = mesh.vertices.get(i + j);
+                path.lineTo(vertex.x, vertex.y);
             }
             path.closePath();
             last = color;
@@ -308,13 +313,13 @@ final class AuiSurfaceRenderer implements InvocationHandler
         {
             return;
         }
-        for (Quad q : batch.quads)
+        for (Quad quad : batch.quads)
         {
             BufferedImage image = texture.image;
-            int sx0 = Math.round(q.u0 * image.getWidth());
-            int sy0 = Math.round(q.v0 * image.getHeight());
-            int sx1 = Math.round(q.u1 * image.getWidth());
-            int sy1 = Math.round(q.v1 * image.getHeight());
+            int sx0 = Math.round(quad.u0 * image.getWidth());
+            int sy0 = Math.round(quad.v0 * image.getHeight());
+            int sx1 = Math.round(quad.u1 * image.getWidth());
+            int sy1 = Math.round(quad.v1 * image.getHeight());
             if (sx1 <= sx0 || sy1 <= sy0)
             {
                 continue;
@@ -327,22 +332,22 @@ final class AuiSurfaceRenderer implements InvocationHandler
             {
                 continue;
             }
-            BufferedImage region = q.tint == 0xffffffff ? image.getSubimage(left, top, right - left, bottom - top)
-                    : texture.tintedRegion(q.tint, left, top, right - left, bottom - top);
+            BufferedImage region = quad.tint == 0xffffffff ? image.getSubimage(left, top, right - left, bottom - top)
+                    : texture.tintedRegion(quad.tint, left, top, right - left, bottom - top);
             // Font quads are already aligned to physical pixels. Rounding CSS coordinates
             // here would stretch each glyph differently at fractional document scales.
-            AffineTransform placement = AffineTransform.getTranslateInstance(q.x, q.y);
-            placement.scale((double) q.w / (sx1 - sx0), (double) q.h / (sy1 - sy0));
+            AffineTransform placement = AffineTransform.getTranslateInstance(quad.x, quad.y);
+            placement.scale((double) quad.w / (sx1 - sx0), (double) quad.h / (sy1 - sy0));
             placement.translate(left - sx0, top - sy0);
-            Graphics2D g = (Graphics2D) graphics.create();
+            Graphics2D canvas = (Graphics2D) graphics.create();
             try
             {
-                g.transform(affine(q.pose));
-                g.drawImage(region, placement, null);
+                canvas.transform(affine(quad.pose));
+                canvas.drawImage(region, placement, null);
             }
             finally
             {
-                g.dispose();
+                canvas.dispose();
             }
         }
     }
@@ -354,9 +359,9 @@ final class AuiSurfaceRenderer implements InvocationHandler
         return colon >= 0 ? value.substring(colon + 1) : value;
     }
 
-    private static AffineTransform affine(Matrix4f m)
+    private static AffineTransform affine(Matrix4f matrix)
     {
-        return new AffineTransform(m.m00(), m.m01(), m.m10(), m.m11(), m.m30(), m.m31());
+        return new AffineTransform(matrix.m00(), matrix.m01(), matrix.m10(), matrix.m11(), matrix.m30(), matrix.m31());
     }
 
     private static BufferedImage copy(NativeImage image)
@@ -409,10 +414,10 @@ final class AuiSurfaceRenderer implements InvocationHandler
             this.mode = mode;
         }
 
-        void add(Matrix4f m, float x, float y, int c)
+        void add(Matrix4f pose, float x, float y, int color)
         {
-            Vector4f p = m.transform(new Vector4f(x, y, 0, 1));
-            vertices.add(new Vertex(p.x, p.y, c));
+            Vector4f transformed = pose.transform(new Vector4f(x, y, 0, 1));
+            vertices.add(new Vertex(transformed.x, transformed.y, color));
         }
     }
 
@@ -466,9 +471,9 @@ final class AuiSurfaceRenderer implements InvocationHandler
                 int b = key & 255;
                 for (int i = 0; i < pixels.length; i++)
                 {
-                    int p = pixels[i];
-                    pixels[i] = ((p >>> 24) * a / 255 << 24) | (((p >> 16) & 255) * r / 255 << 16)
-                            | (((p >> 8) & 255) * g / 255 << 8) | ((p & 255) * b / 255);
+                    int pixel = pixels[i];
+                    pixels[i] = ((pixel >>> 24) * a / 255 << 24) | (((pixel >> 16) & 255) * r / 255 << 16)
+                            | (((pixel >> 8) & 255) * g / 255 << 8) | ((pixel & 255) * b / 255);
                 }
                 output.setRGB(0, 0, width, height, pixels, 0, width);
                 return output;

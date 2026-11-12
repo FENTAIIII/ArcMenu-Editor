@@ -221,8 +221,8 @@ final class EffectTimeline
     void draw(GuiGraphicsExtractor graphics, Font font, EditorLayout.Rect dock, int mouseX, int mouseY)
     {
         panel = dock;
-        var p = state.snapshot();
-        if (p == null)
+        var effectSnapshot = state.snapshot();
+        if (effectSnapshot == null)
         {
             return;
         }
@@ -235,7 +235,7 @@ final class EffectTimeline
             var current = new LinkedHashSet<KeyRef>();
             for (var ref : selected)
             {
-                p.tracks().stream().filter(track -> same(track, ref)).findFirst()
+                effectSnapshot.tracks().stream().filter(track -> same(track, ref)).findFirst()
                         .ifPresent(track -> track.keys().stream().filter(key -> key.frame() == ref.key.frame())
                                 .findFirst().ifPresent(key -> current.add(new KeyRef(ref.target, ref.property, key))));
             }
@@ -252,23 +252,26 @@ final class EffectTimeline
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.bottom(), 0xFF1B1B1B);
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.y() + 20, EffectUi.HEADER);
         graphics.fill(panel.x(), panel.y() + 20, gridX, gridTop, EffectUi.PANEL);
-        EffectUi.tab(graphics, font,
-                EffectUi.fit(font, p.id() + (p.dirty() ? " *" : ""), Math.max(40, panel.width() - 208)), panel.x() + 10,
-                panel.y() + 5, true);
+        EffectUi.tab(graphics, font, EffectUi.fit(font, effectSnapshot.id() + (effectSnapshot.dirty() ? " *" : ""),
+                Math.max(40, panel.width() - 208)), panel.x() + 10, panel.y() + 5, true);
         String[] actions = { "play", "stop", "key", "cue", "marker", "graph", "auto-key", "undo", "redo", "save",
                 "settings" };
         int first = Math.max(panel.x() + 55, panel.right() - 201);
         for (int i = 0; i < actions.length; i++)
         {
             var rect = new EditorLayout.Rect(first + i * 18, panel.y() + 3, 16, 14);
-            boolean enabled = actions[i].equals("graph") && graphMode || actions[i].equals("auto-key") && p.autoKey();
+            boolean enabled = actions[i].equals("graph") && graphMode
+                    || actions[i].equals("auto-key") && effectSnapshot.autoKey();
             graphics.fill(rect.x(), rect.y(), rect.right(), rect.bottom(),
                     enabled ? EffectUi.ACCENT : rect.contains(mouseX, mouseY) ? 0xFF383838 : EffectUi.HEADER);
-            icon(graphics, actions[i], rect.x() + 4, rect.y() + 3, p.playing(), enabled ? 0xFFFFFFFF : EffectUi.TEXT);
+            icon(graphics, actions[i], rect.x() + 4, rect.y() + 3, effectSnapshot.playing(),
+                    enabled ? 0xFFFFFFFF : EffectUi.TEXT);
             controls.add(new Control(actions[i], rect, EditorI18n.text("arcmenu_editor.effect." + actions[i])));
         }
-        EffectUi.mono(graphics, font, timecode(state.playhead(), p.fps()), panel.x() + 8, panel.y() + 25, 0xFF3D8FF5);
-        EffectUi.mono(graphics, font, String.format(Locale.ROOT, "%05d (%.2f fps)", (int) state.playhead(), p.fps()),
+        EffectUi.mono(graphics, font, timecode(state.playhead(), effectSnapshot.fps()), panel.x() + 8, panel.y() + 25,
+                0xFF3D8FF5);
+        EffectUi.mono(graphics, font,
+                String.format(Locale.ROOT, "%05d (%.2f fps)", (int) state.playhead(), effectSnapshot.fps()),
                 panel.x() + 8, panel.y() + 36, EffectUi.MUTED);
         searchBox = searchBounds(panel);
         if (searchField != null)
@@ -298,7 +301,7 @@ final class EffectTimeline
         {
             hierarchy.put(node.id(), node);
         }
-        updateHierarchy(p.id(), hierarchy);
+        updateHierarchy(effectSnapshot.id(), hierarchy);
         int index = 0;
         visibleLayers.clear();
         for (var node : nodes)
@@ -307,7 +310,7 @@ final class EffectTimeline
             {
                 continue;
             }
-            var tracks = visibleTracks(node, p.tracks());
+            var tracks = visibleTracks(node, effectSnapshot.tracks());
             if (!query.isEmpty() && !matches(node.id()) && tracks.stream()
                     .noneMatch(track -> matches(track.property()) || matches(EditorI18n.property(track.property()))))
             {
@@ -400,17 +403,17 @@ final class EffectTimeline
                         int frame = dragging != null && moving(track, key)
                                 ? key.frame() + dragFrame - dragging.key.frame()
                                 : key.frame();
-                        int px = frameX(frame);
-                        if (px < gridX || px >= panel.right() - 5)
+                        int positionX = frameX(frame);
+                        if (positionX < gridX || positionX >= panel.right() - 5)
                         {
                             continue;
                         }
-                        diamond(graphics, px, rowY + 8, chosen(track, key) ? 0xFFFFD568 : 0xFFACACAC);
+                        diamond(graphics, positionX, rowY + 8, chosen(track, key) ? 0xFFFFD568 : 0xFFACACAC);
                     }
                 }
             }
         }
-        for (var cue : p.cues())
+        for (var cue : effectSnapshot.cues())
         {
             if (!query.isEmpty() && !matches(cue.id()) && !matches(cue.kind())
                     && !matches(EffectDialog.choiceLabel("kind", cue.kind())) && !matches(cue.source()))
@@ -433,22 +436,24 @@ final class EffectTimeline
             {
                 int frame = draggingCue != null && draggingCue.id().equals(cue.id()) ? dragFrame : cue.frame();
                 int end = cue.end() < 0 ? -1 : cue.end() + frame - cue.frame();
-                int px = frameX(frame);
+                int positionX = frameX(frame);
                 double audioEnd = cue.kind().equals("sound")
-                        ? EffectAudioTimeline.clipEnd(p, cue, EffectAudioPreview.INSTANCE.durationSeconds(cue.source()))
+                        ? EffectAudioTimeline.clipEnd(effectSnapshot, cue,
+                                EffectAudioPreview.INSTANCE.durationSeconds(cue.source()))
                         : Double.NaN;
                 double clipEnd = Double.isFinite(audioEnd) ? audioEnd + frame - cue.frame() : end;
                 if (clipEnd >= 0)
                 {
-                    bar(graphics, px, frameX(clipEnd), rowY + 3, rowY + 13, dim(color));
+                    bar(graphics, positionX, frameX(clipEnd), rowY + 3, rowY + 13, dim(color));
                 }
                 if (Double.isFinite(audioEnd))
                 {
-                    waveform(graphics, p, cue, frame, clipEnd, rowY, cue.enabled() ? 0xFF9ACDA0 : 0xFF626B63);
+                    waveform(graphics, effectSnapshot, cue, frame, clipEnd, rowY,
+                            cue.enabled() ? 0xFF9ACDA0 : 0xFF626B63);
                 }
-                if (px >= gridX && px < panel.right() - 5)
+                if (positionX >= gridX && positionX < panel.right() - 5)
                 {
-                    diamond(graphics, px, rowY + 8, color);
+                    diamond(graphics, positionX, rowY + 8, color);
                 }
             }
         }
@@ -462,12 +467,12 @@ final class EffectTimeline
         {
             drawTicks(graphics);
         }
-        int px = frameX(scrubbing ? dragFrame : state.playhead());
-        if (px >= gridX && px <= panel.right() - 5)
+        int positionX = frameX(scrubbing ? dragFrame : state.playhead());
+        if (positionX >= gridX && positionX <= panel.right() - 5)
         {
-            graphics.fill(px, panel.y() + 31, px + 1, panel.bottom() - 14, EffectUi.ACCENT);
-            graphics.fill(px - 3, panel.y() + 28, px + 4, panel.y() + 33, EffectUi.ACCENT);
-            triangle(graphics, px - 2, panel.y() + 33, true, EffectUi.ACCENT);
+            graphics.fill(positionX, panel.y() + 31, positionX + 1, panel.bottom() - 14, EffectUi.ACCENT);
+            graphics.fill(positionX - 3, panel.y() + 28, positionX + 4, panel.y() + 33, EffectUi.ACCENT);
+            triangle(graphics, positionX - 2, panel.y() + 33, true, EffectUi.ACCENT);
         }
         if (marquee)
         {
@@ -488,11 +493,12 @@ final class EffectTimeline
         int right = Math.min(panel.right() - 5, frameX(end));
         for (int x = left; x < right; x += 2)
         {
-            double a = Math.max(0,
+            double fromSecond = Math.max(0,
                     (offset + (x - gridX) / (double) gridWidth * range() - start) / snapshot.fps() * cue.pitch());
-            double b = Math.max(a,
+            double toSecond = Math.max(fromSecond,
                     (offset + (x + 2 - gridX) / (double) gridWidth * range() - start) / snapshot.fps() * cue.pitch());
-            int amplitude = Math.min(4, (int) Math.ceil(EffectAudioPreview.INSTANCE.peak(cue.source(), a, b) * 4));
+            int amplitude = Math.min(4,
+                    (int) Math.ceil(EffectAudioPreview.INSTANCE.peak(cue.source(), fromSecond, toSecond) * 4));
             if (amplitude > 0)
             {
                 graphics.fill(x, y + 8 - amplitude, Math.min(right, x + 1), y + 9 + amplitude, color);
@@ -502,10 +508,10 @@ final class EffectTimeline
 
     private void drawRuler(GuiGraphicsExtractor graphics, Font font)
     {
-        var p = state.snapshot();
+        var effectSnapshot = state.snapshot();
         graphics.fill(gridX, panel.y() + 20, panel.right(), gridTop, 0xFF222222);
-        int workA = frameX(trimming == 4 ? trimStart : p.workStart());
-        int workB = frameX(trimming == 5 ? trimEnd : p.workEnd());
+        int workA = frameX(trimming == 4 ? trimStart : effectSnapshot.workStart());
+        int workB = frameX(trimming == 5 ? trimEnd : effectSnapshot.workEnd());
         bar(graphics, workA, workB, panel.y() + 23, panel.y() + 27, 0xFF696969);
         if (workA >= gridX && workA < panel.right() - 5)
         {
@@ -516,16 +522,17 @@ final class EffectTimeline
             graphics.fill(workB - 2, panel.y() + 22, workB, panel.y() + 29, 0xFFB5B5B5);
         }
         int step = rulerStep();
-        for (int frame = Math.max(0, (int) offset / step * step); frame <= Math.min(p.duration(),
+        for (int frame = Math.max(0, (int) offset / step * step); frame <= Math.min(effectSnapshot.duration(),
                 offset + range()); frame += step)
         {
-            int px = frameX(frame);
-            if (px < gridX || px >= panel.right() - 5)
+            int positionX = frameX(frame);
+            if (positionX < gridX || positionX >= panel.right() - 5)
             {
                 continue;
             }
-            graphics.fill(px, panel.y() + 47, px + 1, gridTop, 0xFF777777);
-            EffectUi.mono(graphics, font, rulerLabel(frame, p.fps()), px + 3, panel.y() + 36, EffectUi.MUTED);
+            graphics.fill(positionX, panel.y() + 47, positionX + 1, gridTop, 0xFF777777);
+            EffectUi.mono(graphics, font, rulerLabel(frame, effectSnapshot.fps()), positionX + 3, panel.y() + 36,
+                    EffectUi.MUTED);
             if (step >= 4)
             {
                 for (int j = 1; j < 4; j++)
@@ -538,13 +545,13 @@ final class EffectTimeline
                 }
             }
         }
-        for (var marker : p.markers())
+        for (var marker : effectSnapshot.markers())
         {
-            int px = frameX(draggingMarker == marker ? dragFrame : marker.frame());
-            if (px >= gridX && px < panel.right() - 5)
+            int positionX = frameX(draggingMarker == marker ? dragFrame : marker.frame());
+            if (positionX >= gridX && positionX < panel.right() - 5)
             {
-                diamond(graphics, px, panel.y() + 31, 0xFFCAA973);
-                EffectUi.text(graphics, font, EffectUi.fit(font, marker.label(), 48), px + 5, panel.y() + 26,
+                diamond(graphics, positionX, panel.y() + 31, 0xFFCAA973);
+                EffectUi.text(graphics, font, EffectUi.fit(font, marker.label(), 48), positionX + 5, panel.y() + 26,
                         0xFFCAA973);
             }
         }
@@ -556,10 +563,10 @@ final class EffectTimeline
         for (int frame = Math.max(0, (int) offset / step * step); frame <= Math.min(state.snapshot().duration(),
                 offset + range()); frame += step)
         {
-            int px = frameX(frame);
-            if (px >= gridX && px < panel.right() - 5)
+            int positionX = frameX(frame);
+            if (positionX >= gridX && positionX < panel.right() - 5)
             {
-                graphics.fill(px, gridTop, px + 1, panel.bottom() - 14, 0x183F3F3F);
+                graphics.fill(positionX, gridTop, positionX + 1, panel.bottom() - 14, 0x183F3F3F);
             }
         }
     }
@@ -723,19 +730,19 @@ final class EffectTimeline
             return;
         }
         var next = track.keys().get(index + 1);
-        double a = Double.parseDouble(key.value());
-        double b = Double.parseDouble(next.value());
+        double startValue = Double.parseDouble(key.value());
+        double endValue = Double.parseDouble(next.value());
         double span = next.frame() - key.frame();
         int x = frameX(key.frame());
-        int y = graphY(a);
-        int nx = frameX(next.frame());
-        int ny = graphY(b);
+        int y = graphY(startValue);
+        int nextX = frameX(next.frame());
+        int nextY = graphY(endValue);
         int hx1 = frameX(key.frame() + key.x1() * span);
-        int hy1 = graphY(a + key.y1() * (b - a));
+        int hy1 = graphY(startValue + key.y1() * (endValue - startValue));
         int hx2 = frameX(key.frame() + key.x2() * span);
-        int hy2 = graphY(a + key.y2() * (b - a));
+        int hy2 = graphY(startValue + key.y2() * (endValue - startValue));
         EffectUi.line(graphics, x, y, hx1, hy1, 0xFFBDA15F);
-        EffectUi.line(graphics, nx, ny, hx2, hy2, 0xFFBDA15F);
+        EffectUi.line(graphics, nextX, nextY, hx2, hy2, 0xFFBDA15F);
         handleOne = new EditorLayout.Rect(hx1 - 3, hy1 - 3, 7, 7);
         handleTwo = new EditorLayout.Rect(hx2 - 3, hy2 - 3, 7, 7);
         graphics.outline(handleOne.x(), handleOne.y(), 7, 7, 0xFFFFD568);
@@ -904,8 +911,7 @@ final class EffectTimeline
         return false;
     }
 
-    private static int hierarchyDepth(NodeSnapshot node,
-            Map<String, NodeSnapshot> hierarchy)
+    private static int hierarchyDepth(NodeSnapshot node, Map<String, NodeSnapshot> hierarchy)
     {
         int depth = 0;
         var visited = new HashSet<String>();
@@ -926,8 +932,7 @@ final class EffectTimeline
         return y >= gridTop && y + 16 <= panel.bottom() - 14;
     }
 
-    private List<EffectProtocol.Track> visibleTracks(NodeSnapshot node,
-            List<EffectProtocol.Track> tracks)
+    private List<EffectProtocol.Track> visibleTracks(NodeSnapshot node, List<EffectProtocol.Track> tracks)
     {
         var result = new ArrayList<>(tracks.stream().filter(track -> track.target().equals(node.id())
                 && (propertyFilters.isEmpty() || propertyFilters.stream().anyMatch(track.property()::startsWith))
@@ -1418,7 +1423,8 @@ final class EffectTimeline
         {
             return graphClick(event, doubleClick);
         }
-        Row row = rows.stream().filter(r -> event.y() >= r.y && event.y() < r.y + 16).findFirst().orElse(null);
+        Row row = rows.stream().filter(candidate -> event.y() >= candidate.y && event.y() < candidate.y + 16)
+                .findFirst().orElse(null);
         if (row == null)
         {
             keysFocused = event.x() >= gridX;
@@ -1588,7 +1594,8 @@ final class EffectTimeline
             return true;
         }
         var key = row.track.keys().stream()
-                .min(Comparator.comparingDouble(k -> Math.abs(frameX(k.frame()) - event.x()))).orElse(null);
+                .min(Comparator.comparingDouble(candidate -> Math.abs(frameX(candidate.frame()) - event.x())))
+                .orElse(null);
         if (key == null || Math.abs(frameX(key.frame()) - event.x()) > 7)
         {
             if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
@@ -1860,13 +1867,14 @@ final class EffectTimeline
                 return true;
             }
             var next = keys.get(index + 1);
-            double a = Double.parseDouble(handleKey.key.value());
-            double b = Double.parseDouble(next.value());
+            double startValue = Double.parseDouble(handleKey.key.value());
+            double endValue = Double.parseDouble(next.value());
             double frame = mapping().frame(event.x());
             double x = Math.max(0,
                     Math.min(1, (frame - handleKey.key.frame()) / (next.frame() - handleKey.key.frame())));
-            double y = Math.abs(b - a) < 1e-12 ? (graphHandle == 1 ? 0 : 1)
-                    : Math.max(-1000, Math.min(1000, (mapping().value(event.y()) - a) / (b - a)));
+            double y = Math.abs(endValue - startValue) < 1e-12 ? (graphHandle == 1 ? 0 : 1)
+                    : Math.max(-1000,
+                            Math.min(1000, (mapping().value(event.y()) - startValue) / (endValue - startValue)));
             var key = handlePreview;
             handlePreview = new EffectProtocol.Key(key.frame(), key.value(), "bezier", graphHandle == 1 ? x : key.x1(),
                     graphHandle == 1 ? y : key.y1(), graphHandle == 2 ? x : key.x2(), graphHandle == 2 ? y : key.y2());
@@ -2402,13 +2410,13 @@ final class EffectTimeline
 
     private void workRange(int first, int last)
     {
-        var p = state.snapshot();
-        first = Math.max(0, Math.min(p.duration() - 1, first));
-        last = Math.max(first + 1, Math.min(p.duration(), last));
-        if (first != p.workStart() || last != p.workEnd())
+        var effectSnapshot = state.snapshot();
+        first = Math.max(0, Math.min(effectSnapshot.duration() - 1, first));
+        last = Math.max(first + 1, Math.min(effectSnapshot.duration(), last));
+        if (first != effectSnapshot.workStart() || last != effectSnapshot.workEnd())
         {
-            state.submit("settings", "", Boolean.toString(p.loop()), first, p.duration(), Integer.toString(last),
-                    "linear", p.fps(), 0, 0, 0);
+            state.submit("settings", "", Boolean.toString(effectSnapshot.loop()), first, effectSnapshot.duration(),
+                    Integer.toString(last), "linear", effectSnapshot.fps(), 0, 0, 0);
         }
     }
 

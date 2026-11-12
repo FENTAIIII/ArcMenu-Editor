@@ -254,8 +254,10 @@ public final class EffectAudioPreview implements AutoCloseable
         var snapshot = ArcMenuEditorClient.EFFECT.snapshot();
         if (snapshot != null)
         {
-            var sources = new LinkedHashSet<>(snapshot.assets().stream().filter(s -> s.endsWith(".ogg")).toList());
-            snapshot.cues().stream().filter(c -> c.kind().equals("sound")).forEach(c -> sources.add(c.source()));
+            var sources = new LinkedHashSet<>(
+                    snapshot.assets().stream().filter(asset -> asset.endsWith(".ogg")).toList());
+            snapshot.cues().stream().filter(cue -> cue.kind().equals("sound"))
+                    .forEach(cue -> sources.add(cue.source()));
             for (String source : sources)
             {
                 var status = assets.status("sound", source);

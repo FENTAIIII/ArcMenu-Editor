@@ -271,8 +271,7 @@ class MarketClientTest
         assertTrue(MarketClient.isTransient(new TimeoutException("Timed out")));
         assertTrue(MarketClient.isTransient(new RequestException(503, "mojang_unavailable", "Try later")));
         assertTrue(MarketClient.isTransient(new RequestException(401, "join_not_verified", "Try later")));
-        assertFalse(
-                MarketClient.isTransient(new RequestException(401, "invalid_token", "Invalid account")));
+        assertFalse(MarketClient.isTransient(new RequestException(401, "invalid_token", "Invalid account")));
         assertFalse(MarketClient.isTransient(
                 new CompletionException(new SSLHandshakeException("Certificate does not match its configured pin"))));
         assertTrue(MarketClient

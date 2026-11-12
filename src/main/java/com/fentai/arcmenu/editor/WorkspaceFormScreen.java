@@ -96,18 +96,9 @@ public final class WorkspaceFormScreen extends Screen
         }
     }
 
-    private void geometry(WorkspaceState.Project p)
+    private void geometry(WorkspaceState.Project project)
     {
-        values.put("width", format(p == null ? WorkspaceState.DEFAULT_WIDTH : p.width()));
-        values.put("height", format(p == null ? WorkspaceState.DEFAULT_HEIGHT : p.height()));
-        values.put("pixelsPerBlock", format(p == null ? WorkspaceState.DEFAULT_PIXELS_PER_BLOCK : p.pixelsPerBlock()));
-        values.put("distance", format(p == null ? WorkspaceState.DEFAULT_DISTANCE : p.distance()));
-        values.put("depthMode", p == null ? "perspective" : p.depthMode());
-    }
-
-    private static String format(double v)
-    {
-        return v == Math.rint(v) ? Long.toString((long) v) : Double.toString(v);
+        WorkspaceModal.putGeometry(values, project);
     }
 
     @Override
@@ -259,12 +250,12 @@ public final class WorkspaceFormScreen extends Screen
         }));
     }
 
-    private MultiLineEditBox createDescription(int x, int y, int w, int h)
+    private MultiLineEditBox createDescription(int x, int y, int boxWidth, int boxHeight)
     {
         return MultiLineEditBox.builder().setX(x).setY(y).setTextColor(0xFF203047).setTextShadow(false)
                 .setShowBackground(false).setShowDecorations(false)
                 .setPlaceholder(EditorI18n.component("arcmenu_editor.market.description_hint"))
-                .build(font, w, h, EditorI18n.component("arcmenu_editor.projects.field.description"));
+                .build(font, boxWidth, boxHeight, EditorI18n.component("arcmenu_editor.projects.field.description"));
     }
 
     private void send()
@@ -342,7 +333,7 @@ public final class WorkspaceFormScreen extends Screen
             if (mode.equals("delete") || mode.equals("export"))
             {
                 var refs = new JsonArray();
-                projects.forEach(p -> refs.add(p.reference()));
+                projects.forEach(project -> refs.add(project.reference()));
                 json.add("projects", refs);
                 json.addProperty("confirm", true);
             }
@@ -494,7 +485,7 @@ public final class WorkspaceFormScreen extends Screen
                 y += 17;
             }
         }
-        int sy = compactListing ? top + 31 : top + listingHeight - 66;
+        int summaryY = compactListing ? top + 31 : top + listingHeight - 66;
         if (!compactListing || !status.isBlank())
         {
             EffectUi.text(graphics, font,
@@ -505,7 +496,7 @@ public final class WorkspaceFormScreen extends Screen
                                                     : "arcmenu_editor.market.edit_review_hint")
                                     : status,
                             panelWidth - 40),
-                    left + 20, sy, status.isBlank() ? muted : 0xFFB25936);
+                    left + 20, summaryY, status.isBlank() ? muted : 0xFFB25936);
         }
         graphics.fill(cancelBounds.x(), cancelBounds.y(), cancelBounds.right(), cancelBounds.bottom(), 0xFFF0F3F9);
         graphics.fill(confirmBounds.x(), confirmBounds.y(), confirmBounds.right(), confirmBounds.bottom(),
@@ -520,9 +511,9 @@ public final class WorkspaceFormScreen extends Screen
         super.extractRenderState(graphics, mouseX, mouseY, delta);
     }
 
-    private static boolean inside(EditorLayout.Rect r, double x, double y)
+    private static boolean inside(EditorLayout.Rect rect, double x, double y)
     {
-        return x >= r.x() && x < r.right() && y >= r.y() && y < r.bottom();
+        return x >= rect.x() && x < rect.right() && y >= rect.y() && y < rect.bottom();
     }
 
     @Override

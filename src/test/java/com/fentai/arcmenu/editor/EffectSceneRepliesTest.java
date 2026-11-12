@@ -31,8 +31,8 @@ final class EffectSceneRepliesTest
         state.transport(sent::add);
         state.update(snapshot(0));
         var scene = new EditorState();
-        scene.update(new SnapshotPacket(2, "intro", 320, 180, false, true, "26.3", List.of(
-                new NodeSnapshot("title", "", EditorProtocol.KIND_TEXT, 0, 0, 10, 10, 0, true, false)),
+        scene.update(new SnapshotPacket(2, "intro", 320, 180, false, true, "26.3",
+                List.of(new NodeSnapshot("title", "", EditorProtocol.KIND_TEXT, 0, 0, 10, 10, 0, true, false)),
                 List.of()));
         var replies = new SceneReplies();
         replies.enqueue(create(2));
@@ -41,8 +41,8 @@ final class EffectSceneRepliesTest
         assertEquals(0, replies.acknowledge(EditorProtocol.OP_CREATE));
         state.action("save");
         assertTrue(state.update(new EffectProtocol.Transport(0, "intro", true, false, false, 20)));
-        assertTrue(scene.update(new SceneFrame(2, "intro",
-                List.of(new NodeFrame("title", 10, 20, 30, 40, 0, true, List.of())))));
+        assertTrue(scene.update(
+                new SceneFrame(2, "intro", List.of(new NodeFrame("title", 10, 20, 30, 40, 0, true, List.of())))));
         assertTrue(state.sceneBusy());
         assertTrue(sent.isEmpty());
         assertNull(replies.dispatch(3));
@@ -98,12 +98,10 @@ final class EffectSceneRepliesTest
     void propertyFinalizationHasTheSameSnapshotBarrierAsCreation()
     {
         var replies = new SceneReplies();
-        replies.enqueue(new SetPropertyPacket(1, EditorProtocol.TAB_FRONTEND, "title", "offset.y", "42",
-                10, false));
+        replies.enqueue(new SetPropertyPacket(1, EditorProtocol.TAB_FRONTEND, "title", "offset.y", "42", 10, false));
         replies.dispatch(2);
         assertEquals(1, replies.acknowledge(EditorProtocol.OP_PROPERTY));
-        replies.enqueue(new SetPropertyPacket(2, EditorProtocol.TAB_FRONTEND, "title", "offset.y", "43",
-                10, true));
+        replies.enqueue(new SetPropertyPacket(2, EditorProtocol.TAB_FRONTEND, "title", "offset.y", "43", 10, true));
         replies.dispatch(3);
         assertEquals(0, replies.acknowledge(EditorProtocol.OP_PROPERTY));
         assertEquals(1, replies.snapshot());

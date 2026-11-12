@@ -11,13 +11,12 @@ public final class EffectProjection
     public static ScreenRect calculate(EditorLayout.Rect viewport, double canvasWidth, double canvasHeight,
             double pixelsPerBlock, double distance, double offsetX, double offsetY, double verticalFov)
     {
-        return calculate(new ScreenRect(viewport.x(), viewport.y(), viewport.width(), viewport.height()),
-                canvasWidth, canvasHeight, pixelsPerBlock, distance, offsetX, offsetY, verticalFov);
+        return calculate(new ScreenRect(viewport.x(), viewport.y(), viewport.width(), viewport.height()), canvasWidth,
+                canvasHeight, pixelsPerBlock, distance, offsetX, offsetY, verticalFov);
     }
 
-    public static ScreenRect calculate(ScreenRect viewport, double canvasWidth,
-            double canvasHeight, double pixelsPerBlock, double distance, double offsetX, double offsetY,
-            double verticalFov)
+    public static ScreenRect calculate(ScreenRect viewport, double canvasWidth, double canvasHeight,
+            double pixelsPerBlock, double distance, double offsetX, double offsetY, double verticalFov)
     {
         if (!positive(viewport.width()) || !positive(viewport.height()) || !positive(canvasWidth)
                 || !positive(canvasHeight) || !positive(pixelsPerBlock) || !positive(distance)
@@ -38,8 +37,8 @@ public final class EffectProjection
     }
 
     /** Converts the composited bottom-origin framebuffer aperture into the actual GUI rectangle. */
-    public static ScreenRect guiAperture(EditorLayout.Rect framebuffer, int framebufferWidth,
-            int framebufferHeight, int guiWidth, int guiHeight)
+    public static ScreenRect guiAperture(EditorLayout.Rect framebuffer, int framebufferWidth, int framebufferHeight,
+            int guiWidth, int guiHeight)
     {
         double scaleX = guiWidth / (double) framebufferWidth;
         double scaleY = guiHeight / (double) framebufferHeight;
@@ -67,16 +66,15 @@ public final class EffectProjection
     }
 
     /** Applies the same framebuffer crop to GUI-space element geometry. */
-    public static ScreenRect cropped(ScreenRect raw, EditorLayout.Rect aperture,
-            EditorLayout.Rect source, int sourceWidth, int sourceHeight)
+    public static ScreenRect cropped(ScreenRect raw, EditorLayout.Rect aperture, EditorLayout.Rect source,
+            int sourceWidth, int sourceHeight)
     {
-        return cropped(raw,
-                new ScreenRect(aperture.x(), aperture.y(), aperture.width(), aperture.height()), source,
+        return cropped(raw, new ScreenRect(aperture.x(), aperture.y(), aperture.width(), aperture.height()), source,
                 sourceWidth, sourceHeight);
     }
 
-    public static ScreenRect cropped(ScreenRect raw, ScreenRect aperture,
-            EditorLayout.Rect source, int sourceWidth, int sourceHeight)
+    public static ScreenRect cropped(ScreenRect raw, ScreenRect aperture, EditorLayout.Rect source, int sourceWidth,
+            int sourceHeight)
     {
         double scaleX = sourceWidth / (double) source.width();
         double scaleY = sourceHeight / (double) source.height();

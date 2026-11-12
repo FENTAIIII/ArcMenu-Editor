@@ -40,8 +40,7 @@ final class EditorDepthProtocolTest
         assertEquals(property, EditorProtocol.decode(EditorProtocol.encode(property)));
         var node = new NodeSnapshot("block", "", EditorProtocol.KIND_BLOCK, 0, 0, 32, 32, 0, true, false,
                 List.of(new PropertySnapshot("scale.z", EditorProtocol.PROPERTY_NUMBER, "7.5")));
-        var snapshot = new SnapshotPacket(4, "models", 320, 180, false, true, "26.1.2", List.of(node),
-                List.of());
+        var snapshot = new SnapshotPacket(4, "models", 320, 180, false, true, "26.1.2", List.of(node), List.of());
         assertEquals(snapshot, EditorProtocol.decode(EditorProtocol.encode(snapshot)));
         var state = new EditorState();
         state.update(snapshot);
@@ -62,8 +61,8 @@ final class EditorDepthProtocolTest
             result = assembler.accept(frame);
         }
         assertEquals(packet, EditorProtocol.decode(result));
-        var failure = assertThrows(StringLimitException.class, () -> EditorProtocol.encode(
-                new SetPropertyPacket(3, EditorProtocol.TAB_BACKEND, "submit", "actions", value + "a")));
+        var failure = assertThrows(StringLimitException.class, () -> EditorProtocol
+                .encode(new SetPropertyPacket(3, EditorProtocol.TAB_BACKEND, "submit", "actions", value + "a")));
         assertEquals("backend.submit.actions", failure.field());
         assertEquals(EditorProtocol.MAX_STRING_BYTES + 1, failure.byteCount());
     }

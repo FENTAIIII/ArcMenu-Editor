@@ -161,8 +161,7 @@ public final class WorkspaceMarkup
                 + "<p>" + escape(EditorI18n.text("arcmenu_editor.projects.ppb_hint")) + "</p>";
     }
 
-    public static String packs(List<LocalPack> packs, String selectedFilename,
-            Map<String, String> covers)
+    public static String packs(List<LocalPack> packs, String selectedFilename, Map<String, String> covers)
     {
         StringBuilder html = new StringBuilder("<div class='resource-grid'>");
         for (var pack : packs)

@@ -59,26 +59,26 @@ final class EffectCurvePreview
                 high = mid;
             }
         }
-        var a = keys.get(low);
-        var b = keys.get(high);
-        double t = (frame - a.frame()) / (b.frame() - a.frame());
-        double start = number(a);
-        double end = number(b);
-        if (a.interpolation().equals("auto-bezier"))
+        var startKey = keys.get(low);
+        var endKey = keys.get(high);
+        double t = (frame - startKey.frame()) / (endKey.frame() - startKey.frame());
+        double start = number(startKey);
+        double end = number(endKey);
+        if (startKey.interpolation().equals("auto-bezier"))
         {
             var before = keys.get(Math.max(0, low - 1));
             var after = keys.get(Math.min(keys.size() - 1, high + 1));
-            double span = b.frame() - a.frame();
-            double m0 = (end - number(before)) / (b.frame() - before.frame()) * span;
-            double m1 = (number(after) - start) / (after.frame() - a.frame()) * span;
+            double span = endKey.frame() - startKey.frame();
+            double m0 = (end - number(before)) / (endKey.frame() - before.frame()) * span;
+            double m1 = (number(after) - start) / (after.frame() - startKey.frame()) * span;
             double t2 = t * t;
             double t3 = t2 * t;
             return (2 * t3 - 3 * t2 + 1) * start + (t3 - 2 * t2 + t) * m0 + (-2 * t3 + 3 * t2) * end + (t3 - t2) * m1;
         }
-        double mix = switch (a.interpolation())
+        double mix = switch (startKey.interpolation())
         {
         case "hold" -> 0;
-        case "bezier" -> bezier(t, a.x1(), a.y1(), a.x2(), a.y2());
+        case "bezier" -> bezier(t, startKey.x1(), startKey.y1(), startKey.x2(), startKey.y2());
         case "ease-in" -> bezier(t, .42, 0, 1, 1);
         case "ease-out" -> bezier(t, 0, 0, .58, 1);
         case "ease-in-out" -> bezier(t, .42, 0, .58, 1);

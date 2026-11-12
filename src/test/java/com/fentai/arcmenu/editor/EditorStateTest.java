@@ -28,25 +28,21 @@ class EditorStateTest
     void sampledFramesKeepPropertySchemasCataloguesSelectionAndErrorStatus()
     {
         var state = new EditorState();
-        var schema = List.of(
-                new PropertySnapshot("offset.y", EditorProtocol.PROPERTY_NUMBER, "1", List.of()),
+        var schema = List.of(new PropertySnapshot("offset.y", EditorProtocol.PROPERTY_NUMBER, "1", List.of()),
                 new PropertySnapshot("material", EditorProtocol.PROPERTY_CHOICE, "STONE",
                         List.of("STONE", "GOLD_BLOCK")));
-        var original = new NodeSnapshot("a", "group", EditorProtocol.KIND_BLOCK, 0, 0, 10, 10, 0, true,
-                true, schema);
+        var original = new NodeSnapshot("a", "group", EditorProtocol.KIND_BLOCK, 0, 0, 10, 10, 0, true, true, schema);
         var images = List.of(new ImageSnapshot("image.png", 64, 64));
         var templates = List.of(new TemplateSnapshot("card", "root", 3));
         var backend = List.of(node("a"));
-        state.update(new SnapshotPacket(5, "menu", 320, 180, true, false, "26.3",
-                List.of(original, node("b")), backend, images, templates));
+        state.update(new SnapshotPacket(5, "menu", 320, 180, true, false, "26.3", List.of(original, node("b")), backend,
+                images, templates));
         state.selectOnly("a");
         state.toggleSelection("b");
         state.toggleLocked("b");
         state.error("Conflict remains visible");
-        assertTrue(state.update(new SceneFrame(5, "menu",
-                List.of(new NodeFrame("a", 20, 30, 40, 50, 35, false,
-                        List.of(new PropertyValue("offset.y", "30"),
-                                new PropertyValue("unknown", "ignored")))))));
+        assertTrue(state.update(new SceneFrame(5, "menu", List.of(new NodeFrame("a", 20, 30, 40, 50, 35, false,
+                List.of(new PropertyValue("offset.y", "30"), new PropertyValue("unknown", "ignored")))))));
         var sampled = state.find("a");
         assertEquals(20, sampled.x());
         assertEquals(30, sampled.y());
@@ -81,10 +77,9 @@ class EditorStateTest
         var state = state();
         var original = state.snapshot();
         var frame = new NodeFrame("a", 10, 20, 30, 40, 50, false, List.of());
-        for (var update : List.of(new SceneFrame(1, "menu", List.of(frame)),
-                new SceneFrame(-1, "menu", List.of(frame)),
-                new SceneFrame(0, "other", List.of(frame)), new SceneFrame(0, "menu",
-                        List.of(frame, new NodeFrame("unknown", 1, 2, 3, 4, 5, true, List.of())))))
+        for (var update : List.of(new SceneFrame(1, "menu", List.of(frame)), new SceneFrame(-1, "menu", List.of(frame)),
+                new SceneFrame(0, "other", List.of(frame)),
+                new SceneFrame(0, "menu", List.of(frame, new NodeFrame("unknown", 1, 2, 3, 4, 5, true, List.of())))))
         {
             assertFalse(state.update(update));
             assertSame(original, state.snapshot());
@@ -96,16 +91,14 @@ class EditorStateTest
     void sampledFramesRetainUnchangedValuesAndCanRestoreAnEarlierValue()
     {
         var state = new EditorState();
-        state.update(snapshot(List.of(new NodeSnapshot("a", "", EditorProtocol.KIND_TEXT, 0, 0, 10, 10,
-                0, true, false, List.of(new PropertySnapshot("content", EditorProtocol.PROPERTY_TEXT,
-                        "Original", List.of()))))));
-        state.update(new SceneFrame(0, "menu", List.of(new NodeFrame("a", 10, 0, 10, 10,
-                0, true, List.of(new PropertyValue("content", "Animated"))))));
-        state.update(new SceneFrame(0, "menu",
-                List.of(new NodeFrame("a", 20, 0, 10, 10, 0, true, List.of()))));
+        state.update(snapshot(List.of(new NodeSnapshot("a", "", EditorProtocol.KIND_TEXT, 0, 0, 10, 10, 0, true, false,
+                List.of(new PropertySnapshot("content", EditorProtocol.PROPERTY_TEXT, "Original", List.of()))))));
+        state.update(new SceneFrame(0, "menu", List
+                .of(new NodeFrame("a", 10, 0, 10, 10, 0, true, List.of(new PropertyValue("content", "Animated"))))));
+        state.update(new SceneFrame(0, "menu", List.of(new NodeFrame("a", 20, 0, 10, 10, 0, true, List.of()))));
         assertEquals("Animated", state.find("a").properties().getFirst().value());
-        state.update(new SceneFrame(0, "menu", List.of(new NodeFrame("a", 0, 0, 10, 10, 0,
-                true, List.of(new PropertyValue("content", "Original"))))));
+        state.update(new SceneFrame(0, "menu",
+                List.of(new NodeFrame("a", 0, 0, 10, 10, 0, true, List.of(new PropertyValue("content", "Original"))))));
         assertEquals("Original", state.find("a").properties().getFirst().value());
         assertEquals(0, state.find("a").x());
     }
@@ -115,10 +108,8 @@ class EditorStateTest
     {
         var state = state();
         state.selectOnly("a");
-        state.expectReply(new CreatePacket(0, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_TEXT, "",
-                "New text"));
-        state.update(new SceneFrame(0, "menu",
-                List.of(new NodeFrame("a", 10, 20, 30, 40, 50, false, List.of()))));
+        state.expectReply(new CreatePacket(0, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_TEXT, "", "New text"));
+        state.update(new SceneFrame(0, "menu", List.of(new NodeFrame("a", 10, 20, 30, 40, 50, false, List.of()))));
         assertEquals("a", state.selectedId());
         state.apply(ack(EditorProtocol.OP_CREATE, "created"));
         state.update(snapshot(List.of(node("a"), node("created"))));
@@ -186,8 +177,8 @@ class EditorStateTest
     {
         EditorState state = state();
         state.selectOnly("c");
-        state.expectReply(new CreatePacket(0, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_IMAGE, "",
-                "/image.png"));
+        state.expectReply(
+                new CreatePacket(0, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_IMAGE, "", "/image.png"));
         state.apply(ack(EditorProtocol.OP_CREATE, "image"));
         state.update(snapshot(List.of(node("a"), node("c"), node("image"))));
         assertEquals("image", state.selectedId());
@@ -197,8 +188,8 @@ class EditorStateTest
     void delayedCreationDoesNotOverrideANewerUserSelection()
     {
         EditorState state = state();
-        state.expectReply(new CreatePacket(0, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_IMAGE, "",
-                "/image.png"));
+        state.expectReply(
+                new CreatePacket(0, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_IMAGE, "", "/image.png"));
         state.selectOnly("d");
         state.apply(ack(EditorProtocol.OP_CREATE, "image"));
         assertEquals("d", state.selectedId());
@@ -247,8 +238,8 @@ class EditorStateTest
     void aReplyFromThePreviousTabCannotSelectOrChangeABackendElementWithTheSameId()
     {
         EditorState state = new EditorState();
-        state.update(new SnapshotPacket(0, "menu", 320, 180, false, true, "26.1.2", List.of(node("a")),
-                List.of(node("a"))));
+        state.update(
+                new SnapshotPacket(0, "menu", 320, 180, false, true, "26.1.2", List.of(node("a")), List.of(node("a"))));
         state.selectOnly("a");
         state.expectReply(property("a", "x", "42"));
         state.activeTab(EditorProtocol.TAB_BACKEND);
@@ -268,8 +259,7 @@ class EditorStateTest
     {
         EditorState state = state();
         state.expectReply(property("a", "x", "42"));
-        state.expectReply(
-                new SetPropertyPacket(1, EditorProtocol.TAB_FRONTEND, "c", "x", "48", 17, false));
+        state.expectReply(new SetPropertyPacket(1, EditorProtocol.TAB_FRONTEND, "c", "x", "48", 17, false));
         assertEquals(0, state.apply(ack(EditorProtocol.OP_PROPERTY, "a")));
         assertEquals(17, state.apply(ack(EditorProtocol.OP_PROPERTY, "c")));
     }
@@ -297,8 +287,7 @@ class EditorStateTest
     {
         EditorState state = state();
         state.error("Element key already exists: a");
-        state.update(new SnapshotPacket(0, "other-menu", 320, 180, false, true, "26.3",
-                List.of(node("a")), List.of()));
+        state.update(new SnapshotPacket(0, "other-menu", 320, 180, false, true, "26.3", List.of(node("a")), List.of()));
         assertFalse(state.errorStatus());
     }
 
@@ -307,8 +296,8 @@ class EditorStateTest
     {
         EditorState state = state();
         state.activeTab(EditorProtocol.TAB_BACKEND);
-        state.update(new SnapshotPacket(0, "other-menu", 320, 180, false, true, "26.3",
-                List.of(node("front")), List.of(node("back"))));
+        state.update(new SnapshotPacket(0, "other-menu", 320, 180, false, true, "26.3", List.of(node("front")),
+                List.of(node("back"))));
         assertEquals(EditorProtocol.TAB_FRONTEND, state.activeTab());
         assertEquals(List.of("front"), state.nodes().stream().map(NodeSnapshot::id).toList());
         assertTrue(state.selectedIds().isEmpty());
@@ -318,8 +307,8 @@ class EditorStateTest
     void ordinarySnapshotsKeepTheSelectedBackendView()
     {
         EditorState state = new EditorState();
-        var snapshot = new SnapshotPacket(0, "menu", 320, 180, false, true, "26.3",
-                List.of(node("front")), List.of(node("back")));
+        var snapshot = new SnapshotPacket(0, "menu", 320, 180, false, true, "26.3", List.of(node("front")),
+                List.of(node("back")));
         state.update(snapshot);
         state.activeTab(EditorProtocol.TAB_BACKEND);
         state.selectOnly("back");
@@ -330,8 +319,7 @@ class EditorStateTest
 
     private static AckPacket ack(byte operation, String id)
     {
-        return new AckPacket(operation, 1, id, 42, 12, 20, 30, Double.NaN, Double.NaN, "", true, false,
-                "updated");
+        return new AckPacket(operation, 1, id, 42, 12, 20, 30, Double.NaN, Double.NaN, "", true, false, "updated");
     }
 
     private static EditorState state()

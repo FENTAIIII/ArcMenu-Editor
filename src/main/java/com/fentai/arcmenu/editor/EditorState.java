@@ -148,11 +148,11 @@ public final class EditorState
                 values.put(property.key(), property.value());
             }
             var properties = node.properties().stream()
-                    .map(property -> values.containsKey(property.key()) ? new PropertySnapshot(
-                            property.key(), property.type(), values.get(property.key()), property.choices()) : property)
+                    .map(property -> values.containsKey(property.key()) ? new PropertySnapshot(property.key(),
+                            property.type(), values.get(property.key()), property.choices()) : property)
                     .toList();
-            frontend.add(new NodeSnapshot(node.id(), node.parentId(), node.kind(), frame.x(), frame.y(),
-                    frame.width(), frame.height(), frame.rotationZ(), frame.visible(), node.locked(), properties));
+            frontend.add(new NodeSnapshot(node.id(), node.parentId(), node.kind(), frame.x(), frame.y(), frame.width(),
+                    frame.height(), frame.rotationZ(), frame.visible(), node.locked(), properties));
         }
         snapshot = new SnapshotPacket(snapshot.revision(), snapshot.menuId(), snapshot.canvasWidth(),
                 snapshot.canvasHeight(), snapshot.dirty(), snapshot.saved(), snapshot.serverVersion(), frontend,
@@ -216,8 +216,7 @@ public final class EditorState
         return gestureId;
     }
 
-    private static List<NodeSnapshot> updateGeometry(List<NodeSnapshot> nodes,
-            AckPacket value, boolean backend)
+    private static List<NodeSnapshot> updateGeometry(List<NodeSnapshot> nodes, AckPacket value, boolean backend)
     {
         if (value.nodeId().isBlank() || !Double.isFinite(value.x()) || !Double.isFinite(value.y())
                 || !Double.isFinite(value.width()) || !Double.isFinite(value.height()))
@@ -234,9 +233,9 @@ public final class EditorState
         {
             if (node.id().equals(value.nodeId()))
             {
-                result.add(new NodeSnapshot(node.id(), node.parentId(), node.kind(), value.x(),
-                        value.y(), value.width(), value.height(), node.rotationZ(), node.visible(), node.locked(),
-                        node.properties()));
+                result.add(
+                        new NodeSnapshot(node.id(), node.parentId(), node.kind(), value.x(), value.y(), value.width(),
+                                value.height(), node.rotationZ(), node.visible(), node.locked(), node.properties()));
             }
             else if (group && descendantOf(node, target.id(), index))
             {
@@ -255,8 +254,7 @@ public final class EditorState
         return result;
     }
 
-    private static boolean descendantOf(NodeSnapshot node, String ancestor,
-            Map<String, NodeSnapshot> index)
+    private static boolean descendantOf(NodeSnapshot node, String ancestor, Map<String, NodeSnapshot> index)
     {
         Set<String> visited = new HashSet<>();
         String parent = node.parentId();

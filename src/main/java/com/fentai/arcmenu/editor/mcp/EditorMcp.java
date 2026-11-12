@@ -256,8 +256,8 @@ public final class EditorMcp
         {
             current.result.complete(null);
         }
-        else if (packet instanceof SnapshotPacket snapshot && current.openId != null
-                && !current.openingEffect && snapshot.menuId().equals(current.openId))
+        else if (packet instanceof SnapshotPacket snapshot && current.openId != null && !current.openingEffect
+                && snapshot.menuId().equals(current.openId))
         {
             current.result.complete(null);
         }
@@ -458,9 +458,9 @@ public final class EditorMcp
                 JsonArray metadata = new JsonArray();
                 for (JsonElement frame : frames)
                 {
-                    int f = frame.getAsInt();
-                    effectEdit("seek", "", "", f, 0, "", "linear", new double[] { 0, 0, 0, 0 }, args);
-                    JsonObject shot = capture(args, f);
+                    int frameIndex = frame.getAsInt();
+                    effectEdit("seek", "", "", frameIndex, 0, "", "linear", new double[] { 0, 0, 0, 0 }, args);
+                    JsonObject shot = capture(args, frameIndex);
                     shot.getAsJsonArray("content").forEach(content::add);
                     metadata.add(shot.get("structuredContent"));
                 }
@@ -573,9 +573,9 @@ public final class EditorMcp
                 var rows = catalogue.rows("");
                 for (String key : strings(args, "ids"))
                 {
-                    var p = catalogue.projects().stream().filter(project -> project.key().equals(key)).findFirst()
+                    var match = catalogue.projects().stream().filter(project -> project.key().equals(key)).findFirst()
                             .orElseThrow(() -> new IllegalArgumentException("Unknown project: " + key));
-                    catalogue.select(p, true, false, rows);
+                    catalogue.select(match, true, false, rows);
                 }
                 var client = Minecraft.getInstance();
                 if (client.screen instanceof WorkspaceScreen manager)
@@ -976,8 +976,8 @@ public final class EditorMcp
         }
         case "property" ->
         {
-            packet = new SetPropertyPacket(revision, tab, required(args, "target"),
-                    required(args, "property"), required(args, "value"));
+            packet = new SetPropertyPacket(revision, tab, required(args, "target"), required(args, "property"),
+                    required(args, "value"));
             operation = EditorProtocol.OP_PROPERTY;
         }
         case "delete" ->
@@ -992,8 +992,7 @@ public final class EditorMcp
         }
         case "duplicate" ->
         {
-            packet = new DuplicatePacket(revision, tab, ids, parent,
-                    bool(args, "preserveParents", true));
+            packet = new DuplicatePacket(revision, tab, ids, parent, bool(args, "preserveParents", true));
             operation = EditorProtocol.OP_DUPLICATE;
         }
         case "group" ->
@@ -1038,8 +1037,7 @@ public final class EditorMcp
         }
         case "template-save" ->
         {
-            packet = new SaveTemplatePacket(revision, required(args, "target"),
-                    required(args, "template"));
+            packet = new SaveTemplatePacket(revision, required(args, "target"), required(args, "template"));
             operation = EditorProtocol.OP_TEMPLATE_SAVE;
         }
         case "template-instantiate" ->
@@ -1338,24 +1336,24 @@ public final class EditorMcp
             {
                 int x = 0;
                 int y = 0;
-                int w = captured.getWidth();
-                int h = captured.getHeight();
+                int capturedWidth = captured.getWidth();
+                int capturedHeight = captured.getHeight();
                 if (scope.equals("viewport") && bounds != null)
                 {
                     x = bounds.x();
                     y = captured.getHeight() - bounds.y() - bounds.height();
-                    w = bounds.width();
-                    h = bounds.height();
+                    capturedWidth = bounds.width();
+                    capturedHeight = bounds.height();
                 }
                 x = Math.max(0, Math.min(x, captured.getWidth() - 1));
                 y = Math.max(0, Math.min(y, captured.getHeight() - 1));
-                w = Math.max(1, Math.min(w, captured.getWidth() - x));
-                h = Math.max(1, Math.min(h, captured.getHeight() - y));
-                width = Math.min(w, integer(args, "maxWidth", 1280));
-                height = Math.max(1, (int) Math.round(h * width / (double) w));
+                capturedWidth = Math.max(1, Math.min(capturedWidth, captured.getWidth() - x));
+                capturedHeight = Math.max(1, Math.min(capturedHeight, captured.getHeight() - y));
+                width = Math.min(capturedWidth, integer(args, "maxWidth", 1280));
+                height = Math.max(1, (int) Math.round(capturedHeight * width / (double) capturedWidth));
                 try (NativeImage resized = new NativeImage(captured.format(), width, height, false))
                 {
-                    captured.resizeSubRectTo(x, y, w, h, resized);
+                    captured.resizeSubRectTo(x, y, capturedWidth, capturedHeight, resized);
                     Path temp = Files.createTempFile("arcmenu-mcp-frame-", ".png");
                     try
                     {
