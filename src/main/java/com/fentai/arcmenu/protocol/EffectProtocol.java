@@ -15,6 +15,19 @@ public final class EffectProtocol
     public static final String CHANNEL = "arcmenu:effect_editor";
     public static final int VERSION = 4;
     private static final int MAGIC = 0x41524546;
+    // Packet type ids on the wire; encode and decode must agree.
+    private static final int TYPE_HELLO = 1;
+    private static final int TYPE_EDIT = 2;
+    private static final int TYPE_EXIT = 3;
+    private static final int TYPE_SNAPSHOT = 64;
+    private static final int TYPE_CLOSED = 65;
+    private static final int TYPE_ERROR = 66;
+    private static final int TYPE_ACK = 67;
+    private static final int TYPE_VIEWPORT = 68;
+    private static final int TYPE_SELECTION = 69;
+    private static final int TYPE_TRANSPORT = 70;
+    private static final int TYPE_SCENE_FRAME = 71;
+    private static final int TYPE_PLAYBACK = 72;
 
     private EffectProtocol()
     {}
@@ -150,22 +163,22 @@ public final class EffectProtocol
             out.writeByte(version);
             if (packet instanceof Hello hello)
             {
-                out.writeByte(1);
+                out.writeByte(TYPE_HELLO);
                 out.writeInt(hello.version());
             }
             else if (packet instanceof Exit exit)
             {
-                out.writeByte(3);
+                out.writeByte(TYPE_EXIT);
                 out.writeLong(exit.sessionId());
             }
             else if (packet instanceof Playback playback)
             {
-                out.writeByte(72);
+                out.writeByte(TYPE_PLAYBACK);
                 out.writeLong(playback.sessionId());
             }
             else if (packet instanceof Edit edit)
             {
-                out.writeByte(2);
+                out.writeByte(TYPE_EDIT);
                 out.writeLong(edit.revision());
                 string(out, edit.action());
                 string(out, edit.target());
@@ -182,87 +195,26 @@ public final class EffectProtocol
             }
             else if (packet instanceof Snapshot snapshot)
             {
-                out.writeByte(64);
-                out.writeLong(snapshot.revision());
-                string(out, snapshot.id());
-                out.writeDouble(snapshot.fps());
-                out.writeInt(snapshot.duration());
-                out.writeInt(snapshot.workStart());
-                out.writeInt(snapshot.workEnd());
-                out.writeBoolean(snapshot.loop());
-                out.writeBoolean(snapshot.dirty());
-                out.writeBoolean(snapshot.playing());
-                out.writeBoolean(snapshot.autoKey());
-                out.writeDouble(snapshot.playhead());
-                count(out, snapshot.tracks().size());
-                for (var track : snapshot.tracks())
-                {
-                    string(out, track.target());
-                    string(out, track.property());
-                    out.writeBoolean(track.enabled());
-                    count(out, track.keys().size());
-                    for (var keyframe : track.keys())
-                    {
-                        out.writeInt(keyframe.frame());
-                        string(out, keyframe.value());
-                        string(out, keyframe.interpolation());
-                        out.writeDouble(keyframe.x1());
-                        out.writeDouble(keyframe.y1());
-                        out.writeDouble(keyframe.x2());
-                        out.writeDouble(keyframe.y2());
-                    }
-                }
-                count(out, snapshot.layers().size());
-                for (var layer : snapshot.layers())
-                {
-                    string(out, layer.target());
-                    out.writeInt(layer.start());
-                    out.writeInt(layer.end());
-                    out.writeBoolean(layer.enabled());
-                    out.writeBoolean(layer.solo());
-                }
-                count(out, snapshot.cues().size());
-                for (var cue : snapshot.cues())
-                {
-                    string(out, cue.id());
-                    out.writeInt(cue.frame());
-                    out.writeInt(cue.end());
-                    string(out, cue.kind());
-                    string(out, cue.source());
-                    out.writeDouble(cue.volume());
-                    out.writeDouble(cue.pitch());
-                    out.writeBoolean(cue.enabled());
-                }
-                count(out, snapshot.markers().size());
-                for (var marker : snapshot.markers())
-                {
-                    out.writeInt(marker.frame());
-                    string(out, marker.label());
-                }
-                count(out, snapshot.assets().size());
-                for (var asset : snapshot.assets())
-                {
-                    string(out, asset);
-                }
+                writeSnapshot(out, snapshot);
             }
             else if (packet instanceof Closed)
             {
-                out.writeByte(65);
+                out.writeByte(TYPE_CLOSED);
             }
             else if (packet instanceof Error error)
             {
-                out.writeByte(66);
+                out.writeByte(TYPE_ERROR);
                 out.writeLong(error.revision());
                 string(out, error.message());
             }
             else if (packet instanceof Ack ack)
             {
-                out.writeByte(67);
+                out.writeByte(TYPE_ACK);
                 out.writeLong(ack.requestId());
             }
             else if (packet instanceof Viewport viewport)
             {
-                out.writeByte(68);
+                out.writeByte(TYPE_VIEWPORT);
                 out.writeDouble(viewport.pixelsPerBlock());
                 out.writeDouble(viewport.distance());
                 out.writeDouble(viewport.offsetX());
@@ -270,7 +222,7 @@ public final class EffectProtocol
             }
             else if (packet instanceof Selection selection)
             {
-                out.writeByte(69);
+                out.writeByte(TYPE_SELECTION);
                 out.writeLong(selection.requestId());
                 count(out, selection.ids().size());
                 for (String id : selection.ids())
@@ -280,7 +232,7 @@ public final class EffectProtocol
             }
             else if (packet instanceof Transport transport)
             {
-                out.writeByte(70);
+                out.writeByte(TYPE_TRANSPORT);
                 out.writeLong(transport.revision());
                 string(out, transport.id());
                 out.writeBoolean(transport.dirty());
@@ -294,7 +246,7 @@ public final class EffectProtocol
                 {
                     throw new IllegalArgumentException("Too many Effect frame nodes");
                 }
-                out.writeByte(71);
+                out.writeByte(TYPE_SCENE_FRAME);
                 out.writeLong(sceneFrame.revision());
                 string(out, sceneFrame.menuId());
                 count(out, sceneFrame.nodes().size());
@@ -357,10 +309,10 @@ public final class EffectProtocol
             }
             Packet result = switch (in.readUnsignedByte())
             {
-            case 1 -> new Hello(in.readInt());
-            case 2 -> new Edit(in.readLong(), string(in), string(in), string(in), in.readInt(), in.readInt(),
+            case TYPE_HELLO -> new Hello(in.readInt());
+            case TYPE_EDIT -> new Edit(in.readLong(), string(in), string(in), string(in), in.readInt(), in.readInt(),
                     string(in), string(in), finite(in), finite(in), finite(in), finite(in), in.readLong());
-            case 3 ->
+            case TYPE_EXIT ->
             {
                 if (version < 4)
                 {
@@ -368,7 +320,7 @@ public final class EffectProtocol
                 }
                 yield new Exit(in.readLong());
             }
-            case 72 ->
+            case TYPE_PLAYBACK ->
             {
                 if (version < 4)
                 {
@@ -376,13 +328,13 @@ public final class EffectProtocol
                 }
                 yield new Playback(in.readLong());
             }
-            case 64 -> snapshot(in);
-            case 65 -> new Closed();
-            case 66 -> new Error(in.readLong(), string(in));
-            case 67 -> new Ack(in.readLong());
-            case 68 -> new Viewport(finite(in), finite(in), finite(in), finite(in));
-            case 69 -> selection(in);
-            case 70 ->
+            case TYPE_SNAPSHOT -> snapshot(in);
+            case TYPE_CLOSED -> new Closed();
+            case TYPE_ERROR -> new Error(in.readLong(), string(in));
+            case TYPE_ACK -> new Ack(in.readLong());
+            case TYPE_VIEWPORT -> new Viewport(finite(in), finite(in), finite(in), finite(in));
+            case TYPE_SELECTION -> selection(in);
+            case TYPE_TRANSPORT ->
             {
                 if (version < 3)
                 {
@@ -391,7 +343,7 @@ public final class EffectProtocol
                 yield new Transport(in.readLong(), string(in), in.readBoolean(), in.readBoolean(), in.readBoolean(),
                         finite(in));
             }
-            case 71 ->
+            case TYPE_SCENE_FRAME ->
             {
                 if (version < 3)
                 {
@@ -507,6 +459,72 @@ public final class EffectProtocol
             throw new IllegalArgumentException("Non-finite Effect value");
         }
         return value;
+    }
+
+    private static void writeSnapshot(DataOutputStream out, Snapshot snapshot) throws IOException
+    {
+        out.writeByte(TYPE_SNAPSHOT);
+        out.writeLong(snapshot.revision());
+        string(out, snapshot.id());
+        out.writeDouble(snapshot.fps());
+        out.writeInt(snapshot.duration());
+        out.writeInt(snapshot.workStart());
+        out.writeInt(snapshot.workEnd());
+        out.writeBoolean(snapshot.loop());
+        out.writeBoolean(snapshot.dirty());
+        out.writeBoolean(snapshot.playing());
+        out.writeBoolean(snapshot.autoKey());
+        out.writeDouble(snapshot.playhead());
+        count(out, snapshot.tracks().size());
+        for (var track : snapshot.tracks())
+        {
+            string(out, track.target());
+            string(out, track.property());
+            out.writeBoolean(track.enabled());
+            count(out, track.keys().size());
+            for (var keyframe : track.keys())
+            {
+                out.writeInt(keyframe.frame());
+                string(out, keyframe.value());
+                string(out, keyframe.interpolation());
+                out.writeDouble(keyframe.x1());
+                out.writeDouble(keyframe.y1());
+                out.writeDouble(keyframe.x2());
+                out.writeDouble(keyframe.y2());
+            }
+        }
+        count(out, snapshot.layers().size());
+        for (var layer : snapshot.layers())
+        {
+            string(out, layer.target());
+            out.writeInt(layer.start());
+            out.writeInt(layer.end());
+            out.writeBoolean(layer.enabled());
+            out.writeBoolean(layer.solo());
+        }
+        count(out, snapshot.cues().size());
+        for (var cue : snapshot.cues())
+        {
+            string(out, cue.id());
+            out.writeInt(cue.frame());
+            out.writeInt(cue.end());
+            string(out, cue.kind());
+            string(out, cue.source());
+            out.writeDouble(cue.volume());
+            out.writeDouble(cue.pitch());
+            out.writeBoolean(cue.enabled());
+        }
+        count(out, snapshot.markers().size());
+        for (var marker : snapshot.markers())
+        {
+            out.writeInt(marker.frame());
+            string(out, marker.label());
+        }
+        count(out, snapshot.assets().size());
+        for (var asset : snapshot.assets())
+        {
+            string(out, asset);
+        }
     }
 
     private static void string(DataOutputStream out, String value) throws IOException
