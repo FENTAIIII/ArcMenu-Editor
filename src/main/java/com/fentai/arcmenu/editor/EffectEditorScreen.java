@@ -200,7 +200,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                             || property.key().equals("source") && EditorImageTypes.imageKind(node.kind()) ? 14 : 0)),
                     12, EffectUi.component(property.key()));
             box.setMaxLength(EditorProtocol.MAX_STRING_BYTES / 2);
-            box.setValue(display(property));
+            box.setValue(PropertyValues.display(property));
             box.setBordered(false);
             box.setTextColor(EffectUi.ACCENT);
             box.setTextShadow(false);
@@ -1175,8 +1175,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                     if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
                             && event.x() < panels.properties().x()
                                     + Math.min(84, panels.properties().width() * 43 / 100) + 8
-                            && (field.property.type() == EditorProtocol.PROPERTY_NUMBER
-                                    || field.property.type() == EditorProtocol.PROPERTY_INTEGER))
+                            && PropertyValues.isNumeric(field.property))
                     {
                         try
                         {
@@ -1702,13 +1701,13 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             {
                 if (event.isConfirmation())
                 {
-                    property(field, submit(field.property, field.box.getValue()));
+                    property(field, PropertyValues.submitted(field.property, field.box.getValue()));
                     setFocused(null);
                     return true;
                 }
                 if (event.isEscape())
                 {
-                    field.box.setValue(display(field.property));
+                    field.box.setValue(PropertyValues.display(field.property));
                     setFocused(null);
                     return true;
                 }
@@ -2560,7 +2559,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             if (field.box != null && field.box.isFocused())
             {
-                property(field, submit(field.property, field.box.getValue()));
+                property(field, PropertyValues.submitted(field.property, field.box.getValue()));
                 setFocused(null);
                 break;
             }
@@ -2587,71 +2586,6 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 }
             }
         });
-    }
-
-    private void queuePointer(DeferredInput input)
-    {
-        if (input.type == 1 && !deferredPointerEvents.isEmpty() && deferredPointerEvents.getLast().type == 1)
-        {
-            deferredPointerEvents.removeLast();
-        }
-        if (deferredPointerEvents.size() >= 128)
-        {
-            deferredPointerEvents.clear();
-            deferredPointer = false;
-            deferredUI.clear();
-            return;
-        }
-        deferredPointerEvents.addLast(input);
-    }
-
-    private static String display(PropertySnapshot property)
-    {
-        return property.type() == EditorProtocol.PROPERTY_MULTILINE
-                ? property.value().replace("\\", "\\\\").replace("\n", "\\n")
-                : property.value();
-    }
-
-    private static String submit(PropertySnapshot property, String value)
-    {
-        if (property.type() != EditorProtocol.PROPERTY_MULTILINE)
-        {
-            return value.trim();
-        }
-        StringBuilder out = new StringBuilder();
-        boolean escape = false;
-        for (char character : value.toCharArray())
-        {
-            if (escape)
-            {
-                if (character == 'n')
-                {
-                    out.append('\n');
-                }
-                else if (character == '\\')
-                {
-                    out.append('\\');
-                }
-                else
-                {
-                    out.append('\\').append(character);
-                }
-                escape = false;
-            }
-            else if (character == '\\')
-            {
-                escape = true;
-            }
-            else
-            {
-                out.append(character);
-            }
-        }
-        if (escape)
-        {
-            out.append('\\');
-        }
-        return out.toString();
     }
 
     private ElementSelectionCalibration.Calibration nodeCalibration(byte kind)
@@ -2818,6 +2752,22 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         int frameInSecond = (int) Math.floor(frame - second * fps);
         return String.format(Locale.ROOT, "%d:%02d:%02d:%02d", second / 3600, second / 60 % 60, second % 60,
                 frameInSecond);
+    }
+
+    private void queuePointer(DeferredInput input)
+    {
+        if (input.type == 1 && !deferredPointerEvents.isEmpty() && deferredPointerEvents.getLast().type == 1)
+        {
+            deferredPointerEvents.removeLast();
+        }
+        if (deferredPointerEvents.size() >= 128)
+        {
+            deferredPointerEvents.clear();
+            deferredPointer = false;
+            deferredUI.clear();
+            return;
+        }
+        deferredPointerEvents.addLast(input);
     }
 
     private static String toolKey(byte kind)

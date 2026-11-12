@@ -49,6 +49,35 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.fentai.arcmenu.editor.EditorColors.ACCENT;
+import static com.fentai.arcmenu.editor.EditorColors.AXIS_X;
+import static com.fentai.arcmenu.editor.EditorColors.AXIS_Y;
+import static com.fentai.arcmenu.editor.EditorColors.AXIS_Z;
+import static com.fentai.arcmenu.editor.EditorColors.BORDER;
+import static com.fentai.arcmenu.editor.EditorColors.BUTTON;
+import static com.fentai.arcmenu.editor.EditorColors.BUTTON_HOVER;
+import static com.fentai.arcmenu.editor.EditorColors.CARD_HOVER;
+import static com.fentai.arcmenu.editor.EditorColors.CELL;
+import static com.fentai.arcmenu.editor.EditorColors.CELL_OUTLINE;
+import static com.fentai.arcmenu.editor.EditorColors.CLOSE_ICON;
+import static com.fentai.arcmenu.editor.EditorColors.CYAN;
+import static com.fentai.arcmenu.editor.EditorColors.DIALOG_OUTLINE;
+import static com.fentai.arcmenu.editor.EditorColors.FIELD;
+import static com.fentai.arcmenu.editor.EditorColors.HEADER;
+import static com.fentai.arcmenu.editor.EditorColors.HIGHLIGHT;
+import static com.fentai.arcmenu.editor.EditorColors.ICON_HOVER;
+import static com.fentai.arcmenu.editor.EditorColors.POPUP_BACKGROUND;
+import static com.fentai.arcmenu.editor.EditorColors.MUTED;
+import static com.fentai.arcmenu.editor.EditorColors.OVERLAY_TEXT;
+import static com.fentai.arcmenu.editor.EditorColors.PANEL;
+import static com.fentai.arcmenu.editor.EditorColors.PANEL_ALT;
+import static com.fentai.arcmenu.editor.EditorColors.ROW_HOVER;
+import static com.fentai.arcmenu.editor.EditorColors.SELECTED;
+import static com.fentai.arcmenu.editor.EditorColors.SNAP_GUIDE;
+import static com.fentai.arcmenu.editor.EditorColors.SOFT_BLUE;
+import static com.fentai.arcmenu.editor.EditorColors.SOFT_GREEN;
+import static com.fentai.arcmenu.editor.EditorColors.TEXT;
+
 public final class EditorScreen extends Screen implements EffectTimeline.Host
 {
     public static boolean captureClean;
@@ -60,17 +89,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     }
 
     private static final long LIVE_DRAG_INTERVAL_NANOS = 50_000_000L;
-    private static final int PANEL = 0xFF1A1D24;
-    private static final int PANEL_ALT = 0xFF232731;
-    private static final int HEADER = 0xFF0F1117;
-    private static final int BORDER = 0xFF3B4352;
-    private static final int TEXT = 0xFFE8ECF4;
-    private static final int MUTED = 0xFF9AA4B2;
-    private static final int ACCENT = 0xFF388BFF;
-    private static final int SELECTED = 0xFF263F65;
+    private static final int MANAGER_MENU_WIDTH = 174;
+    private static final int TEMPLATE_MENU_WIDTH = 126;
     /** Screen distance within which a dragged element snaps to an alignment line. */
     private static final double SNAP_DISTANCE_PIXELS = 6.0;
-    private static final int SNAP_GUIDE_COLOR = 0xFFFF4FD8;
 
     private final EditorState state;
     private final EffectTimeline effectTimeline;
@@ -116,7 +138,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private double dragStartY;
     private String pendingTemplateNode = "";
     private EditBox templateNameBox;
-    private ContextMenu contextMenu;
+    private EditorContextMenu contextMenu;
     private List<String> clipboardIds = List.of();
     private byte clipboardTab = -1;
     private String clipboardMenu = "";
@@ -165,7 +187,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         if (propertyDrag != null && propertyDrag.nodeId.equals(state.selectedId()))
         {
             propertyField(propertyDrag.property.key()).ifPresent(
-                    field -> field.box.setValue(formatPropertyValue(propertyDrag.property, pendingPropertyValue)));
+                    field -> field.box.setValue(PropertyValues.format(propertyDrag.property, pendingPropertyValue)));
         }
     }
 
@@ -286,14 +308,14 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 int y = currentLayout.properties().y() + 28 + index * 24 - propertyScroll;
                 if (y >= currentLayout.properties().y() + 21 && y + 19 < currentLayout.properties().bottom() - 22)
                 {
-                    boolean numeric = isNumeric(property);
+                    boolean numeric = PropertyValues.isNumeric(property);
                     int boxInset = numeric ? 18 : 7;
                     int boxRightInset = numeric ? 18
                             : property.key().equals("source") && EditorImageTypes.imageKind(node.kind()) ? 26 : 15;
                     EditBox box = new EditBox(font, fieldX + boxInset, y + 6,
                             Math.max(20, fieldWidth - boxInset - boxRightInset), 10, Component.literal(property.key()));
                     box.setMaxLength(EditorProtocol.MAX_STRING_BYTES / 2);
-                    box.setValue(displayPropertyValue(property));
+                    box.setValue(PropertyValues.display(property));
                     box.setBordered(false);
                     box.setTextShadow(false);
                     box.setTextColor(TEXT);
@@ -324,8 +346,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     {
         EditorLayout.Rect panel = calibrationPanel();
         ElementSelectionCalibration.Calibration value = selectionCalibration.get(calibrationKind);
-        String[] values = { format(value.offsetRatioX()), format(value.offsetRatioY()), format(value.scaleX()),
-                format(value.scaleY()) };
+        String[] values = { PropertyValues.decimal(value.offsetRatioX()), PropertyValues.decimal(value.offsetRatioY()),
+                PropertyValues.decimal(value.scaleX()), PropertyValues.decimal(value.scaleY()) };
         int fieldX = panel.x() + Math.min(235, Math.max(170, panel.width() / 2));
         int fieldWidth = Math.max(90, panel.right() - fieldX - 20);
         for (int index = 0; index < values.length; index++)
@@ -425,7 +447,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         drawDragGhost(graphics, mouseX, mouseY);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        drawContextMenu(graphics, mouseX, mouseY);
+        if (contextMenu != null)
+        {
+            contextMenu.draw(graphics, font, mouseX, mouseY);
+        }
         drawHoverTooltip(graphics);
     }
 
@@ -464,7 +489,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         graphics.fill(host.x(), view.bottom(), host.right(), host.bottom(), PANEL_ALT);
         graphics.fill(host.x(), view.y(), view.x(), view.bottom(), PANEL_ALT);
         graphics.fill(view.right(), view.y(), host.right(), view.bottom(), PANEL_ALT);
-        graphics.outline(view.x() - 1, view.y() - 1, view.width() + 2, view.height() + 2, 0xFF657084);
+        graphics.outline(view.x() - 1, view.y() - 1, view.width() + 2, view.height() + 2, DIALOG_OUTLINE);
         graphics.fill(layout.toolsWidth() - 1, EditorLayout.HEADER_HEIGHT, layout.toolsWidth() + 1, height, BORDER);
         graphics.fill(width - layout.inspectorWidth() - 1, EditorLayout.HEADER_HEIGHT,
                 width - layout.inspectorWidth() + 1, height, BORDER);
@@ -499,7 +524,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         if (menuWidth > 8)
         {
             graphics.text(font, ellipsize(menu, menuWidth), menuX, 8,
-                    snapshot != null && snapshot.dirty() ? 0xFFFFC857 : MUTED, false);
+                    snapshot != null && snapshot.dirty() ? HIGHLIGHT : MUTED, false);
         }
         int statusX = menuX + menuWidth + 8;
         int statusWidth = width - 28 - statusX;
@@ -507,14 +532,14 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             graphics.text(font, ellipsize(state.status(), statusWidth), statusX, 8, MUTED, false);
         }
-        EditorIcons.draw(graphics, EditorIcons.CLOSE, width - 20, 4, 0xFFE7A0A7);
+        EditorIcons.draw(graphics, EditorIcons.CLOSE, width - 20, 4, CLOSE_ICON);
     }
 
     private int headerButton(GuiGraphicsExtractor graphics, int x, String label, boolean active, int mouseX, int mouseY)
     {
         int buttonWidth = font.width(label) + 14;
         boolean hover = mouseX >= x && mouseX < x + buttonWidth && mouseY >= 3 && mouseY < 22;
-        graphics.fill(x, 3, x + buttonWidth, 22, active ? ACCENT : hover ? 0xFF343B48 : 0xFF252A34);
+        graphics.fill(x, 3, x + buttonWidth, 22, active ? ACCENT : hover ? BUTTON_HOVER : BUTTON);
         graphics.text(font, label, x + 7, 8, TEXT, false);
         return x + buttonWidth + 3;
     }
@@ -524,13 +549,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         graphics.fill(0, EditorLayout.HEADER_HEIGHT, width, height, 0xC9000000);
         EditorLayout.Rect panel = calibrationPanel();
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.bottom(), 0xFF171A21);
-        graphics.outline(panel.x(), panel.y(), panel.width(), panel.height(), 0xFF657084);
+        graphics.outline(panel.x(), panel.y(), panel.width(), panel.height(), DIALOG_OUTLINE);
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.y() + 31, HEADER);
         graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.title"), panel.x() + 11, panel.y() + 11, TEXT,
                 false);
         graphics.text(font, EditorI18n.text("arcmenu_editor.calibration.description"), panel.x() + 116, panel.y() + 11,
                 MUTED, false);
-        EditorIcons.draw(graphics, EditorIcons.CLOSE, panel.right() - 21, panel.y() + 7, 0xFFE7A0A7);
+        EditorIcons.draw(graphics, EditorIcons.CLOSE, panel.right() - 21, panel.y() + 7, CLOSE_ICON);
 
         for (int index = 0; index < ElementSelectionCalibration.KINDS.length; index++)
         {
@@ -538,8 +563,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             EditorLayout.Rect row = calibrationKindRect(index);
             boolean hover = row.contains(mouseX, mouseY);
             boolean selected = kind == calibrationKind;
-            graphics.fill(row.x(), row.y(), row.right(), row.bottom(),
-                    selected ? SELECTED : hover ? 0xFF2B303A : PANEL);
+            graphics.fill(row.x(), row.y(), row.right(), row.bottom(), selected ? SELECTED : hover ? ROW_HOVER : PANEL);
             if (selected)
             {
                 graphics.fill(row.x(), row.y(), row.x() + 3, row.bottom(), ACCENT);
@@ -572,7 +596,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     {
         boolean hover = rect.contains(mouseX, mouseY);
         graphics.fill(rect.x(), rect.y(), rect.right(), rect.bottom(),
-                primary ? (hover ? 0xFF4B9AFF : ACCENT) : (hover ? 0xFF343B48 : 0xFF252A34));
+                primary ? (hover ? 0xFF4B9AFF : ACCENT) : (hover ? BUTTON_HOVER : BUTTON));
         graphics.centeredText(font, label, rect.x() + rect.width() / 2, rect.y() + 7, TEXT);
     }
 
@@ -624,12 +648,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             boolean hover = mouseX >= x && mouseX < x + cellWidth && mouseY >= y && mouseY < y + cellHeight;
             boolean active = EditorImageTypes.imageKind(tool.kind) && tool.kind == assetLibrary.imageKind()
                     && assetLibrary.imageMode() || tool.kind == -1 && !assetLibrary.imageMode();
-            graphics.fill(x, y, x + cellWidth, y + cellHeight, active ? SELECTED : hover ? 0xFF343B48 : 0xFF242933);
+            graphics.fill(x, y, x + cellWidth, y + cellHeight, active ? SELECTED : hover ? BUTTON_HOVER : CELL);
             if (hover)
             {
-                graphics.outline(x, y, cellWidth, cellHeight, 0xFF52647C);
+                graphics.outline(x, y, cellWidth, cellHeight, CELL_OUTLINE);
             }
-            EditorIcons.draw(graphics, tool.icon, x + (cellWidth - 16) / 2, y + 3, hover ? 0xFF82B7FF : 0xFFD9DFEA);
+            EditorIcons.draw(graphics, tool.icon, x + (cellWidth - 16) / 2, y + 3, hover ? ICON_HOVER : 0xFFD9DFEA);
             graphics.centeredText(font, tool.label, x + cellWidth / 2, y + 23, hover ? TEXT : MUTED);
             if (active)
             {
@@ -681,7 +705,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             int y = screenY(drawY + drawHeight / 2);
             int boxWidth = Math.max(2, screenX(drawX + drawWidth / 2) - x);
             int boxHeight = Math.max(2, screenY(drawY - drawHeight / 2) - y);
-            int color = state.selected(node.id()) ? (node.id().equals(state.selectedId()) ? 0xFFFFC857 : 0xFF8FB7ED)
+            int color = state.selected(node.id()) ? (node.id().equals(state.selectedId()) ? HIGHLIGHT : SOFT_BLUE)
                     : state.activeTab() == EditorProtocol.TAB_BACKEND ? 0xB04096FF : 0x885D88C7;
             graphics.outline(x, y, boxWidth, boxHeight, color);
             if (node.id().equals(state.selectedId()))
@@ -697,16 +721,19 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 Math.max(1, virtualBottom - virtualY), 0xFFB38CFF);
         drawSnapGuides(graphics);
         graphics.text(font, EditorI18n.text("arcmenu_editor.viewport.game", view.width(), view.height()), view.x() + 5,
-                view.y() + 5, 0xCCFFFFFF, true);
-        String calibration = EditorI18n.text("arcmenu_editor.viewport.calibration", format(layout.virtualScreenScale()),
-                format(layout.virtualScreenOffsetX()), format(layout.virtualScreenOffsetY()));
+                view.y() + 5, OVERLAY_TEXT, true);
+        String calibration = EditorI18n.text("arcmenu_editor.viewport.calibration",
+                PropertyValues.decimal(layout.virtualScreenScale()),
+                PropertyValues.decimal(layout.virtualScreenOffsetX()),
+                PropertyValues.decimal(layout.virtualScreenOffsetY()));
         graphics.text(font, calibration, view.x() + 5, view.y() + 17, 0xDDBF9CFF, true);
         if (virtual.contains(mouseX, mouseY))
         {
             double menuX = menuX(mouseX);
             double menuY = menuY(mouseY);
-            String coordinates = EditorI18n.text("arcmenu_editor.viewport.coordinates", format(menuX), format(menuY));
-            graphics.text(font, coordinates, virtualX + 5, virtualBottom - 13, 0xCCFFFFFF, true);
+            String coordinates = EditorI18n.text("arcmenu_editor.viewport.coordinates", PropertyValues.decimal(menuX),
+                    PropertyValues.decimal(menuY));
+            graphics.text(font, coordinates, virtualX + 5, virtualBottom - 13, OVERLAY_TEXT, true);
         }
         graphics.disableScissor();
     }
@@ -763,15 +790,15 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             if (selected || hover)
             {
                 graphics.fill(panel.x() + 3, y, panel.right() - 3, y + 19,
-                        groupDrop ? 0xFF24513E : selected ? SELECTED : 0xFF2B303A);
+                        groupDrop ? 0xFF24513E : selected ? SELECTED : ROW_HOVER);
             }
             if (groupDrop)
             {
-                graphics.outline(panel.x() + 3, y, panel.width() - 6, 19, 0xFF65D68A);
+                graphics.outline(panel.x() + 3, y, panel.width() - 6, 19, SOFT_GREEN);
             }
             if (levelDrop)
             {
-                graphics.fill(panel.x() + 3, y, panel.right() - 3, y + 2, 0xFF65D68A);
+                graphics.fill(panel.x() + 3, y, panel.right() - 3, y + 2, SOFT_GREEN);
             }
             if (nodeRow.node.id().equals(state.selectedId()))
             {
@@ -802,7 +829,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 && canMoveToParent(dragSelection, ""))
         {
             graphics.outline(panel.x() + 3, panel.y() + 46, panel.width() - 6, Math.max(1, panel.height() - 49),
-                    0xFF65D68A);
+                    SOFT_GREEN);
         }
     }
 
@@ -810,8 +837,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             ManagerAction action, int mouseX, int mouseY)
     {
         boolean hover = mouseX >= x && mouseX < x + 22 && mouseY >= y && mouseY < y + 21;
-        graphics.fill(x, y, x + 22, y + 21, hover ? 0xFF343B48 : 0xFF242933);
-        EditorIcons.draw(graphics, icon, x + 3, y + 2, hover ? 0xFF82B7FF : 0xFFD4DBE6);
+        graphics.fill(x, y, x + 22, y + 21, hover ? BUTTON_HOVER : CELL);
+        EditorIcons.draw(graphics, icon, x + 3, y + 2, hover ? ICON_HOVER : 0xFFD4DBE6);
         managerButtons.add(new ManagerButton(action, new EditorLayout.Rect(x, y, 22, 21)));
         if (hover)
         {
@@ -827,7 +854,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             return;
         }
         EditorTooltips.draw(graphics, font, Component.literal(hoverTooltip.text), hoverTooltip.x, hoverTooltip.y, width,
-                height, 0xFF161920, BORDER, TEXT);
+                height, POPUP_BACKGROUND, BORDER, TEXT);
     }
 
     private void appendRows(Map<String, List<NodeSnapshot>> children, String parent, int depth, int[] row)
@@ -859,7 +886,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             graphics.text(font, propertyLabel(field.property.key()), panel.x() + 8, field.y + 7, MUTED, false);
             graphics.fill(field.rect.x(), field.rect.y(), field.rect.right(), field.rect.bottom(),
-                    field.box.isFocused() ? 0xFF223A5B : 0xFF171A20);
+                    field.box.isFocused() ? 0xFF223A5B : FIELD);
             int stripe = propertyStripe(field.property.key());
             graphics.fill(field.rect.x(), field.rect.y(), field.rect.x() + 3, field.rect.bottom(), stripe);
             if (field.property.key().equals("source") && EditorImageTypes.imageKind(node.kind()))
@@ -881,7 +908,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             {
                 hoverTooltip = new HoverTooltip(hint, mouseX + 8, mouseY - 20);
             }
-            if (isNumeric(field.property))
+            if (PropertyValues.isNumeric(field.property))
             {
                 EditorIcons.draw(graphics, EditorIcons.CHEVRON_LEFT, field.rect.x() + 6, field.rect.y() + 2,
                         0x887F8997);
@@ -937,19 +964,19 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             }
             boolean hover = mouseX >= x && mouseX < x + cardW && mouseY >= Math.max(y, panel.y() + 43)
                     && mouseY < Math.min(y + 78, panel.bottom());
-            graphics.fill(x, y, x + cardW, y + 78, hover ? 0xFF303846 : 0xFF242933);
+            graphics.fill(x, y, x + cardW, y + 78, hover ? CARD_HOVER : CELL);
             graphics.outline(x, y, cardW, 78, hover ? 0xFF6EA8F5 : BORDER);
             graphics.fill(x + 6, y + 6, x + cardW - 6, y + 49, 0xFF11141A);
             if (template == null)
             {
                 graphics.centeredText(font, EditorI18n.text("arcmenu_editor.templates.drop"), x + cardW / 2, y + 23,
-                        0xFF8FB7ED);
+                        SOFT_BLUE);
             }
             else
             {
-                EditorIcons.draw(graphics, EditorIcons.FOLDER, x + cardW / 2 - 28, y + 16, 0xFF6CC7EA);
+                EditorIcons.draw(graphics, EditorIcons.FOLDER, x + cardW / 2 - 28, y + 16, CYAN);
                 graphics.text(font, EditorI18n.text("arcmenu_editor.common.elements", template.nodeCount()),
-                        x + cardW / 2 - 8, y + 23, 0xFF6CC7EA, false);
+                        x + cardW / 2 - 8, y + 23, CYAN, false);
             }
             graphics.text(font,
                     template == null ? EditorI18n.text("arcmenu_editor.templates.none") : ellipsize(template.id(), 18),
@@ -1062,15 +1089,15 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             boolean selected = !entry.directory() && entry.image().path().equals(assetLibrary.selectedPath());
             boolean hover = mouseX >= x && mouseX < x + cardW && mouseY >= Math.max(y, top)
                     && mouseY < Math.min(y + 70, panel.bottom());
-            graphics.fill(x, y, x + cardW, y + 70, selected ? SELECTED : hover ? 0xFF303846 : 0xFF242933);
+            graphics.fill(x, y, x + cardW, y + 70, selected ? SELECTED : hover ? CARD_HOVER : CELL);
             if (selected || hover)
             {
-                graphics.outline(x, y, cardW, 70, selected ? ACCENT : 0xFF52647C);
+                graphics.outline(x, y, cardW, 70, selected ? ACCENT : CELL_OUTLINE);
             }
             var preview = new EditorLayout.Rect(x + 4, y + 4, cardW - 8, 43);
             if (entry.directory())
             {
-                EditorIcons.draw(graphics, EditorIcons.FOLDER, x + (cardW - 16) / 2, y + 17, 0xFF8FB7ED);
+                EditorIcons.draw(graphics, EditorIcons.FOLDER, x + (cardW - 16) / 2, y + 17, SOFT_BLUE);
             }
             else
             {
@@ -1207,7 +1234,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     {
         graphics.text(font, label, panel.x() + 8, y + 5, MUTED, false);
         int x = panel.x() + 72;
-        graphics.fill(x, y, panel.right() - 8, y + 20, 0xFF171A20);
+        graphics.fill(x, y, panel.right() - 8, y + 20, FIELD);
         graphics.text(font, ellipsize(value, 35), x + 6, y + 6, TEXT, false);
     }
 
@@ -1217,8 +1244,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         graphics.text(font, label, panel.x() + 8, y, MUTED, false);
         int x = panel.x() + 8;
         int fieldWidth = (panel.width() - 25) / 2;
-        smallField(graphics, x, y + 12, fieldWidth, "X  " + format(xValue), 0xFFE95C66);
-        smallField(graphics, x + fieldWidth + 7, y + 12, fieldWidth, "Y  " + format(yValue), 0xFF56D364);
+        smallField(graphics, x, y + 12, fieldWidth, "X  " + PropertyValues.decimal(xValue), AXIS_X);
+        smallField(graphics, x + fieldWidth + 7, y + 12, fieldWidth, "Y  " + PropertyValues.decimal(yValue), AXIS_Y);
     }
 
     private void property3(GuiGraphicsExtractor graphics, EditorLayout.Rect panel, int y, String label, double xValue,
@@ -1227,14 +1254,15 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         graphics.text(font, label, panel.x() + 8, y, MUTED, false);
         int x = panel.x() + 8;
         int fieldWidth = (panel.width() - 30) / 3;
-        smallField(graphics, x, y + 12, fieldWidth, "X " + format(xValue), 0xFFE95C66);
-        smallField(graphics, x + fieldWidth + 5, y + 12, fieldWidth, "Y " + format(yValue), 0xFF56D364);
-        smallField(graphics, x + (fieldWidth + 5) * 2, y + 12, fieldWidth, "Z " + format(zValue), 0xFF55A6F1);
+        smallField(graphics, x, y + 12, fieldWidth, "X " + PropertyValues.decimal(xValue), AXIS_X);
+        smallField(graphics, x + fieldWidth + 5, y + 12, fieldWidth, "Y " + PropertyValues.decimal(yValue), AXIS_Y);
+        smallField(graphics, x + (fieldWidth + 5) * 2, y + 12, fieldWidth, "Z " + PropertyValues.decimal(zValue),
+                AXIS_Z);
     }
 
     private void smallField(GuiGraphicsExtractor graphics, int x, int y, int width, String value, int stripe)
     {
-        graphics.fill(x, y, x + width, y + 20, 0xFF171A20);
+        graphics.fill(x, y, x + width, y + 20, FIELD);
         graphics.fill(x, y, x + 2, y + 20, stripe);
         graphics.centeredText(font, ellipsize(value, 12), x + width / 2, y + 6, TEXT);
     }
@@ -1258,13 +1286,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         double y = event.y();
         if (contextMenu != null)
         {
-            ContextEntry entry = contextMenu.entryAt(x, y);
+            EditorContextMenu.Entry entry = contextMenu.entryAt(x, y);
             if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && entry != null)
             {
                 contextMenu = null;
-                if (entry.enabled)
+                if (entry.enabled())
                 {
-                    entry.action.run();
+                    entry.action().run();
                 }
                 return true;
             }
@@ -1355,12 +1383,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 imageScroll = 0;
                 return true;
             }
-            if (isNumeric(field.property))
+            if (PropertyValues.isNumeric(field.property))
             {
-                double value = parseNumber(field.box.getValue(), field.property.value());
+                double value = PropertyValues.parse(field.box.getValue(), field.property.value());
                 if (event.hasControlDown())
                 {
-                    setProperty(field, formatPropertyValue(field.property, Math.rint(value)));
+                    setProperty(field, PropertyValues.format(field.property, Math.rint(value)));
                     return true;
                 }
                 propertyDrag = new PropertyDrag(field.nodeId, field.property, value, x, y, nextGestureId++);
@@ -1788,10 +1816,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             }
             if (propertyDrag.dragging)
             {
-                pendingPropertyValue = normalizePropertyValue(propertyDrag.property,
-                        propertyDrag.initialValue + dx * propertyStep(propertyDrag.property, event));
-                propertyField(propertyDrag.property.key()).ifPresent(
-                        field -> field.box.setValue(formatPropertyValue(propertyDrag.property, pendingPropertyValue)));
+                pendingPropertyValue = PropertyValues.normalize(propertyDrag.property,
+                        propertyDrag.initialValue + dx * PropertyValues.dragStep(propertyDrag.property, event));
+                propertyField(propertyDrag.property.key()).ifPresent(field -> field.box
+                        .setValue(PropertyValues.format(propertyDrag.property, pendingPropertyValue)));
                 flushPropertyDrag(false);
             }
             return true;
@@ -2049,9 +2077,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             }
             return;
         }
-        ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(), state.activeTab(),
-                propertyDrag.nodeId, propertyDrag.property.key(),
-                formatPropertyValue(propertyDrag.property, pendingPropertyValue), propertyDrag.gestureId, finalUpdate));
+        ArcMenuEditorClient
+                .send(new SetPropertyPacket(state.snapshot().revision(), state.activeTab(), propertyDrag.nodeId,
+                        propertyDrag.property.key(), PropertyValues.format(propertyDrag.property, pendingPropertyValue),
+                        propertyDrag.gestureId, finalUpdate));
         sentPropertyValue = pendingPropertyValue;
         lastPropertySendNanos = now;
         propertyRequestInFlight = true;
@@ -2066,75 +2095,6 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         propertyReleased = false;
         pendingPropertyValue = 0;
         sentPropertyValue = Double.NaN;
-    }
-
-    private static double propertyStep(PropertySnapshot property, MouseButtonEvent event)
-    {
-        String key = property.key();
-        double normal = key.startsWith("rotation.") ? 1.0
-                : key.startsWith("scale.") ? 0.01 : property.type() == EditorProtocol.PROPERTY_INTEGER ? 1.0 : 0.25;
-        if (event.hasAltDown())
-        {
-            return normal / 5.0;
-        }
-        if (event.hasShiftDown())
-        {
-            return normal * 5.0;
-        }
-        if (event.hasControlDown())
-        {
-            return key.startsWith("rotation.") ? 15.0 : key.startsWith("scale.") ? 0.1 : 1.0;
-        }
-        return normal;
-    }
-
-    private static double normalizePropertyValue(PropertySnapshot property, double value)
-    {
-        if (!Double.isFinite(value))
-        {
-            return 0.0;
-        }
-        if (property.type() == EditorProtocol.PROPERTY_INTEGER)
-        {
-            value = Math.rint(value);
-        }
-        if (property.key().equals("opacity"))
-        {
-            value = Math.max(0, Math.min(255, value));
-        }
-        if (property.key().equals("width") || property.key().equals("height") || property.key().equals("thickness"))
-        {
-            value = Math.max(0.01, value);
-        }
-        return Math.abs(value) < 0.0000005 ? 0.0 : value;
-    }
-
-    private static String formatPropertyValue(PropertySnapshot property, double value)
-    {
-        if (property.type() == EditorProtocol.PROPERTY_INTEGER)
-        {
-            return Long.toString(Math.round(value));
-        }
-        return format(value);
-    }
-
-    private static double parseNumber(String value, String fallback)
-    {
-        try
-        {
-            return Double.parseDouble(value);
-        }
-        catch (NumberFormatException ignored)
-        {
-            try
-            {
-                return Double.parseDouble(fallback);
-            }
-            catch (NumberFormatException ignoredAgain)
-            {
-                return 0.0;
-            }
-        }
     }
 
     @Override
@@ -2249,13 +2209,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             }
             if (event.isEscape())
             {
-                field.box.setValue(displayPropertyValue(field.property));
+                field.box.setValue(PropertyValues.display(field.property));
                 setFocused(null);
                 return true;
             }
             if (event.isConfirmation() && state.snapshot() != null)
             {
-                String value = submittedPropertyValue(field.property, field.box.getValue());
+                String value = PropertyValues.submitted(field.property, field.box.getValue());
                 setProperty(field, value);
                 setFocused(null);
                 return true;
@@ -2519,31 +2479,34 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
 
     private void openManagerContext(double mouseX, double mouseY, NodeRow row)
     {
-        List<ContextEntry> entries = new ArrayList<>();
+        List<EditorContextMenu.Entry> entries = new ArrayList<>();
         boolean hasSelection = !state.selectedIds().isEmpty();
         if (row != null && row.node.kind() == EditorProtocol.KIND_GROUP && clipboardAvailable())
         {
-            entries.add(new ContextEntry(EditorIcons.PASTE, EditorI18n.text("arcmenu_editor.context.paste_into_group"),
-                    "Ctrl+Shift+V", true, () -> pasteSelection(false, row.node.id())));
+            entries.add(new EditorContextMenu.Entry(EditorIcons.PASTE,
+                    EditorI18n.text("arcmenu_editor.context.paste_into_group"), "Ctrl+Shift+V", true,
+                    () -> pasteSelection(false, row.node.id())));
         }
-        entries.add(new ContextEntry(EditorIcons.COPY, EditorI18n.text("arcmenu_editor.context.copy"), "Ctrl+C",
-                hasSelection, this::copySelection));
-        entries.add(new ContextEntry(EditorIcons.PASTE, EditorI18n.text("arcmenu_editor.context.paste_original"),
-                "Ctrl+V", clipboardAvailable(), () -> pasteSelection(true, "")));
-        entries.add(new ContextEntry(EditorIcons.DUPLICATE, EditorI18n.text("arcmenu_editor.context.duplicate"),
-                "Ctrl+D", hasSelection, this::duplicateSelection));
-        entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.group"), "Ctrl+G",
-                hasSelection, this::groupSelection));
+        entries.add(new EditorContextMenu.Entry(EditorIcons.COPY, EditorI18n.text("arcmenu_editor.context.copy"),
+                "Ctrl+C", hasSelection, this::copySelection));
+        entries.add(
+                new EditorContextMenu.Entry(EditorIcons.PASTE, EditorI18n.text("arcmenu_editor.context.paste_original"),
+                        "Ctrl+V", clipboardAvailable(), () -> pasteSelection(true, "")));
+        entries.add(new EditorContextMenu.Entry(EditorIcons.DUPLICATE,
+                EditorI18n.text("arcmenu_editor.context.duplicate"), "Ctrl+D", hasSelection, this::duplicateSelection));
+        entries.add(new EditorContextMenu.Entry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.group"),
+                "Ctrl+G", hasSelection, this::groupSelection));
         if (state.activeTab() == EditorProtocol.TAB_BACKEND && row != null
                 && row.node.kind() == EditorProtocol.KIND_GROUP)
         {
-            entries.add(new ContextEntry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.ungroup"),
-                    "Ctrl+Shift+G", state.selectedIds().size() == 1, this::ungroupSelection));
+            entries.add(
+                    new EditorContextMenu.Entry(EditorIcons.FOLDER, EditorI18n.text("arcmenu_editor.context.ungroup"),
+                            "Ctrl+Shift+G", state.selectedIds().size() == 1, this::ungroupSelection));
         }
         if (row != null && state.hasChildren(row.node.id()))
         {
             boolean expanded = state.expanded().contains(row.node.id());
-            entries.add(new ContextEntry(expanded ? EditorIcons.CHEVRON_LEFT : EditorIcons.CHEVRON_RIGHT,
+            entries.add(new EditorContextMenu.Entry(expanded ? EditorIcons.CHEVRON_LEFT : EditorIcons.CHEVRON_RIGHT,
                     EditorI18n.text(expanded ? "arcmenu_editor.context.collapse" : "arcmenu_editor.context.expand"), "",
                     true, () ->
                     {
@@ -2552,30 +2515,23 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                             state.expanded().remove(row.node.id());
                         }
                     }));
-            entries.add(new ContextEntry(EditorIcons.LIST, EditorI18n.text("arcmenu_editor.context.select_children"),
-                    "", true, () -> selectChildren(row.node.id())));
+            entries.add(new EditorContextMenu.Entry(EditorIcons.LIST,
+                    EditorI18n.text("arcmenu_editor.context.select_children"), "", true,
+                    () -> selectChildren(row.node.id())));
         }
-        entries.add(new ContextEntry(EditorIcons.EDIT, EditorI18n.text("arcmenu_editor.context.rename"), "F2",
-                state.selectedIds().size() == 1, this::focusIdProperty));
-        entries.add(new ContextEntry(EditorIcons.TRASH, EditorI18n.text("arcmenu_editor.context.delete"), "Delete",
-                hasSelection, this::deleteSelection));
-        int menuWidth = 174;
-        int menuHeight = entries.size() * 21 + 4;
-        int x = Math.max(2, Math.min(width - menuWidth - 2, (int) Math.round(mouseX)));
-        int y = Math.max(2, Math.min(height - menuHeight - 2, (int) Math.round(mouseY)));
-        contextMenu = new ContextMenu(x, y, menuWidth, entries);
+        entries.add(new EditorContextMenu.Entry(EditorIcons.EDIT, EditorI18n.text("arcmenu_editor.context.rename"),
+                "F2", state.selectedIds().size() == 1, this::focusIdProperty));
+        entries.add(new EditorContextMenu.Entry(EditorIcons.TRASH, EditorI18n.text("arcmenu_editor.context.delete"),
+                "Delete", hasSelection, this::deleteSelection));
+        contextMenu = EditorContextMenu.at(mouseX, mouseY, MANAGER_MENU_WIDTH, entries, width, height);
     }
 
     private void openTemplateContext(double mouseX, double mouseY, TemplateCard card)
     {
-        List<ContextEntry> entries = List
-                .of(new ContextEntry(EditorIcons.TRASH, EditorI18n.text("arcmenu_editor.context.delete_template"), "",
-                        true, () -> deleteTemplate(card.template.id())));
-        int menuWidth = 126;
-        int menuHeight = entries.size() * 21 + 4;
-        int x = Math.max(2, Math.min(width - menuWidth - 2, (int) Math.round(mouseX)));
-        int y = Math.max(2, Math.min(height - menuHeight - 2, (int) Math.round(mouseY)));
-        contextMenu = new ContextMenu(x, y, menuWidth, entries);
+        List<EditorContextMenu.Entry> entries = List.of(new EditorContextMenu.Entry(EditorIcons.TRASH,
+                EditorI18n.text("arcmenu_editor.context.delete_template"), "", true,
+                () -> deleteTemplate(card.template.id())));
+        contextMenu = EditorContextMenu.at(mouseX, mouseY, TEMPLATE_MENU_WIDTH, entries, width, height);
     }
 
     private void deleteTemplate(String templateId)
@@ -2595,39 +2551,6 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         state.selectAll(children);
         state.expanded().add(parentId);
         rebuildWidgets();
-    }
-
-    private void drawContextMenu(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
-    {
-        if (contextMenu == null)
-        {
-            return;
-        }
-        int height = contextMenu.entries.size() * 21 + 4;
-        graphics.fill(contextMenu.x + 4, contextMenu.y + 4, contextMenu.x + contextMenu.width + 5,
-                contextMenu.y + height + 5, 0x77000000);
-        graphics.fill(contextMenu.x, contextMenu.y, contextMenu.x + contextMenu.width, contextMenu.y + height,
-                0xFF161920);
-        graphics.outline(contextMenu.x, contextMenu.y, contextMenu.width, height, BORDER);
-        for (int index = 0; index < contextMenu.entries.size(); index++)
-        {
-            ContextEntry entry = contextMenu.entries.get(index);
-            int y = contextMenu.y + 2 + index * 21;
-            boolean hover = entry.enabled && mouseX >= contextMenu.x && mouseX < contextMenu.x + contextMenu.width
-                    && mouseY >= y && mouseY < y + 21;
-            if (hover)
-            {
-                graphics.fill(contextMenu.x + 2, y, contextMenu.x + contextMenu.width - 2, y + 21, SELECTED);
-            }
-            int color = entry.enabled ? TEXT : 0xFF626A77;
-            EditorIcons.draw(graphics, entry.icon, contextMenu.x + 5, y + 2, color);
-            graphics.text(font, entry.label, contextMenu.x + 26, y + 7, color, false);
-            if (!entry.shortcut.isBlank())
-            {
-                graphics.text(font, entry.shortcut, contextMenu.x + contextMenu.width - font.width(entry.shortcut) - 7,
-                        y + 7, entry.enabled ? MUTED : 0xFF555C68, false);
-            }
-        }
     }
 
     private NodeSnapshot hitNode(double x, double y)
@@ -2758,12 +2681,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         if (activeSnap.snappedX())
         {
             int x = screenX(activeSnap.guideX());
-            graphics.fill(x, top, x + 1, bottom, SNAP_GUIDE_COLOR);
+            graphics.fill(x, top, x + 1, bottom, SNAP_GUIDE);
         }
         if (activeSnap.snappedY())
         {
             int y = screenY(activeSnap.guideY());
-            graphics.fill(left, y, right, y + 1, SNAP_GUIDE_COLOR);
+            graphics.fill(left, y, right, y + 1, SNAP_GUIDE);
         }
     }
 
@@ -2856,58 +2779,6 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private static void fill(GuiGraphicsExtractor graphics, EditorLayout.Rect rect, int color)
     {
         graphics.fill(rect.x(), rect.y(), rect.right(), rect.bottom(), color);
-    }
-
-    private String ellipsize(String value, int maxCharacters)
-    {
-        if (value == null)
-        {
-            return "";
-        }
-        if (value.length() <= maxCharacters)
-        {
-            return value;
-        }
-        return value.substring(0, Math.max(0, maxCharacters - 3)) + "...";
-    }
-
-    private static String displayPropertyValue(PropertySnapshot property)
-    {
-        return property.type() == EditorProtocol.PROPERTY_MULTILINE
-                ? property.value().replace("\\", "\\\\").replace("\r", "").replace("\n", "\\n")
-                : property.value();
-    }
-
-    private static String submittedPropertyValue(PropertySnapshot property, String value)
-    {
-        if (property.type() != EditorProtocol.PROPERTY_MULTILINE)
-        {
-            return value.trim();
-        }
-        StringBuilder output = new StringBuilder();
-        boolean escape = false;
-        for (int i = 0; i < value.length(); i++)
-        {
-            char character = value.charAt(i);
-            if (escape)
-            {
-                output.append(character == 'n' ? '\n' : character);
-                escape = false;
-            }
-            else if (character == '\\')
-            {
-                escape = true;
-            }
-            else
-            {
-                output.append(character);
-            }
-        }
-        if (escape)
-        {
-            output.append('\\');
-        }
-        return output.toString();
     }
 
     private String suggestTemplateId(String groupId)
@@ -3006,6 +2877,19 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         };
     }
 
+    private String ellipsize(String value, int maxCharacters)
+    {
+        if (value == null)
+        {
+            return "";
+        }
+        if (value.length() <= maxCharacters)
+        {
+            return value;
+        }
+        return value.substring(0, Math.max(0, maxCharacters - 3)) + "...";
+    }
+
     private static int propertyStripe(String key)
     {
         if (key.endsWith(".x") || key.equals("x") || key.equals("width"))
@@ -3021,20 +2905,6 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             return 0xFF55A6F1;
         }
         return 0xFF6B7482;
-    }
-
-    private static String format(double value)
-    {
-        if (Math.abs(value - Math.rint(value)) < 0.00001)
-        {
-            return Long.toString(Math.round(value));
-        }
-        return String.format(Locale.ROOT, "%.3f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
-    }
-
-    private static boolean isNumeric(PropertySnapshot property)
-    {
-        return property.type() == EditorProtocol.PROPERTY_NUMBER || property.type() == EditorProtocol.PROPERTY_INTEGER;
     }
 
     private static EditorIcons.Icon kindIcon(byte kind)
@@ -3058,11 +2928,11 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     {
         return switch (kind)
         {
-        case EditorProtocol.KIND_GROUP -> 0xFF6CC7EA;
+        case EditorProtocol.KIND_GROUP -> CYAN;
         case EditorProtocol.KIND_REGION -> 0xFF5DA8FF;
         case EditorProtocol.KIND_TEXT -> 0xFFF0CA65;
         case EditorProtocol.KIND_IMAGE, EditorProtocol.KIND_GIF -> 0xFF9B8AFB;
-        case EditorProtocol.KIND_ITEM, EditorProtocol.KIND_BLOCK -> 0xFF65D68A;
+        case EditorProtocol.KIND_ITEM, EditorProtocol.KIND_BLOCK -> SOFT_GREEN;
         default -> 0xFFAFB8C6;
         };
     }
@@ -3148,50 +3018,6 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             this.startX = startX;
             this.startY = startY;
             this.gestureId = gestureId;
-        }
-    }
-
-    private static final class ContextEntry
-    {
-        private final EditorIcons.Icon icon;
-        private final String label;
-        private final String shortcut;
-        private final boolean enabled;
-        private final Runnable action;
-
-        private ContextEntry(EditorIcons.Icon icon, String label, String shortcut, boolean enabled, Runnable action)
-        {
-            this.icon = icon;
-            this.label = label;
-            this.shortcut = shortcut;
-            this.enabled = enabled;
-            this.action = action;
-        }
-    }
-
-    private static final class ContextMenu
-    {
-        private final int x;
-        private final int y;
-        private final int width;
-        private final List<ContextEntry> entries;
-
-        private ContextMenu(int x, int y, int width, List<ContextEntry> entries)
-        {
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.entries = List.copyOf(entries);
-        }
-
-        private ContextEntry entryAt(double mouseX, double mouseY)
-        {
-            if (mouseX < x || mouseX >= x + width || mouseY < y + 2)
-            {
-                return null;
-            }
-            int index = (int) ((mouseY - y - 2) / 21);
-            return index >= 0 && index < entries.size() ? entries.get(index) : null;
         }
     }
 
