@@ -6,17 +6,42 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import org.lwjgl.glfw.GLFW;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 /** Searchable list of executable workspace commands and their keyboard bindings. */
 public final class EffectCommandScreen extends Screen implements EffectWorkspaceChild
 {
+    private static final int MAX_PANEL_WIDTH = 520;
+    private static final int SCREEN_MARGIN = 24;
+    private static final int PANEL_TOP = 24;
+    private static final int PADDING = 10;
+    private static final int SEARCH_TOP = 26;
+    private static final int SEARCH_HEIGHT = 20;
+    private static final int SEARCH_MAX_LENGTH = 100;
+    private static final int LIST_TOP = 52;
+    private static final int ROW_HEIGHT = 22;
+    /** Vertical space the panel needs besides its rows: header, search box and hint. */
+    private static final int RESERVED_HEIGHT = 96;
+    /** Panel height besides its rows: header and search box above, a little padding below. */
+    private static final int PANEL_CHROME_HEIGHT = 65;
+    private static final int HINT_OFFSET = 74;
+    private static final int HINT_BOTTOM_MARGIN = 14;
+    /** Horizontal room kept free for the shortcut column when a label is truncated. */
+    private static final int SHORTCUT_COLUMN_WIDTH = 160;
+    private static final int ROW_TEXT_INSET = 12;
+    private static final int ROW_TEXT_TOP = 6;
+    private static final int HIGHLIGHT_INSET = 3;
+    private static final int BACKDROP_COLOR = 0xE5101010;
+    private static final int SELECTED_ROW_COLOR = 0xFF384A60;
+
     private final EffectEditorScreen parent;
     private EditBox search;
     private List<EffectCommands.Command> shown = List.of();
     private int left;
     private int top;
-    private int w;
+    private int panelWidth;
     private int rows;
     private int scroll;
     private int selected;
@@ -42,12 +67,12 @@ public final class EffectCommandScreen extends Screen implements EffectWorkspace
     @Override
     protected void init()
     {
-        w = Math.min(520, width - 24);
-        left = (width - w) / 2;
-        top = 24;
-        rows = Math.max(1, (height - 96) / 22);
-        search = new EditBox(font, left + 10, top + 26, w - 20, 20, title);
-        search.setMaxLength(100);
+        panelWidth = Math.min(MAX_PANEL_WIDTH, width - SCREEN_MARGIN);
+        left = (width - panelWidth) / 2;
+        top = PANEL_TOP;
+        rows = Math.max(1, (height - RESERVED_HEIGHT) / ROW_HEIGHT);
+        search = new EditBox(font, left + PADDING, top + SEARCH_TOP, panelWidth - 2 * PADDING, SEARCH_HEIGHT, title);
+        search.setMaxLength(SEARCH_MAX_LENGTH);
         search.setResponder(value ->
         {
             scroll = 0;
@@ -61,17 +86,24 @@ public final class EffectCommandScreen extends Screen implements EffectWorkspace
 
     private void filter(String value)
     {
-        String q = value.toLowerCase(Locale.ROOT);
-        var all = new ArrayList<>(EffectCommands.list());
+        String query = value.toLowerCase(Locale.ROOT);
+        var commands = new ArrayList<>(EffectCommands.list());
         EffectTimeline.shortcuts().forEach((id, binding) ->
         {
-            if (all.stream().noneMatch(c -> c.id().equals(id)))
+            if (commands.stream().noneMatch(command -> command.id().equals(id)))
             {
-                all.add(new EffectCommands.Command(id, id.replace('-', '_'), binding));
+                commands.add(new EffectCommands.Command(id, id.replace('-', '_'), binding));
             }
         });
-        shown = all.stream().filter(c -> (EffectUi.label(c.label()) + " " + c.id() + " " + c.shortcut())
-                .toLowerCase(Locale.ROOT).contains(q)).toList();
+        shown = commands.stream()
+                .filter(command -> searchText(command).contains(query))
+                .toList();
+    }
+
+    private static String searchText(EffectCommands.Command command)
+    {
+        String text = EffectUi.label(command.label()) + " " + command.id() + " " + command.shortcut();
+        return text.toLowerCase(Locale.ROOT);
     }
 
     @Override
@@ -81,33 +113,37 @@ public final class EffectCommandScreen extends Screen implements EffectWorkspace
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta)
     {
-        graphics.fill(0, 0, width, height, 0xE5101010);
-        graphics.fill(left, top, left + w, top + rows * 22 + 65, EffectUi.PANEL);
-        graphics.outline(left, top, w, rows * 22 + 65, EffectUi.BORDER);
-        EffectUi.text(graphics, font, title.getString(), left + 10, top + 8, EffectUi.TEXT);
-        for (int j = 0; j < rows && j + scroll < shown.size(); j++)
+        int panelHeight = rows * ROW_HEIGHT + PANEL_CHROME_HEIGHT;
+        graphics.fill(0, 0, width, height, BACKDROP_COLOR);
+        graphics.fill(left, top, left + panelWidth, top + panelHeight, EffectUi.PANEL);
+        graphics.outline(left, top, panelWidth, panelHeight, EffectUi.BORDER);
+        EffectUi.text(graphics, font, title.getString(), left + PADDING, top + 8, EffectUi.TEXT);
+        for (int row = 0; row < rows && row + scroll < shown.size(); row++)
         {
-            int i = j + scroll;
-            int y = top + 52 + j * 22;
-            var c = shown.get(i);
-            boolean enabled = parent.commandEnabled(c.id());
-            if (i == selected)
+            int index = row + scroll;
+            int y = top + LIST_TOP + row * ROW_HEIGHT;
+            var command = shown.get(index);
+            boolean enabled = parent.commandEnabled(command.id());
+            if (index == selected)
             {
-                graphics.fill(left + 3, y, left + w - 3, y + 21, 0xFF384A60);
+                graphics.fill(left + HIGHLIGHT_INSET, y, left + panelWidth - HIGHLIGHT_INSET, y + ROW_HEIGHT - 1,
+                        SELECTED_ROW_COLOR);
             }
-            String label = EffectUi.label(c.label());
+            String label = EffectUi.label(command.label());
             if (label.startsWith("arcmenu_editor."))
             {
-                label = c.id();
+                label = command.id();
             }
-            EffectUi.text(graphics, font, EffectUi.fit(font, label, w - 160), left + 12, y + 6,
-                    enabled ? EffectUi.TEXT : EffectUi.MUTED);
-            EffectUi.mono(graphics, font, c.shortcut(), left + w - EffectUi.width(font, c.shortcut()) - 12, y + 6,
-                    EffectUi.MUTED);
+            String fittedLabel = EffectUi.fit(font, label, panelWidth - SHORTCUT_COLUMN_WIDTH);
+            int labelColor = enabled ? EffectUi.TEXT : EffectUi.MUTED;
+            EffectUi.text(graphics, font, fittedLabel, left + ROW_TEXT_INSET, y + ROW_TEXT_TOP, labelColor);
+            String shortcut = command.shortcut();
+            int shortcutX = left + panelWidth - EffectUi.width(font, shortcut) - ROW_TEXT_INSET;
+            EffectUi.mono(graphics, font, shortcut, shortcutX, y + ROW_TEXT_TOP, EffectUi.MUTED);
         }
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        EffectUi.text(graphics, font, EffectUi.label("command_search_hint"), left + 8,
-                Math.min(height - 14, top + rows * 22 + 74), EffectUi.MUTED);
+        int hintY = Math.min(height - HINT_BOTTOM_MARGIN, top + rows * ROW_HEIGHT + HINT_OFFSET);
+        EffectUi.text(graphics, font, EffectUi.label("command_search_hint"), left + 8, hintY, EffectUi.MUTED);
     }
 
     private void run()
@@ -135,7 +171,8 @@ public final class EffectCommandScreen extends Screen implements EffectWorkspace
         }
         if (event.key() == GLFW.GLFW_KEY_UP || event.key() == GLFW.GLFW_KEY_DOWN)
         {
-            selected = Math.max(0, Math.min(shown.size() - 1, selected + (event.key() == GLFW.GLFW_KEY_DOWN ? 1 : -1)));
+            int step = event.key() == GLFW.GLFW_KEY_DOWN ? 1 : -1;
+            selected = Math.max(0, Math.min(shown.size() - 1, selected + step));
             scroll = Math.max(0, Math.min(selected, Math.max(scroll, selected - rows + 1)));
             return true;
         }
@@ -145,9 +182,12 @@ public final class EffectCommandScreen extends Screen implements EffectWorkspace
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
     {
-        if (event.x() >= left && event.x() < left + w && event.y() >= top + 52 && event.y() < top + 52 + rows * 22)
+        int listTop = top + LIST_TOP;
+        boolean insideColumns = event.x() >= left && event.x() < left + panelWidth;
+        boolean insideRows = event.y() >= listTop && event.y() < listTop + rows * ROW_HEIGHT;
+        if (insideColumns && insideRows)
         {
-            selected = scroll + (int) ((event.y() - top - 52) / 22);
+            selected = scroll + (int) ((event.y() - listTop) / ROW_HEIGHT);
             run();
             return true;
         }
@@ -155,9 +195,10 @@ public final class EffectCommandScreen extends Screen implements EffectWorkspace
     }
 
     @Override
-    public boolean mouseScrolled(double x, double y, double h, double v)
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
     {
-        scroll = Math.max(0, Math.min(Math.max(0, shown.size() - rows), scroll - (int) v));
+        int maxScroll = Math.max(0, shown.size() - rows);
+        scroll = Math.max(0, Math.min(maxScroll, scroll - (int) verticalAmount));
         return true;
     }
 
