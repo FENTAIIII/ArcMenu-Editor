@@ -1360,63 +1360,8 @@ final class EffectTimeline
                 return true;
             }
         }
-        if (event.y() < gridTop && event.x() >= gridX)
+        if (clickRuler(event, doubleClick))
         {
-            int frame = at(event.x());
-            var marker = state.snapshot().markers().stream()
-                    .filter(value -> Math.abs(event.x() - frameX(value.frame())) <= 5).findFirst().orElse(null);
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
-            {
-                var menu = new ArrayList<MenuItem>();
-                menu.add(item("add_marker", () -> screen.effectDialog("marker", "", "", frame, null, null)));
-                if (marker != null)
-                {
-                    menu.add(item("edit_marker",
-                            () -> screen.effectDialog("marker", "", "", marker.frame(), null, null)));
-                    menu.add(item("delete_marker",
-                            () -> state.submit("delete-marker", "", "", marker.frame(), 0, "", "linear", 0, 0, 0, 0)));
-                }
-                menu.add(item("work_start", () -> workRange(frame, state.snapshot().workEnd())));
-                menu.add(item("work_end", () -> workRange(state.snapshot().workStart(), Math.max(1, frame))));
-                showMenu(event, menu);
-                return true;
-            }
-            if (event.y() >= panel.y() + 21 && event.y() <= panel.y() + 28)
-            {
-                if (Math.abs(event.x() - frameX(state.snapshot().workStart())) <= 6)
-                {
-                    trimming = 4;
-                }
-                else if (Math.abs(event.x() - frameX(state.snapshot().workEnd())) <= 6)
-                {
-                    trimming = 5;
-                }
-                if (trimming != 0)
-                {
-                    beginGesture(event);
-                    trimStart = state.snapshot().workStart();
-                    trimEnd = state.snapshot().workEnd();
-                    return true;
-                }
-            }
-            if (event.y() >= panel.y() + 28 && event.y() <= panel.y() + 34 && marker != null)
-            {
-                if (doubleClick)
-                {
-                    screen.effectDialog("marker", "", "", marker.frame(), null, null);
-                }
-                else
-                {
-                    beginGesture(event);
-                    draggingMarker = marker;
-                    dragFrame = marker.frame();
-                }
-                return true;
-            }
-            beginGesture(event);
-            dragFrame = frame;
-            scrubbing = true;
-            state.scrub(dragFrame);
             return true;
         }
         if (graphMode && event.x() >= gridX && event.y() < panel.bottom() - 14)
@@ -1448,108 +1393,12 @@ final class EffectTimeline
             }
             return true;
         }
-        if (row.cue != null)
+        if (clickCueRow(event, row, doubleClick))
         {
-            keysFocused = false;
-            var cue = row.cue;
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
-            {
-                showMenu(event, List.of(
-                        item("edit_cue", () -> screen.effectDialog("cue", cue.id(), "", cue.frame(), null, cue)),
-                        item("duplicate_cue",
-                                () -> state.submit("cue", uniqueCueId(cue.id()), cue.kind(), (int) state.playhead(),
-                                        cue.end() < 0 ? -1
-                                                : Math.min(state.snapshot().duration(),
-                                                        (int) state.playhead() + cue.end() - cue.frame()),
-                                        cue.source(), cue.enabled() ? "linear" : "muted", cue.volume(), cue.pitch(), 0,
-                                        0)),
-                        item(cue.enabled() ? "mute_cue" : "unmute_cue", () -> toggleCue(cue)), item("delete_cue",
-                                () -> state.submit("delete-cue", cue.id(), "", 0, 0, "", "linear", 0, 0, 0, 0))));
-            }
-            else if (event.x() < panel.x() + 16)
-            {
-                toggleCue(cue);
-            }
-            else if (doubleClick || event.x() < gridX)
-            {
-                screen.effectDialog("cue", cue.id(), "", cue.frame(), null, cue);
-            }
-            else
-            {
-                beginGesture(event);
-                draggingCue = cue;
-                dragOrigin = at(event.x());
-                dragFrame = cue.frame();
-            }
             return true;
         }
-        if (row.track == null)
+        if (clickLayerRow(event, row, doubleClick))
         {
-            keysFocused = false;
-            selectLayer(row.target, event);
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
-            {
-                screen.timelineLayerMenu(event.x(), event.y());
-                return true;
-            }
-            if (doubleClick)
-            {
-                screen.effectDialog("layer", row.target, "", 0, null, null);
-            }
-            else if (event.x() < panel.x() + 16)
-            {
-                var old = layer(row.target);
-                setLayer(old, old.start(), old.end(), !old.enabled(), old.solo());
-            }
-            else if (event.x() < panel.x() + 29)
-            {
-                var old = layer(row.target);
-                setLayer(old, old.start(), old.end(), old.enabled(), !old.solo());
-            }
-            else if (event.x() < panel.x() + 43)
-            {
-                scene.toggleLocked(row.target);
-            }
-            else if (event.x() >= panel.x() + 50 && event.x() < panel.x() + 62)
-            {
-                if (!collapsed.remove(row.target))
-                {
-                    collapsed.add(row.target);
-                }
-            }
-            else if (event.x() < gridX && scene.selected(row.target))
-            {
-                screen.beginLayerDrag(row.target, event.x(), event.y(),
-                        !event.hasShiftDown() && !event.hasControlDown());
-            }
-            else if (event.x() >= gridX && !locked(row.target))
-            {
-                var old = layer(row.target);
-                if (Math.abs(event.x() - frameX(old.start())) <= 5)
-                {
-                    trimming = 1;
-                }
-                else if (Math.abs(event.x() - frameX(old.end())) <= 5)
-                {
-                    trimming = 2;
-                }
-                else if (event.hasAltDown())
-                {
-                    trimming = 3;
-                }
-                if (trimming != 0)
-                {
-                    beginGesture(event);
-                    draggingLayer = old;
-                    trimStart = old.start();
-                    trimEnd = old.end();
-                    dragOrigin = at(event.x());
-                }
-                else
-                {
-                    beginMarquee(event, false);
-                }
-            }
             return true;
         }
         if (!scene.selected(row.target))
@@ -1633,6 +1482,187 @@ final class EffectTimeline
             dragFrame = key.frame();
         }
         return true;
+    }
+
+    /** Handles the ruler above the tracks: scrubbing, markers and the work area. */
+    private boolean clickRuler(MouseButtonEvent event, boolean doubleClick)
+    {
+        if (event.y() < gridTop && event.x() >= gridX)
+        {
+            int frame = at(event.x());
+            var marker = state.snapshot().markers().stream()
+                    .filter(value -> Math.abs(event.x() - frameX(value.frame())) <= 5).findFirst().orElse(null);
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+            {
+                var menu = new ArrayList<MenuItem>();
+                menu.add(item("add_marker", () -> screen.effectDialog("marker", "", "", frame, null, null)));
+                if (marker != null)
+                {
+                    menu.add(item("edit_marker",
+                            () -> screen.effectDialog("marker", "", "", marker.frame(), null, null)));
+                    menu.add(item("delete_marker",
+                            () -> state.submit("delete-marker", "", "", marker.frame(), 0, "", "linear", 0, 0, 0, 0)));
+                }
+                menu.add(item("work_start", () -> workRange(frame, state.snapshot().workEnd())));
+                menu.add(item("work_end", () -> workRange(state.snapshot().workStart(), Math.max(1, frame))));
+                showMenu(event, menu);
+                return true;
+            }
+            if (event.y() >= panel.y() + 21 && event.y() <= panel.y() + 28)
+            {
+                if (Math.abs(event.x() - frameX(state.snapshot().workStart())) <= 6)
+                {
+                    trimming = 4;
+                }
+                else if (Math.abs(event.x() - frameX(state.snapshot().workEnd())) <= 6)
+                {
+                    trimming = 5;
+                }
+                if (trimming != 0)
+                {
+                    beginGesture(event);
+                    trimStart = state.snapshot().workStart();
+                    trimEnd = state.snapshot().workEnd();
+                    return true;
+                }
+            }
+            if (event.y() >= panel.y() + 28 && event.y() <= panel.y() + 34 && marker != null)
+            {
+                if (doubleClick)
+                {
+                    screen.effectDialog("marker", "", "", marker.frame(), null, null);
+                }
+                else
+                {
+                    beginGesture(event);
+                    draggingMarker = marker;
+                    dragFrame = marker.frame();
+                }
+                return true;
+            }
+            beginGesture(event);
+            dragFrame = frame;
+            scrubbing = true;
+            state.scrub(dragFrame);
+            return true;
+        }
+        return false;
+    }
+
+    /** Selects, opens or starts dragging a cue. */
+    private boolean clickCueRow(MouseButtonEvent event, Row row, boolean doubleClick)
+    {
+        if (row.cue != null)
+        {
+            keysFocused = false;
+            var cue = row.cue;
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+            {
+                showMenu(event, List.of(
+                        item("edit_cue", () -> screen.effectDialog("cue", cue.id(), "", cue.frame(), null, cue)),
+                        item("duplicate_cue",
+                                () -> state.submit("cue", uniqueCueId(cue.id()), cue.kind(), (int) state.playhead(),
+                                        cue.end() < 0 ? -1
+                                                : Math.min(state.snapshot().duration(),
+                                                        (int) state.playhead() + cue.end() - cue.frame()),
+                                        cue.source(), cue.enabled() ? "linear" : "muted", cue.volume(), cue.pitch(), 0,
+                                        0)),
+                        item(cue.enabled() ? "mute_cue" : "unmute_cue", () -> toggleCue(cue)), item("delete_cue",
+                                () -> state.submit("delete-cue", cue.id(), "", 0, 0, "", "linear", 0, 0, 0, 0))));
+            }
+            else if (event.x() < panel.x() + 16)
+            {
+                toggleCue(cue);
+            }
+            else if (doubleClick || event.x() < gridX)
+            {
+                screen.effectDialog("cue", cue.id(), "", cue.frame(), null, cue);
+            }
+            else
+            {
+                beginGesture(event);
+                draggingCue = cue;
+                dragOrigin = at(event.x());
+                dragFrame = cue.frame();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /** Handles a layer row: visibility, solo, expansion, selection and span dragging. */
+    private boolean clickLayerRow(MouseButtonEvent event, Row row, boolean doubleClick)
+    {
+        if (row.track == null)
+        {
+            keysFocused = false;
+            selectLayer(row.target, event);
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+            {
+                screen.timelineLayerMenu(event.x(), event.y());
+                return true;
+            }
+            if (doubleClick)
+            {
+                screen.effectDialog("layer", row.target, "", 0, null, null);
+            }
+            else if (event.x() < panel.x() + 16)
+            {
+                var old = layer(row.target);
+                setLayer(old, old.start(), old.end(), !old.enabled(), old.solo());
+            }
+            else if (event.x() < panel.x() + 29)
+            {
+                var old = layer(row.target);
+                setLayer(old, old.start(), old.end(), old.enabled(), !old.solo());
+            }
+            else if (event.x() < panel.x() + 43)
+            {
+                scene.toggleLocked(row.target);
+            }
+            else if (event.x() >= panel.x() + 50 && event.x() < panel.x() + 62)
+            {
+                if (!collapsed.remove(row.target))
+                {
+                    collapsed.add(row.target);
+                }
+            }
+            else if (event.x() < gridX && scene.selected(row.target))
+            {
+                screen.beginLayerDrag(row.target, event.x(), event.y(),
+                        !event.hasShiftDown() && !event.hasControlDown());
+            }
+            else if (event.x() >= gridX && !locked(row.target))
+            {
+                var old = layer(row.target);
+                if (Math.abs(event.x() - frameX(old.start())) <= 5)
+                {
+                    trimming = 1;
+                }
+                else if (Math.abs(event.x() - frameX(old.end())) <= 5)
+                {
+                    trimming = 2;
+                }
+                else if (event.hasAltDown())
+                {
+                    trimming = 3;
+                }
+                if (trimming != 0)
+                {
+                    beginGesture(event);
+                    draggingLayer = old;
+                    trimStart = old.start();
+                    trimEnd = old.end();
+                    dragOrigin = at(event.x());
+                }
+                else
+                {
+                    beginMarquee(event, false);
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     private boolean graphClick(MouseButtonEvent event, boolean doubleClick)

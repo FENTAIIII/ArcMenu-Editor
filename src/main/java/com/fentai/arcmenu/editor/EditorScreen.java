@@ -90,6 +90,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
 
     private static final long LIVE_DRAG_INTERVAL_NANOS = 50_000_000L;
     private static final int MANAGER_MENU_WIDTH = 174;
+    /** How close to a dock divider a press must land to start resizing the dock. */
+    private static final int DIVIDER_GRAB_DISTANCE = 3;
     private static final int TEMPLATE_MENU_WIDTH = 126;
     /** Screen distance within which a dragged element snaps to an alignment line. */
     private static final double SNAP_DISTANCE_PIXELS = 6.0;
@@ -1284,6 +1286,77 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         double x = event.x();
         double y = event.y();
+        if (clickContextMenu(event, x, y))
+        {
+            return true;
+        }
+        if (propertyDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+        {
+            pendingPropertyValue = propertyDrag.initialValue;
+            propertyDrag.dragging = true;
+            propertyReleased = true;
+            flushPropertyDrag(true);
+            return true;
+        }
+        if (!pendingTemplateNode.isBlank())
+        {
+            return super.mouseClicked(event, doubleClick);
+        }
+        if (openContextMenu(event, x, y))
+        {
+            return true;
+        }
+        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+        {
+            return super.mouseClicked(event, doubleClick);
+        }
+        if (y < EditorLayout.HEADER_HEIGHT)
+        {
+            return clickHeader(x, y);
+        }
+        if (grabPanelDivider(x, y))
+        {
+            return true;
+        }
+        if (clickPropertyField(event, x, y))
+        {
+            return true;
+        }
+        if (clickToolButton(x, y))
+        {
+            return true;
+        }
+        if (currentLayout.templates().contains(x, y))
+        {
+            if (assetLibrary.imageMode())
+            {
+                return clickImages(x, y, doubleClick);
+            }
+            for (TemplateCard card : templateCards)
+            {
+                if (card.rect.contains(x, y))
+                {
+                    draggingTemplate = card.template.id();
+                    dragStartX = x;
+                    dragStartY = y;
+                    return true;
+                }
+            }
+        }
+        if (clickManager(event, x, y))
+        {
+            return true;
+        }
+        if (clickCanvas(event, x, y))
+        {
+            return true;
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
+
+    /** Runs the clicked context-menu entry; any click closes the menu, and a left click outside it is consumed. */
+    private boolean clickContextMenu(MouseButtonEvent event, double x, double y)
+    {
         if (contextMenu != null)
         {
             EditorContextMenu.Entry entry = contextMenu.entryAt(x, y);
@@ -1302,18 +1375,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 return true;
             }
         }
-        if (propertyDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
-        {
-            pendingPropertyValue = propertyDrag.initialValue;
-            propertyDrag.dragging = true;
-            propertyReleased = true;
-            flushPropertyDrag(true);
-            return true;
-        }
-        if (!pendingTemplateNode.isBlank())
-        {
-            return super.mouseClicked(event, doubleClick);
-        }
+        return false;
+    }
+
+    /** Opens the template or element context menu for a right click. */
+    private boolean openContextMenu(MouseButtonEvent event, double x, double y)
+    {
         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && currentLayout.templates().contains(x, y))
         {
             if (assetLibrary.imageMode())
@@ -1339,30 +1406,34 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             openManagerContext(x, y, row);
             return true;
         }
-        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
-        {
-            return super.mouseClicked(event, doubleClick);
-        }
-        if (y < EditorLayout.HEADER_HEIGHT)
-        {
-            return clickHeader(x, y);
-        }
-        if (Math.abs(x - layout.toolsWidth()) <= 3)
+        return false;
+    }
+
+    /** Starts resizing a dock when the press lands on the divider beside it. */
+    private boolean grabPanelDivider(double x, double y)
+    {
+        if (Math.abs(x - layout.toolsWidth()) <= DIVIDER_GRAB_DISTANCE)
         {
             resizeTarget = ResizeTarget.TOOLS;
             return true;
         }
-        if (Math.abs(x - (width - layout.inspectorWidth())) <= 3)
+        if (Math.abs(x - (width - layout.inspectorWidth())) <= DIVIDER_GRAB_DISTANCE)
         {
             resizeTarget = ResizeTarget.INSPECTOR;
             return true;
         }
         if (x >= layout.toolsWidth() && x < width - layout.inspectorWidth()
-                && Math.abs(y - (height - layout.templatesHeight())) <= 3)
+                && Math.abs(y - (height - layout.templatesHeight())) <= DIVIDER_GRAB_DISTANCE)
         {
             resizeTarget = ResizeTarget.TEMPLATES;
             return true;
         }
+        return false;
+    }
+
+    /** Focuses, toggles or starts dragging the property field under the pointer. */
+    private boolean clickPropertyField(MouseButtonEvent event, double x, double y)
+    {
         for (PropertyField field : propertyFields)
         {
             if (!field.rect.contains(x, y))
@@ -1417,6 +1488,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             focusProperty(field);
             return true;
         }
+        return false;
+    }
+
+    /** Picks the creation tool under the pointer. */
+    private boolean clickToolButton(double x, double y)
+    {
         if (currentLayout.tools().contains(x, y) && y >= currentLayout.tools().y() + 21)
         {
             for (ToolButton button : toolButtons)
@@ -1441,23 +1518,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 }
             }
         }
-        if (currentLayout.templates().contains(x, y))
-        {
-            if (assetLibrary.imageMode())
-            {
-                return clickImages(x, y, doubleClick);
-            }
-            for (TemplateCard card : templateCards)
-            {
-                if (card.rect.contains(x, y))
-                {
-                    draggingTemplate = card.template.id();
-                    dragStartX = x;
-                    dragStartY = y;
-                    return true;
-                }
-            }
-        }
+        return false;
+    }
+
+    /** Handles the element manager: its buttons and the visibility, lock, expand and selection areas of a row. */
+    private boolean clickManager(MouseButtonEvent event, double x, double y)
+    {
         if (currentLayout.manager().contains(x, y))
         {
             for (ManagerButton button : managerButtons)
@@ -1518,6 +1584,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 }
             }
         }
+        return false;
+    }
+
+    /** Selects the element under the pointer and starts moving or resizing it. */
+    private boolean clickCanvas(MouseButtonEvent event, double x, double y)
+    {
         if (virtualScreen().contains(x, y) && state.snapshot() != null)
         {
             NodeSnapshot selected = state.find(state.selectedId());
@@ -1557,7 +1629,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 return true;
             }
         }
-        return super.mouseClicked(event, doubleClick);
+        return false;
     }
 
     private boolean clickHeader(double x, double y)

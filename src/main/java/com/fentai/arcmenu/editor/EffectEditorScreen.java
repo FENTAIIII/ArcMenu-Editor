@@ -1090,6 +1090,56 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             openedMenu = "";
             return popup.click(event.x(), event.y(), event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT);
         }
+        if (clickControl(event))
+        {
+            return true;
+        }
+        if (clickProjectSearch(event, doubleClick))
+        {
+            return true;
+        }
+        if (clickProperties(event, doubleClick))
+        {
+            return true;
+        }
+        if (grabPanelDivider(event))
+        {
+            return true;
+        }
+        timelineFocused = panels.timeline().contains(event.x(), event.y());
+        if (timelineFocused)
+        {
+            commitFocused();
+            setFocused(null);
+            if (effect.sceneBusy())
+            {
+                deferPointer(event, doubleClick);
+                return true;
+            }
+        }
+        if (timeline.click(event, doubleClick))
+        {
+            return true;
+        }
+        if (clickProjectEntry(event, doubleClick))
+        {
+            return true;
+        }
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && panels.project().contains(event.x(), event.y()))
+        {
+            emptyMenu(event.x(), event.y());
+            return true;
+        }
+        if (clickViewport(event))
+        {
+            return true;
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
+
+    /** Runs the toolbar or panel control under the pointer, deferring it while the scene is busy. */
+    private boolean clickControl(MouseButtonEvent event)
+    {
         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
         {
             for (int controlIndex = controls.size() - 1; controlIndex >= 0; controlIndex--)
@@ -1110,6 +1160,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 }
             }
         }
+        return false;
+    }
+
+    /** Focuses the project search box. */
+    private boolean clickProjectSearch(MouseButtonEvent event, boolean doubleClick)
+    {
         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && projectSearch != null
                 && new EditorLayout.Rect(panels.project().x() + 6, panels.project().y() + 77,
                         panels.project().width() - 12, 19).contains(event.x(), event.y()))
@@ -1126,6 +1182,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             }
             return true;
         }
+        return false;
+    }
+
+    /** Handles the properties panel: field focus, number scrubbing and keyframe toggles. */
+    private boolean clickProperties(MouseButtonEvent event, boolean doubleClick)
+    {
         if (panels.properties().contains(event.x(), event.y()))
         {
             for (var field : fields)
@@ -1193,6 +1255,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 }
             }
         }
+        return false;
+    }
+
+    /** Starts resizing a panel when the press lands on a divider. */
+    private boolean grabPanelDivider(MouseButtonEvent event)
+    {
         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
         {
             if (Math.abs(event.x() - panels.composition().x() + 2) < 4 && event.y() > 40
@@ -1213,21 +1281,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 return true;
             }
         }
-        timelineFocused = panels.timeline().contains(event.x(), event.y());
-        if (timelineFocused)
-        {
-            commitFocused();
-            setFocused(null);
-            if (effect.sceneBusy())
-            {
-                deferPointer(event, doubleClick);
-                return true;
-            }
-        }
-        if (timeline.click(event, doubleClick))
-        {
-            return true;
-        }
+        return false;
+    }
+
+    /** Selects, expands or starts dragging the project entry under the pointer. */
+    private boolean clickProjectEntry(MouseButtonEvent event, boolean doubleClick)
+    {
         for (var entry : entries)
         {
             if (entry.rect.contains(event.x(), event.y()))
@@ -1296,11 +1355,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 return true;
             }
         }
-        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && panels.project().contains(event.x(), event.y()))
-        {
-            emptyMenu(event.x(), event.y());
-            return true;
-        }
+        return false;
+    }
+
+    /** Handles the viewport: panning, zoom, drawing, rotation, marquee and element selection. */
+    private boolean clickViewport(MouseButtonEvent event)
+    {
         if (panels.viewport().contains(event.x(), event.y()) && scene.snapshot() != null)
         {
             commitFocused();
@@ -1394,7 +1454,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             sent = null;
             return true;
         }
-        return super.mouseClicked(event, doubleClick);
+        return false;
     }
 
     @Override
