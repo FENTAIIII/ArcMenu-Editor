@@ -1,12 +1,21 @@
 package com.fentai.arcmenu.editor;
 
-import com.google.gson.*;
+import com.fentai.arcmenu.editor.WorkspaceState.LocalPack;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import java.nio.file.*;
-import java.util.*;
-import java.util.concurrent.*;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /** Isolated, cue-free saved-project previews are restored before an archive is uploaded. */
@@ -120,7 +129,7 @@ final class WorkspacePublication
         });
     }
 
-    static CompletableFuture<JsonObject> prepare(WorkspaceScreen screen, WorkspaceState.LocalPack pack)
+    static CompletableFuture<JsonObject> prepare(WorkspaceScreen screen, LocalPack pack)
     {
         return capturePreviews(screen, pack.filename(), pack.captureProjects()).thenCompose(nothing ->
         {
@@ -130,7 +139,7 @@ final class WorkspacePublication
         });
     }
 
-    static CompletableFuture<JsonObject> publish(WorkspaceScreen screen, WorkspaceState.LocalPack pack)
+    static CompletableFuture<JsonObject> publish(WorkspaceScreen screen, LocalPack pack)
     {
         CompletableFuture<JsonObject> ready = pack.prepared() ? CompletableFuture.completedFuture(new JsonObject())
                 : prepare(screen, pack);

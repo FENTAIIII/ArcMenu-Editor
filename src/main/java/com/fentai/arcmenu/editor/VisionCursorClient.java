@@ -2,7 +2,11 @@ package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.editor.net.VisionPayload;
 import com.fentai.arcmenu.protocol.VisionProtocol;
+import com.fentai.arcmenu.protocol.VisionProtocol.PreviewScene;
+import com.fentai.arcmenu.protocol.VisionProtocol.TextInput;
+import com.fentai.arcmenu.protocol.VisionProtocol.TextState;
 import com.fentai.arcmenu.protocol.VisionVisuals;
+
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
@@ -10,10 +14,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.KeyEvent;
 import org.joml.Matrix4f;
 
 /** Vision uses the OS pointer without capturing it inside the game window. */
@@ -94,12 +98,12 @@ public final class VisionCursorClient
         {
             hello();
         }
-        if (packet instanceof VisionProtocol.PreviewScene preview)
+        if (packet instanceof PreviewScene preview)
         {
             VisionSceneClient.receivePreview(preview);
             return;
         }
-        if (packet instanceof VisionProtocol.TextState text)
+        if (packet instanceof TextState text)
         {
             if (state != null && state.sessionId() == text.sessionId())
             {
@@ -232,7 +236,7 @@ public final class VisionCursorClient
         if (active() && ClientPlayNetworking.canSend(VisionPayload.TYPE))
         {
             ClientPlayNetworking.send(new VisionPayload(
-                    VisionProtocol.encode(new VisionProtocol.TextInput(sessionId(), editId, action, value))));
+                    VisionProtocol.encode(new TextInput(sessionId(), editId, action, value))));
         }
     }
 

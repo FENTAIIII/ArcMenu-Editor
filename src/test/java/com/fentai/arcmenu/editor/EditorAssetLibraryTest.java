@@ -1,9 +1,17 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.ImageSnapshot;
+
 import org.junit.jupiter.api.Test;
+
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorAssetLibraryTest
 {
@@ -86,8 +94,8 @@ class EditorAssetLibraryTest
         assertEquals(new EditorLayout.Rect(35, 20, 50, 50), EditorImagePreview.fit(100, 100, box));
     }
 
-    private static EditorProtocol.ImageSnapshot image(String path)
+    private static ImageSnapshot image(String path)
     {
-        return new EditorProtocol.ImageSnapshot(path, 128, 64);
+        return new ImageSnapshot(path, 128, 64);
     }
 }

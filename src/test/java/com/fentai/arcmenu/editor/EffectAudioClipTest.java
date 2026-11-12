@@ -1,8 +1,11 @@
 package com.fentai.arcmenu.editor;
 
-import java.nio.ShortBuffer;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.nio.ShortBuffer;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class EffectAudioClipTest
 {

@@ -5,9 +5,10 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
-import java.util.function.Consumer;
 import org.lwjgl.glfw.GLFW;
+
 import java.util.Locale;
+import java.util.function.Consumer;
 
 /** RGBA and hexadecimal color editing; values are committed once on confirmation. */
 final class EffectColorPicker extends Screen implements EffectWorkspaceChild

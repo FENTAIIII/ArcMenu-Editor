@@ -1,6 +1,8 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.ImageSnapshot;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -13,7 +15,7 @@ final class EditorAssetLibrary
 {
     private static final Set<String> INTERNAL = Set.of("mouse", "tooltip", "tooltips", "cursor", "cursors",
             "local_cursor", "__tooltip");
-    private List<EditorProtocol.ImageSnapshot> images = List.of();
+    private List<ImageSnapshot> images = List.of();
     private List<String> folders = List.of("");
     private boolean imageMode;
     private byte imageKind = EditorProtocol.KIND_IMAGE;
@@ -64,7 +66,7 @@ final class EditorAssetLibrary
         selectedPath = path;
     }
 
-    EditorProtocol.ImageSnapshot selected()
+    ImageSnapshot selected()
     {
         return images.stream()
                 .filter(image -> EditorImageTypes.matches(imageKind, image.path()) && image.path().equals(selectedPath))
@@ -85,7 +87,7 @@ final class EditorAssetLibrary
         openFolder(parent(folder));
     }
 
-    void update(List<EditorProtocol.ImageSnapshot> available)
+    void update(List<ImageSnapshot> available)
     {
         images = available.stream().filter(image -> isUserImage(image.path()))
                 .sorted(Comparator.comparing(image -> relative(image.path()))).toList();
@@ -181,7 +183,7 @@ final class EditorAssetLibrary
         return path.substring(path.lastIndexOf('/') + 1);
     }
 
-    record Entry(String path, String name, EditorProtocol.ImageSnapshot image)
+    record Entry(String path, String name, ImageSnapshot image)
     {
         boolean directory()
         {

@@ -1,13 +1,50 @@
 package com.fentai.arcmenu.editor.mcp;
 
-import com.fentai.arcmenu.editor.*;
-import com.fentai.arcmenu.protocol.*;
-import com.google.gson.*;
-import com.mojang.blaze3d.platform.NativeImage;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import com.fentai.arcmenu.editor.ArcMenuEditorClient;
+import com.fentai.arcmenu.editor.EditorScreen;
+import com.fentai.arcmenu.editor.EditorViewport;
+import com.fentai.arcmenu.editor.EffectAudioPreview;
+import com.fentai.arcmenu.editor.EffectEditorScreen;
+import com.fentai.arcmenu.editor.EffectWorkspaceChild;
+import com.fentai.arcmenu.editor.MarketClient;
+import com.fentai.arcmenu.editor.VisionCursorClient;
+import com.fentai.arcmenu.editor.WorkspaceClient;
+import com.fentai.arcmenu.editor.WorkspacePreviewScreen;
+import com.fentai.arcmenu.editor.WorkspaceScreen;
+import com.fentai.arcmenu.editor.WorkspaceState;
 import com.fentai.arcmenu.editor.net.EditorPayload;
+import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.AckPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ApplyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.CreatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeleteManyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeletePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeleteTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DuplicatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ErrorPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.GroupPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.InstantiateTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.RedoPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ReorderPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ReparentPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SavePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SaveTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SwitchTabPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.UndoPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.UngroupPacket;
+import com.fentai.arcmenu.protocol.EffectProtocol;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -15,14 +52,22 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 import org.lwjgl.glfw.GLFW;
-import java.nio.file.*;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.function.Supplier;
 import org.slf4j.LoggerFactory;
-import com.fentai.arcmenu.editor.EffectAudioPreview;
+
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 /** Marshals every game operation onto the client thread and waits for authoritative server replies. */
 public final class EditorMcp
@@ -202,16 +247,16 @@ public final class EditorMcp
         {
             return;
         }
-        if (packet instanceof EditorProtocol.ErrorPacket error)
+        if (packet instanceof ErrorPacket error)
         {
             current.result.completeExceptionally(new IllegalStateException(error.message()));
         }
-        else if (packet instanceof EditorProtocol.AckPacket ack && current.openId == null && current.effectRequest == 0
+        else if (packet instanceof AckPacket ack && current.openId == null && current.effectRequest == 0
                 && (current.anyAck || ack.operation() == current.operation))
         {
             current.result.complete(null);
         }
-        else if (packet instanceof EditorProtocol.SnapshotPacket snapshot && current.openId != null
+        else if (packet instanceof SnapshotPacket snapshot && current.openId != null
                 && !current.openingEffect && snapshot.menuId().equals(current.openId))
         {
             current.result.complete(null);
@@ -472,7 +517,7 @@ public final class EditorMcp
                 byte tab = tab(args);
                 if (main(() -> ArcMenuEditorClient.state().activeTab()) != tab)
                 {
-                    sceneEdit(new EditorProtocol.SwitchTabPacket(tab), EditorProtocol.OP_TAB);
+                    sceneEdit(new SwitchTabPacket(tab), EditorProtocol.OP_TAB);
                 }
                 main(() ->
                 {
@@ -883,7 +928,7 @@ public final class EditorMcp
                 {
                     throw new IllegalStateException("The server does not support the ArcMenu editor channel");
                 }
-                if (packet instanceof EditorProtocol.SwitchTabPacket switched)
+                if (packet instanceof SwitchTabPacket switched)
                 {
                     ArcMenuEditorClient.state().activeTab(switched.tab());
                 }
@@ -906,7 +951,7 @@ public final class EditorMcp
         byte tab = tab(args);
         if (main(() -> ArcMenuEditorClient.state().activeTab()) != tab)
         {
-            sceneEdit(new EditorProtocol.SwitchTabPacket(tab), EditorProtocol.OP_TAB);
+            sceneEdit(new SwitchTabPacket(tab), EditorProtocol.OP_TAB);
         }
         var snapshot = main(() -> ArcMenuEditorClient.state().snapshot());
         if (snapshot == null)
@@ -925,86 +970,86 @@ public final class EditorMcp
         {
         case "create" ->
         {
-            packet = new EditorProtocol.CreatePacket(revision, tab, McpTools.nodeKind(required(args, "kind")), parent,
+            packet = new CreatePacket(revision, tab, McpTools.nodeKind(required(args, "kind")), parent,
                     string(args, "initialSource", ""));
             operation = EditorProtocol.OP_CREATE;
         }
         case "property" ->
         {
-            packet = new EditorProtocol.SetPropertyPacket(revision, tab, required(args, "target"),
+            packet = new SetPropertyPacket(revision, tab, required(args, "target"),
                     required(args, "property"), required(args, "value"));
             operation = EditorProtocol.OP_PROPERTY;
         }
         case "delete" ->
         {
-            packet = new EditorProtocol.DeletePacket(revision, tab, required(args, "target"));
+            packet = new DeletePacket(revision, tab, required(args, "target"));
             operation = EditorProtocol.OP_DELETE;
         }
         case "delete-many" ->
         {
-            packet = new EditorProtocol.DeleteManyPacket(revision, tab, ids);
+            packet = new DeleteManyPacket(revision, tab, ids);
             operation = EditorProtocol.OP_DELETE_MANY;
         }
         case "duplicate" ->
         {
-            packet = new EditorProtocol.DuplicatePacket(revision, tab, ids, parent,
+            packet = new DuplicatePacket(revision, tab, ids, parent,
                     bool(args, "preserveParents", true));
             operation = EditorProtocol.OP_DUPLICATE;
         }
         case "group" ->
         {
-            packet = new EditorProtocol.GroupPacket(revision, ids);
+            packet = new GroupPacket(revision, ids);
             operation = EditorProtocol.OP_GROUP;
         }
         case "ungroup" ->
         {
-            packet = new EditorProtocol.UngroupPacket(revision, required(args, "target"));
+            packet = new UngroupPacket(revision, required(args, "target"));
             operation = EditorProtocol.OP_UNGROUP;
         }
         case "reorder" ->
         {
-            packet = new EditorProtocol.ReorderPacket(revision, tab, ids, string(args, "before", ""));
+            packet = new ReorderPacket(revision, tab, ids, string(args, "before", ""));
             operation = EditorProtocol.OP_REORDER;
         }
         case "reparent" ->
         {
-            packet = new EditorProtocol.ReparentPacket(revision, ids, parent, string(args, "before", ""));
+            packet = new ReparentPacket(revision, ids, parent, string(args, "before", ""));
             operation = EditorProtocol.OP_REPARENT;
         }
         case "undo" ->
         {
-            packet = new EditorProtocol.UndoPacket(revision);
+            packet = new UndoPacket(revision);
             operation = EditorProtocol.OP_UNDO;
         }
         case "redo" ->
         {
-            packet = new EditorProtocol.RedoPacket(revision);
+            packet = new RedoPacket(revision);
             operation = EditorProtocol.OP_REDO;
         }
         case "save" ->
         {
-            packet = new EditorProtocol.SavePacket(revision);
+            packet = new SavePacket(revision);
             operation = EditorProtocol.OP_SAVE;
         }
         case "apply" ->
         {
-            packet = new EditorProtocol.ApplyPacket(revision);
+            packet = new ApplyPacket(revision);
             operation = EditorProtocol.OP_APPLY;
         }
         case "template-save" ->
         {
-            packet = new EditorProtocol.SaveTemplatePacket(revision, required(args, "target"),
+            packet = new SaveTemplatePacket(revision, required(args, "target"),
                     required(args, "template"));
             operation = EditorProtocol.OP_TEMPLATE_SAVE;
         }
         case "template-instantiate" ->
         {
-            packet = new EditorProtocol.InstantiateTemplatePacket(revision, required(args, "template"));
+            packet = new InstantiateTemplatePacket(revision, required(args, "template"));
             operation = EditorProtocol.OP_TEMPLATE_INSTANTIATE;
         }
         case "template-delete" ->
         {
-            packet = new EditorProtocol.DeleteTemplatePacket(revision, required(args, "template"));
+            packet = new DeleteTemplatePacket(revision, required(args, "template"));
             operation = EditorProtocol.OP_TEMPLATE_DELETE;
         }
         default -> throw new IllegalArgumentException("Unknown scene operation: " + action);

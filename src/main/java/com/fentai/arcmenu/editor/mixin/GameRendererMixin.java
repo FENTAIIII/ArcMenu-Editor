@@ -1,10 +1,12 @@
 package com.fentai.arcmenu.editor.mixin;
 
 import com.fentai.arcmenu.editor.EditorScreen;
+import com.fentai.arcmenu.editor.EditorWorldCompositor;
 import com.fentai.arcmenu.editor.VisionCursorClient;
 import com.fentai.arcmenu.editor.VisionSceneClient;
-import com.fentai.arcmenu.editor.EditorWorldCompositor;
+
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.GameRenderer;
@@ -13,7 +15,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import net.minecraft.client.Minecraft;
 
 @Mixin(GameRenderer.class)
 abstract class GameRendererMixin

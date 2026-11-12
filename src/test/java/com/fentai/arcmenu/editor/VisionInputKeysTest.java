@@ -2,7 +2,11 @@ package com.fentai.arcmenu.editor;
 
 import org.junit.jupiter.api.Test;
 
-import static com.fentai.arcmenu.editor.VisionInputKeys.Action.*;
+import static com.fentai.arcmenu.editor.VisionInputKeys.Action.CLOSE;
+import static com.fentai.arcmenu.editor.VisionInputKeys.Action.CONSUME;
+import static com.fentai.arcmenu.editor.VisionInputKeys.Action.JUMP;
+import static com.fentai.arcmenu.editor.VisionInputKeys.Action.PASS;
+import static com.fentai.arcmenu.editor.VisionInputKeys.Action.TEXT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 final class VisionInputKeysTest

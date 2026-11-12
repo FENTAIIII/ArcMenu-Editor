@@ -2,6 +2,7 @@ package com.fentai.arcmenu.editor;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;

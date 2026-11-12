@@ -2,6 +2,7 @@ package com.fentai.arcmenu.editor;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+
 import java.util.Locale;
 
 /** A restrained storefront palette using the editor's bundled Inter font. */

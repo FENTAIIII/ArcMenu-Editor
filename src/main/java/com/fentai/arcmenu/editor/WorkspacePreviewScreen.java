@@ -1,11 +1,11 @@
 package com.fentai.arcmenu.editor;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.network.chat.Component;
-import net.minecraft.client.input.KeyEvent;
 import com.google.gson.JsonObject;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
 
 /** Native project previews with manager navigation, or a clean aperture for publication captures. */
 public final class WorkspacePreviewScreen extends Screen

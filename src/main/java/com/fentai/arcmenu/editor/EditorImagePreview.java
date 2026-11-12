@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor;
 
-import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.ImageSnapshot;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -9,7 +10,7 @@ import net.minecraft.resources.Identifier;
 /** Uses pack image textures and the first generated GIF frame without decoding GIFs locally. */
 final class EditorImagePreview
 {
-    static boolean draw(GuiGraphicsExtractor graphics, EditorProtocol.ImageSnapshot image, EditorLayout.Rect box)
+    static boolean draw(GuiGraphicsExtractor graphics, ImageSnapshot image, EditorLayout.Rect box)
     {
         Identifier texture = Identifier.tryParse("arcmenu:" + EditorAssetLibrary.texturePath(image.path()));
         if (texture == null || image.width() <= 0 || image.height() <= 0

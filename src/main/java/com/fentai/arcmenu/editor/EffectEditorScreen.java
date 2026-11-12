@@ -1,8 +1,30 @@
 package com.fentai.arcmenu.editor;
 
-import com.fentai.arcmenu.protocol.EditorProtocol;
-import com.fentai.arcmenu.protocol.EffectProtocol;
+import com.fentai.arcmenu.editor.EditorLayout.ScreenRect;
+import com.fentai.arcmenu.editor.EffectTimeline.MenuItem;
 import com.fentai.arcmenu.editor.mcp.McpScreen;
+import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.ClosePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.CreatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeleteManyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeleteTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DuplicatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.GroupPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.InstantiateTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.MovePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.RedoPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ReorderPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ReparentPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ResizePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.UndoPacket;
+import com.fentai.arcmenu.protocol.EffectProtocol;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
@@ -10,19 +32,23 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
-import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
-import java.util.*;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
 
 /** Dedicated composition workspace. Ordinary menu editor state and preferences remain independent. */
 public final class EffectEditorScreen extends Screen implements EffectTimeline.Host
@@ -105,7 +131,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     private record Control(EditorLayout.Rect rect, String label, String hint, Runnable action, boolean active)
     {}
 
-    private record Field(String target, EditorProtocol.PropertySnapshot property, EditBox box, int y)
+    private record Field(String target, PropertySnapshot property, EditBox box, int y)
     {}
 
     private record ProjectEntry(String id, String kind, EditorLayout.Rect rect, Runnable action)
@@ -213,7 +239,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         EffectAudioPreview.INSTANCE.stop();
         EditorViewport.clear();
-        ArcMenuEditorClient.send(new EditorProtocol.ClosePacket());
+        ArcMenuEditorClient.send(new ClosePacket());
         super.onClose();
     }
 
@@ -520,7 +546,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             for (var template : s.templates())
             {
                 items.add(new ProjectEntry(template.id(), "template", null, () -> ArcMenuEditorClient
-                        .send(new EditorProtocol.InstantiateTemplatePacket(s.revision(), template.id()))));
+                        .send(new InstantiateTemplatePacket(s.revision(), template.id()))));
             }
         }
         else
@@ -892,7 +918,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     }
 
     @Override
-    public void timelineContextMenu(double x, double y, List<EffectTimeline.MenuItem> items)
+    public void timelineContextMenu(double x, double y, List<MenuItem> items)
     {
         openedMenu = "";
         popup.open((int) x, (int) y,
@@ -995,13 +1021,13 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         scene.expanded().add(parent);
         if (ids.stream().allMatch(id -> scene.find(id).parentId().equals(parent)))
         {
-            ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(scene.snapshot().revision(),
+            ArcMenuEditorClient.send(new ReorderPacket(scene.snapshot().revision(),
                     EditorProtocol.TAB_FRONTEND, ids, before));
         }
         else
         {
             ArcMenuEditorClient
-                    .send(new EditorProtocol.ReparentPacket(scene.snapshot().revision(), ids, parent, before));
+                    .send(new ReparentPacket(scene.snapshot().revision(), ids, parent, before));
         }
     }
 
@@ -1233,7 +1259,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                     if (entry.kind.equals("template"))
                     {
                         options.add(new EffectPopup.Item(EffectUi.label("delete"), "", () -> ArcMenuEditorClient
-                                .send(new EditorProtocol.DeleteTemplatePacket(scene.snapshot().revision(), entry.id))));
+                                .send(new DeleteTemplatePacket(scene.snapshot().revision(), entry.id))));
                     }
                     popup.open((int) event.x(), (int) event.y(), options);
                 }
@@ -1867,7 +1893,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         case "select-all" ->
         {
-            scene.selectAll(scene.nodes().stream().map(EditorProtocol.NodeSnapshot::id).toList());
+            scene.selectAll(scene.nodes().stream().map(NodeSnapshot::id).toList());
             rebuildWidgets();
         }
         case "deselect" ->
@@ -2110,7 +2136,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         {
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(scene.snapshot().revision(),
+        ArcMenuEditorClient.send(new ReorderPacket(scene.snapshot().revision(),
                 EditorProtocol.TAB_FRONTEND, ids, EffectHierarchy.reorderBefore(scene, ids, action)));
     }
 
@@ -2147,7 +2173,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         var selected = scene.find(scene.selectedId());
         ArcMenuEditorClient
-                .send(new EditorProtocol.CreatePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, kind,
+                .send(new CreatePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, kind,
                         selected != null && selected.kind() == 0 ? selected.id() : "", initial.toString()));
         tool = "select";
     }
@@ -2388,8 +2414,8 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null)
         {
-            ArcMenuEditorClient.send(redo ? new EditorProtocol.RedoPacket(scene.snapshot().revision())
-                    : new EditorProtocol.UndoPacket(scene.snapshot().revision()));
+            ArcMenuEditorClient.send(redo ? new RedoPacket(scene.snapshot().revision())
+                    : new UndoPacket(scene.snapshot().revision()));
         }
     }
 
@@ -2407,20 +2433,20 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
             return;
         }
         String parent = EffectHierarchy.creationParent(scene);
-        ArcMenuEditorClient.send(new EditorProtocol.CreatePacket(scene.snapshot().revision(),
+        ArcMenuEditorClient.send(new CreatePacket(scene.snapshot().revision(),
                 EditorProtocol.TAB_FRONTEND, kind, parent, source));
     }
 
     private List<String> selection()
     {
-        return scene.nodes().stream().map(EditorProtocol.NodeSnapshot::id).filter(scene::selected).toList();
+        return scene.nodes().stream().map(NodeSnapshot::id).filter(scene::selected).toList();
     }
 
     private void delete()
     {
         if (scene.snapshot() != null && !selection().isEmpty())
         {
-            ArcMenuEditorClient.send(new EditorProtocol.DeleteManyPacket(scene.snapshot().revision(),
+            ArcMenuEditorClient.send(new DeleteManyPacket(scene.snapshot().revision(),
                     EditorProtocol.TAB_FRONTEND, selection()));
         }
     }
@@ -2429,7 +2455,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null && !selection().isEmpty())
         {
-            ArcMenuEditorClient.send(new EditorProtocol.DuplicatePacket(scene.snapshot().revision(),
+            ArcMenuEditorClient.send(new DuplicatePacket(scene.snapshot().revision(),
                     EditorProtocol.TAB_FRONTEND, selection(), "", true));
         }
     }
@@ -2438,7 +2464,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null && !selection().isEmpty())
         {
-            ArcMenuEditorClient.send(new EditorProtocol.GroupPacket(scene.snapshot().revision(),
+            ArcMenuEditorClient.send(new GroupPacket(scene.snapshot().revision(),
                     EffectHierarchy.roots(scene, scene.selectedIds())));
         }
     }
@@ -2469,7 +2495,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
     {
         if (scene.snapshot() != null && !value.equals(field.property.value()))
         {
-            ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(scene.snapshot().revision(),
+            ArcMenuEditorClient.send(new SetPropertyPacket(scene.snapshot().revision(),
                     EditorProtocol.TAB_FRONTEND, field.target, field.property.key(), value));
         }
     }
@@ -2549,13 +2575,13 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         deferredPointerEvents.addLast(input);
     }
 
-    private static String display(EditorProtocol.PropertySnapshot p)
+    private static String display(PropertySnapshot p)
     {
         return p.type() == EditorProtocol.PROPERTY_MULTILINE ? p.value().replace("\\", "\\\\").replace("\n", "\\n")
                 : p.value();
     }
 
-    private static String submit(EditorProtocol.PropertySnapshot p, String value)
+    private static String submit(PropertySnapshot p, String value)
     {
         if (p.type() != EditorProtocol.PROPERTY_MULTILINE)
         {
@@ -2603,7 +2629,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         return calibration.forNode(kind, s != null && s.exactRectangles());
     }
 
-    private EditorProtocol.NodeSnapshot hit(double x, double y)
+    private NodeSnapshot hit(double x, double y)
     {
         return scene.nodes().stream().filter(n ->
         {
@@ -2622,7 +2648,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         return source == null ? 100 : (int) Math.round(window.getWidth() * 100.0 / source.width());
     }
 
-    private EditorLayout.ScreenRect virtualScreen()
+    private ScreenRect virtualScreen()
     {
         var snapshot = scene.snapshot();
         var view = effect.viewport();
@@ -2630,7 +2656,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         var physical = EditorViewport.physical(window);
         var nominal = panels.viewport();
         var aperture = physical == null
-                ? new EditorLayout.ScreenRect(nominal.x(), nominal.y(), nominal.width(), nominal.height())
+                ? new ScreenRect(nominal.x(), nominal.y(), nominal.width(), nominal.height())
                 : EffectProjection.guiAperture(
                         new EditorLayout.Rect(physical.x(), physical.y(), physical.width(), physical.height()),
                         window.getWidth(), window.getHeight(), window.getGuiScaledWidth(), window.getGuiScaledHeight());
@@ -2645,7 +2671,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                 : EffectProjection.cropped(raw, aperture, source, window.getWidth(), window.getHeight());
     }
 
-    private int depth(EditorProtocol.NodeSnapshot node)
+    private int depth(NodeSnapshot node)
     {
         int depth = 0;
         Set<String> seen = new HashSet<>();
@@ -2657,7 +2683,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         return depth;
     }
 
-    private boolean projectHidden(EditorProtocol.NodeSnapshot node)
+    private boolean projectHidden(NodeSnapshot node)
     {
         Set<String> seen = new HashSet<>();
         while (node != null && !node.parentId().isEmpty() && seen.add(node.parentId()))
@@ -2735,9 +2761,9 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         sent = pending;
         lastSend = System.nanoTime();
         ArcMenuEditorClient.send(resizing
-                ? new EditorProtocol.ResizePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, dragging,
+                ? new ResizePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, dragging,
                         pending, gesture, released)
-                : new EditorProtocol.MovePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, dragging,
+                : new MovePacket(scene.snapshot().revision(), EditorProtocol.TAB_FRONTEND, dragging,
                         pending, grabX, grabY, gesture, released));
     }
 

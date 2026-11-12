@@ -1,6 +1,20 @@
 package com.fentai.arcmenu.editor.aui;
 
-import com.fentai.arcmenu.editor.aui.internal.element.*;
+import com.fentai.arcmenu.editor.aui.internal.element.A;
+import com.fentai.arcmenu.editor.aui.internal.element.Body;
+import com.fentai.arcmenu.editor.aui.internal.element.Canvas;
+import com.fentai.arcmenu.editor.aui.internal.element.Div;
+import com.fentai.arcmenu.editor.aui.internal.element.Head;
+import com.fentai.arcmenu.editor.aui.internal.element.Html;
+import com.fentai.arcmenu.editor.aui.internal.element.Img;
+import com.fentai.arcmenu.editor.aui.internal.element.Input;
+import com.fentai.arcmenu.editor.aui.internal.element.Option;
+import com.fentai.arcmenu.editor.aui.internal.element.Path;
+import com.fentai.arcmenu.editor.aui.internal.element.Pre;
+import com.fentai.arcmenu.editor.aui.internal.element.Select;
+import com.fentai.arcmenu.editor.aui.internal.element.Span;
+import com.fentai.arcmenu.editor.aui.internal.element.Svg;
+import com.fentai.arcmenu.editor.aui.internal.element.TextArea;
 import com.fentai.arcmenu.editor.aui.internal.init.Document;
 import com.fentai.arcmenu.editor.aui.internal.init.Element;
 

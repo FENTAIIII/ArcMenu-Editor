@@ -1,7 +1,10 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
 import com.fentai.arcmenu.protocol.EffectProtocol;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -10,7 +13,14 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /** Keyframe values, interpolation/velocity handles, layer timing, media/action clips and work area. */
@@ -75,26 +85,26 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
         top = Math.max(8, (height - body) / 2);
         if (mode.equals("key"))
         {
-            var nodes = scene.snapshot() == null ? List.<EditorProtocol.NodeSnapshot>of() : scene.snapshot().frontend();
+            var nodes = scene.snapshot() == null ? List.<NodeSnapshot>of() : scene.snapshot().frontend();
             if (target.isEmpty() && !nodes.isEmpty())
             {
                 target = nodes.getFirst().id();
             }
-            choose("target", target, nodes.stream().map(EditorProtocol.NodeSnapshot::id).toList(), value ->
+            choose("target", target, nodes.stream().map(NodeSnapshot::id).toList(), value ->
             {
                 target = value;
                 property = "";
                 init();
             });
             var node = scene.find(target);
-            var properties = node == null ? List.<EditorProtocol.PropertySnapshot>of()
+            var properties = node == null ? List.<PropertySnapshot>of()
                     : node.properties().stream().filter(p -> EffectPropertyRules.animated(node.kind(), p.key()))
                             .toList();
             if (property.isEmpty() && !properties.isEmpty())
             {
                 property = properties.getFirst().key();
             }
-            choose("property", property, properties.stream().map(EditorProtocol.PropertySnapshot::key).toList(),
+            choose("property", property, properties.stream().map(PropertySnapshot::key).toList(),
                     value ->
                     {
                         property = value;
@@ -204,7 +214,7 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
         var node = scene.find(target);
         return node == null ? "0"
                 : node.properties().stream().filter(p -> p.key().equals(property))
-                        .map(EditorProtocol.PropertySnapshot::value).findFirst().filter(v -> !v.isBlank()).orElse("1");
+                        .map(PropertySnapshot::value).findFirst().filter(v -> !v.isBlank()).orElse("1");
     }
 
     private void field(String key, String value)

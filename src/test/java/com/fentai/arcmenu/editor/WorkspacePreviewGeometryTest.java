@@ -1,14 +1,18 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.EditorLayout.ScreenRect;
+
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class WorkspacePreviewGeometryTest
 {
     @Test
     void highResolutionProjectsDownsampleUniformlyInto720p()
     {
-        var crop = WorkspacePreviewGeometry.crop(2560, 1440, new EditorLayout.ScreenRect(0, 0, 2560, 1440));
+        var crop = WorkspacePreviewGeometry.crop(2560, 1440, new ScreenRect(0, 0, 2560, 1440));
         assertEquals(1280, crop.outputWidth());
         assertEquals(720, crop.outputHeight());
         assertEquals(0, crop.offsetX());
@@ -17,7 +21,7 @@ class WorkspacePreviewGeometryTest
     @Test
     void smallNativeProjectsArePaddedWithoutUpscaling()
     {
-        var crop = WorkspacePreviewGeometry.crop(1920, 1080, new EditorLayout.ScreenRect(500, 300, 500, 281));
+        var crop = WorkspacePreviewGeometry.crop(1920, 1080, new ScreenRect(500, 300, 500, 281));
         assertEquals(500, crop.outputWidth());
         assertEquals(281, crop.outputHeight());
         assertEquals(390, crop.offsetX());
@@ -27,7 +31,7 @@ class WorkspacePreviewGeometryTest
     @Test
     void partiallyVisiblePlanesClipTheirRightAndBottomCorrectly()
     {
-        var crop = WorkspacePreviewGeometry.crop(1920, 1080, new EditorLayout.ScreenRect(-100, -50, 500, 300));
+        var crop = WorkspacePreviewGeometry.crop(1920, 1080, new ScreenRect(-100, -50, 500, 300));
         assertEquals(0, crop.x());
         assertEquals(0, crop.y());
         assertEquals(400, crop.width());
@@ -38,8 +42,8 @@ class WorkspacePreviewGeometryTest
     void insufficientOrOffscreenNativeFramesRejectInsteadOfGeneratingFakeResolution()
     {
         assertThrows(IllegalArgumentException.class,
-                () -> WorkspacePreviewGeometry.crop(1000, 600, new EditorLayout.ScreenRect(0, 0, 400, 300)));
+                () -> WorkspacePreviewGeometry.crop(1000, 600, new ScreenRect(0, 0, 400, 300)));
         assertThrows(IllegalArgumentException.class,
-                () -> WorkspacePreviewGeometry.crop(1920, 1080, new EditorLayout.ScreenRect(3000, 2000, 400, 300)));
+                () -> WorkspacePreviewGeometry.crop(1920, 1080, new ScreenRect(3000, 2000, 400, 300)));
     }
 }

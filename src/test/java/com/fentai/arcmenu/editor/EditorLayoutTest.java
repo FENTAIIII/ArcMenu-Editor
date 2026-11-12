@@ -1,5 +1,7 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.EditorLayout.ScreenRect;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -52,7 +54,7 @@ class EditorLayoutTest
         editor.virtualScreenOffsetX(3.25);
         editor.virtualScreenOffsetY(-2.5);
 
-        EditorLayout.ScreenRect screen = editor.virtualScreen(layout);
+        ScreenRect screen = editor.virtualScreen(layout);
         assertEquals(screen.width() * 9.0, screen.height() * 16.0, 1e-9);
         assertEquals(layout.viewport().width() * 0.427, screen.width(), 1e-9);
         assertEquals(layout.viewport().x() + layout.viewport().width() / 2.0 + 3.25, screen.x() + screen.width() / 2.0,

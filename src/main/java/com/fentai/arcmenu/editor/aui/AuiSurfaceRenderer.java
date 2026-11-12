@@ -1,13 +1,28 @@
 package com.fentai.arcmenu.editor.aui;
 
-import com.fentai.arcmenu.editor.aui.internal.spi.*;
+import com.fentai.arcmenu.editor.aui.internal.layout.Position;
+import com.fentai.arcmenu.editor.aui.internal.render.AABB;
+import com.fentai.arcmenu.editor.aui.internal.spi.AuiRenderService;
+import com.fentai.arcmenu.editor.aui.internal.spi.AuiRenderService.RenderStateScope;
+import com.fentai.arcmenu.editor.aui.internal.spi.FboHandle;
+import com.fentai.arcmenu.editor.aui.internal.spi.MeshBuilder;
+import com.fentai.arcmenu.editor.aui.internal.spi.MeshMode;
+import com.fentai.arcmenu.editor.aui.internal.spi.RenderHandle;
+import com.fentai.arcmenu.editor.aui.internal.style.Text;
+
 import com.mojang.blaze3d.platform.NativeImage;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
-import java.awt.*;
+import java.awt.AlphaComposite;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -16,10 +31,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import com.fentai.arcmenu.editor.aui.internal.layout.Position;
-import com.fentai.arcmenu.editor.aui.internal.render.AABB;
-import com.fentai.arcmenu.editor.aui.internal.style.Text;
-import java.awt.geom.Rectangle2D;
 
 /** AUI's paint SPI targets a retained image, independent of Minecraft's GPU API. */
 final class AuiSurfaceRenderer implements InvocationHandler
@@ -239,7 +250,7 @@ final class AuiSurfaceRenderer implements InvocationHandler
         }
         case "isCullEnabled" -> cull;
         case "supportsStencil", "currentTargetHasStencil" -> false;
-        case "pushFilterRenderState" -> AuiRenderService.RenderStateScope.NOOP;
+        case "pushFilterRenderState" -> RenderStateScope.NOOP;
         case "getGLVersionString" -> "AUI retained surface";
         case "toString" -> "ArcMenu AUI retained renderer";
         case "hashCode" -> System.identityHashCode(this);

@@ -1,9 +1,19 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
+
 import org.junit.jupiter.api.Test;
-import java.util.*;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class EffectWorkspaceTest
 {
@@ -32,15 +42,15 @@ final class EffectWorkspaceTest
                 () -> EffectViewNavigation.crop(base, 1280, 720, Double.NaN, 0, 0));
     }
 
-    private static EditorProtocol.NodeSnapshot node(String id, String parent, byte kind, String... pairs)
+    private static NodeSnapshot node(String id, String parent, byte kind, String... pairs)
     {
-        var properties = new ArrayList<EditorProtocol.PropertySnapshot>();
+        var properties = new ArrayList<PropertySnapshot>();
         for (int i = 0; i < pairs.length; i += 2)
         {
-            properties.add(new EditorProtocol.PropertySnapshot(pairs[i], EditorProtocol.PROPERTY_NUMBER, pairs[i + 1],
+            properties.add(new PropertySnapshot(pairs[i], EditorProtocol.PROPERTY_NUMBER, pairs[i + 1],
                     List.of()));
         }
-        return new EditorProtocol.NodeSnapshot(id, parent, kind, 400, 600, 100, 20, 0, true, false, properties);
+        return new NodeSnapshot(id, parent, kind, 400, 600, 100, 20, 0, true, false, properties);
     }
 
     @Test

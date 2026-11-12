@@ -1,7 +1,7 @@
 package com.fentai.arcmenu.editor;
 
-import net.minecraft.network.chat.Component;
 import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
 
 /** Uses Minecraft's active client language and standard resource-pack fallback. */
 public final class EditorI18n

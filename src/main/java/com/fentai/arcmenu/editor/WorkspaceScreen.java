@@ -1,19 +1,34 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.WorkspaceState.LocalPack;
 import com.fentai.arcmenu.editor.aui.ApricityWorkspaceView;
-import com.google.gson.*;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import com.mojang.blaze3d.platform.InputConstants;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.BiConsumer;
 
 /** An embedded AUI workspace with persistent navigation and scoped asynchronous operations. */
 public final class WorkspaceScreen extends Screen
@@ -177,7 +192,7 @@ public final class WorkspaceScreen extends Screen
         return button(action, project(action), disabled, "button button-secondary");
     }
 
-    private List<WorkspaceState.LocalPack> localPackages()
+    private List<LocalPack> localPackages()
     {
         String query = searchValue.toLowerCase(Locale.ROOT);
         return WorkspaceClient.STATE.localPacks().stream()
@@ -192,7 +207,7 @@ public final class WorkspaceScreen extends Screen
                 .filter(p -> (p.id() + " " + p.title()).toLowerCase(Locale.ROOT).contains(query)).toList();
     }
 
-    public WorkspaceState.LocalPack selectedLocalPackage()
+    public LocalPack selectedLocalPackage()
     {
         return WorkspaceClient.STATE.localPacks().stream().filter(pack -> pack.filename().equals(selectedLocalFilename))
                 .findFirst().orElse(null);
@@ -1471,7 +1486,7 @@ public final class WorkspaceScreen extends Screen
         }));
     }
 
-    private void requestLocalCover(WorkspaceState.LocalPack pack)
+    private void requestLocalCover(LocalPack pack)
     {
         if (pack.cover().isBlank() || localCovers.containsKey(pack.filename())
                 || !requestedImages.add("local:" + pack.filename() + ":" + pack.modifiedAt()))

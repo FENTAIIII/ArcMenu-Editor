@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor.aui;
 
 import com.fentai.arcmenu.editor.aui.internal.init.Element;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 

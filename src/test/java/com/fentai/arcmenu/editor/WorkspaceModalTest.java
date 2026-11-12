@@ -1,12 +1,19 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.WorkspaceState.LocalPack;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkspaceModalTest
 {
@@ -121,7 +128,7 @@ class WorkspaceModalTest
     @Test
     void publicationAndMetadataFormsRetainMultilineUnicodeValues()
     {
-        var pack = new WorkspaceState.LocalPack("starter-1.0.0.arcpack", "starter", "1.0.0", "Starter",
+        var pack = new LocalPack("starter-1.0.0.arcpack", "starter", "1.0.0", "Starter",
                 "Original description", new JsonObject(), new JsonArray(), new JsonArray(), 1024, "", new JsonArray(),
                 "", false);
         var publish = new WorkspaceModal("publish", List.of(), pack, new JsonObject());

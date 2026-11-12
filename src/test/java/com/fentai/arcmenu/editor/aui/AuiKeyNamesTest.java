@@ -3,9 +3,11 @@ package com.fentai.arcmenu.editor.aui;
 import com.fentai.arcmenu.editor.aui.internal.element.Body;
 import com.fentai.arcmenu.editor.aui.internal.event.KeyEvent;
 import com.fentai.arcmenu.editor.aui.internal.init.Document;
+
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuiKeyNamesTest
 {

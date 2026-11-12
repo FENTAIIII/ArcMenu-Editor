@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EffectProtocol;
+
 import java.util.List;
 
 /** Numeric curve sampling shared by the value and velocity graphs. */

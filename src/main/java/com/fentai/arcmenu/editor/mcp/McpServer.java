@@ -1,13 +1,26 @@
 package com.fentai.arcmenu.editor.mcp;
 
-import com.google.gson.*;
-import com.sun.net.httpserver.*;
-import java.io.*;
-import java.net.*;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor.AbortPolicy;
+import java.util.concurrent.TimeUnit;
 
 /** MCP Streamable HTTP JSON responses. Stateless transport: GET explicitly returns 405 (no SSE stream). */
 public final class McpServer implements AutoCloseable
@@ -38,7 +51,7 @@ public final class McpServer implements AutoCloseable
             Thread thread = new Thread(runnable, "ArcMenu MCP");
             thread.setDaemon(true);
             return thread;
-        }, new ThreadPoolExecutor.AbortPolicy());
+        }, new AbortPolicy());
         server.setExecutor(workers);
         server.createContext("/mcp", this::handle);
         server.start();

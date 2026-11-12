@@ -1,7 +1,13 @@
 package com.fentai.arcmenu.editor.mcp;
 
-import com.google.gson.*;
-import java.util.*;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import java.util.LinkedHashMap;
+import java.util.List;
 
 /** Stable, discoverable composition/layer/keyframe tools over the existing server-authoritative editor. */
 public final class McpTools

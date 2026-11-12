@@ -2,13 +2,14 @@ package com.fentai.arcmenu.editor.mixin;
 
 import com.fentai.arcmenu.editor.EditorViewport;
 import com.fentai.arcmenu.editor.EffectEditorScreen;
-import net.minecraft.client.Minecraft;
+
 import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Camera.class)

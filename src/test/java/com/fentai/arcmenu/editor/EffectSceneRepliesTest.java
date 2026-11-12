@@ -1,11 +1,25 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.ArcMenuEditorClient.SceneReplies;
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.CreatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.MovePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
 import com.fentai.arcmenu.protocol.EffectProtocol;
+import com.fentai.arcmenu.protocol.EffectProtocol.NodeFrame;
+import com.fentai.arcmenu.protocol.EffectProtocol.SceneFrame;
+
 import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class EffectSceneRepliesTest
 {
@@ -17,18 +31,18 @@ final class EffectSceneRepliesTest
         state.transport(sent::add);
         state.update(snapshot(0));
         var scene = new EditorState();
-        scene.update(new EditorProtocol.SnapshotPacket(2, "intro", 320, 180, false, true, "26.3", List.of(
-                new EditorProtocol.NodeSnapshot("title", "", EditorProtocol.KIND_TEXT, 0, 0, 10, 10, 0, true, false)),
+        scene.update(new SnapshotPacket(2, "intro", 320, 180, false, true, "26.3", List.of(
+                new NodeSnapshot("title", "", EditorProtocol.KIND_TEXT, 0, 0, 10, 10, 0, true, false)),
                 List.of()));
-        var replies = new ArcMenuEditorClient.SceneReplies();
+        var replies = new SceneReplies();
         replies.enqueue(create(2));
         state.beginSceneEdit();
         replies.dispatch(2);
         assertEquals(0, replies.acknowledge(EditorProtocol.OP_CREATE));
         state.action("save");
         assertTrue(state.update(new EffectProtocol.Transport(0, "intro", true, false, false, 20)));
-        assertTrue(scene.update(new EffectProtocol.SceneFrame(2, "intro",
-                List.of(new EffectProtocol.NodeFrame("title", 10, 20, 30, 40, 0, true, List.of())))));
+        assertTrue(scene.update(new SceneFrame(2, "intro",
+                List.of(new NodeFrame("title", 10, 20, 30, 40, 0, true, List.of())))));
         assertTrue(state.sceneBusy());
         assertTrue(sent.isEmpty());
         assertNull(replies.dispatch(3));
@@ -37,9 +51,9 @@ final class EffectSceneRepliesTest
         assertEquals(1, sent.size());
     }
 
-    private static EditorProtocol.CreatePacket create(long revision)
+    private static CreatePacket create(long revision)
     {
-        return new EditorProtocol.CreatePacket(revision, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_TEXT, "group",
+        return new CreatePacket(revision, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_TEXT, "group",
                 "Text\nwith a second line");
     }
 
@@ -52,24 +66,24 @@ final class EffectSceneRepliesTest
     @Test
     void structuralAcknowledgementKeepsLaterEditsBlockedUntilItsAuthoritativeSnapshot()
     {
-        var replies = new ArcMenuEditorClient.SceneReplies();
+        var replies = new SceneReplies();
         replies.enqueue(create(1));
         replies.enqueue(create(1));
-        assertEquals(4, ((EditorProtocol.CreatePacket) replies.dispatch(4)).revision());
+        assertEquals(4, ((CreatePacket) replies.dispatch(4)).revision());
         assertEquals(0, replies.snapshot());
         assertEquals(0, replies.acknowledge(EditorProtocol.OP_CREATE));
         assertNull(replies.dispatch(5));
         assertEquals(1, replies.snapshot());
-        assertEquals(5, ((EditorProtocol.CreatePacket) replies.dispatch(5)).revision());
+        assertEquals(5, ((CreatePacket) replies.dispatch(5)).revision());
     }
 
     @Test
     void liveGeometryAcknowledgementsReleaseWithoutWaitingForANonexistentSnapshot()
     {
-        var replies = new ArcMenuEditorClient.SceneReplies();
+        var replies = new SceneReplies();
         var point = new EditorProtocol.Pointer(20, 30, 0, 0, 400, 300, 7, -9);
-        replies.enqueue(new EditorProtocol.MovePacket(1, EditorProtocol.TAB_FRONTEND, "title", point, 4, 5, 99, false));
-        var packet = (EditorProtocol.MovePacket) replies.dispatch(7);
+        replies.enqueue(new MovePacket(1, EditorProtocol.TAB_FRONTEND, "title", point, 4, 5, 99, false));
+        var packet = (MovePacket) replies.dispatch(7);
         assertEquals(7, packet.revision());
         assertEquals(point, packet.pointer());
         assertEquals(99, packet.gestureId());
@@ -83,12 +97,12 @@ final class EffectSceneRepliesTest
     @Test
     void propertyFinalizationHasTheSameSnapshotBarrierAsCreation()
     {
-        var replies = new ArcMenuEditorClient.SceneReplies();
-        replies.enqueue(new EditorProtocol.SetPropertyPacket(1, EditorProtocol.TAB_FRONTEND, "title", "offset.y", "42",
+        var replies = new SceneReplies();
+        replies.enqueue(new SetPropertyPacket(1, EditorProtocol.TAB_FRONTEND, "title", "offset.y", "42",
                 10, false));
         replies.dispatch(2);
         assertEquals(1, replies.acknowledge(EditorProtocol.OP_PROPERTY));
-        replies.enqueue(new EditorProtocol.SetPropertyPacket(2, EditorProtocol.TAB_FRONTEND, "title", "offset.y", "43",
+        replies.enqueue(new SetPropertyPacket(2, EditorProtocol.TAB_FRONTEND, "title", "offset.y", "43",
                 10, true));
         replies.dispatch(3);
         assertEquals(0, replies.acknowledge(EditorProtocol.OP_PROPERTY));
@@ -98,7 +112,7 @@ final class EffectSceneRepliesTest
     @Test
     void rejectedEditsDiscardQueuedWorkAndWaitForTheRecoverySnapshot()
     {
-        var replies = new ArcMenuEditorClient.SceneReplies();
+        var replies = new SceneReplies();
         replies.enqueue(create(1));
         replies.enqueue(create(1));
         replies.enqueue(create(1));
@@ -116,9 +130,9 @@ final class EffectSceneRepliesTest
     @Test
     void rebasePreservesSourceParentAndSelectionIntent()
     {
-        var replies = new ArcMenuEditorClient.SceneReplies();
+        var replies = new SceneReplies();
         replies.enqueue(create(1));
-        var packet = (EditorProtocol.CreatePacket) replies.dispatch(50);
+        var packet = (CreatePacket) replies.dispatch(50);
         assertEquals(50, packet.revision());
         assertEquals("group", packet.parentId());
         assertEquals("Text\nwith a second line", packet.initialSource());
@@ -133,7 +147,7 @@ final class EffectSceneRepliesTest
         var sent = new ArrayList<EffectProtocol.Packet>();
         state.transport(sent::add);
         state.update(snapshot(0));
-        var replies = new ArcMenuEditorClient.SceneReplies();
+        var replies = new SceneReplies();
         state.seek(20);
         long first = state.inFlightRequest();
         replies.enqueue(create(0));

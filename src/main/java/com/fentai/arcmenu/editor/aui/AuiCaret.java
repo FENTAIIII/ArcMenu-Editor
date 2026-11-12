@@ -2,6 +2,7 @@ package com.fentai.arcmenu.editor.aui;
 
 import com.fentai.arcmenu.editor.aui.internal.render.Graph;
 import com.fentai.arcmenu.editor.aui.internal.spi.MeshBuilder;
+
 import org.joml.Matrix4f;
 
 /** Keeps insertion carets visible on the retained surface at fractional scales. */

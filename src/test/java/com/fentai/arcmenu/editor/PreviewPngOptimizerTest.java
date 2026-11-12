@@ -2,7 +2,6 @@ package com.fentai.arcmenu.editor;
 
 import org.junit.jupiter.api.Test;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -13,8 +12,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.zip.CRC32;
+import javax.imageio.ImageIO;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PreviewPngOptimizerTest
 {

@@ -1,7 +1,10 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.WorkspaceState.LocalPack;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +18,7 @@ final class WorkspaceModal
     boolean busy;
     String error = "";
 
-    WorkspaceModal(String mode, List<WorkspaceState.Project> projects, WorkspaceState.LocalPack pack,
+    WorkspaceModal(String mode, List<WorkspaceState.Project> projects, LocalPack pack,
             JsonObject listing)
     {
         this.mode = mode;

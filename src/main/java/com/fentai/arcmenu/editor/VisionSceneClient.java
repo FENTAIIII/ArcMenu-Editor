@@ -1,13 +1,16 @@
 package com.fentai.arcmenu.editor;
 
-import com.fentai.arcmenu.protocol.VisionProtocol;
 import com.fentai.arcmenu.editor.mixin.VisionGraphicsAccessor;
+import com.fentai.arcmenu.protocol.VisionProtocol;
+import com.fentai.arcmenu.protocol.VisionProtocol.PreviewScene;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.entity.state.DisplayEntityRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.ItemDisplayEntityRenderState;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Display.ItemDisplay;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemDisplayContext;
 import org.joml.Matrix4f;
@@ -50,7 +53,7 @@ public final class VisionSceneClient
         VisionVisualClient.clear();
     }
 
-    public static void receivePreview(VisionProtocol.PreviewScene next)
+    public static void receivePreview(PreviewScene next)
     {
         if (!next.active())
         {
@@ -150,7 +153,7 @@ public final class VisionSceneClient
                 {
                     continue;
                 }
-                if (entity instanceof Display.ItemDisplay item && item.itemRenderState() != null
+                if (entity instanceof ItemDisplay item && item.itemRenderState() != null
                         && item.itemRenderState().itemTransform() == ItemDisplayContext.GUI
                         && state instanceof ItemDisplayEntityRenderState itemState && itemState.item.usesBlockLight())
                 {

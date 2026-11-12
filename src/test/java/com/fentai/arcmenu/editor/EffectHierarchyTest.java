@@ -1,23 +1,32 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
+
 import org.junit.jupiter.api.Test;
+
 import java.util.List;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EffectHierarchyTest
 {
-    private static EditorProtocol.NodeSnapshot node(String id, String parent, boolean group)
+    private static NodeSnapshot node(String id, String parent, boolean group)
     {
-        return new EditorProtocol.NodeSnapshot(id, parent, group ? EditorProtocol.KIND_GROUP : EditorProtocol.KIND_TEXT,
+        return new NodeSnapshot(id, parent, group ? EditorProtocol.KIND_GROUP : EditorProtocol.KIND_TEXT,
                 0, 0, 10, 10, 0, true, false, List.of());
     }
 
     private static EditorState scene()
     {
         var scene = new EditorState();
-        scene.update(new EditorProtocol.SnapshotPacket(5, "effect", 320, 180, true, false, "26.3",
+        scene.update(new SnapshotPacket(5, "effect", 320, 180, true, false, "26.3",
                 List.of(node("outer", "", true), node("a", "outer", false), node("b", "outer", false),
                         node("nested", "outer", true), node("child", "nested", false), node("c", "outer", false),
                         node("other", "", true), node("root", "", false)),

@@ -1,11 +1,23 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.CreatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ImageSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
 import java.nio.file.Path;
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorGifTest
 {
@@ -77,14 +89,14 @@ class EditorGifTest
         assertEquals(8, EditorProtocol.KIND_LINE);
         assertEquals(9, EditorProtocol.KIND_GIF);
         assertEquals(11, EditorProtocol.VERSION);
-        var create = new EditorProtocol.CreatePacket(4, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_GIF, "group",
+        var create = new CreatePacket(4, EditorProtocol.TAB_FRONTEND, EditorProtocol.KIND_GIF, "group",
                 "/example.gif");
         assertEquals(create, EditorProtocol.decode(EditorProtocol.encode(create)));
-        var node = new EditorProtocol.NodeSnapshot("gif", "group", EditorProtocol.KIND_GIF, 20, 30, 120, 60, 0, true,
+        var node = new NodeSnapshot("gif", "group", EditorProtocol.KIND_GIF, 20, 30, 120, 60, 0, true,
                 false,
-                List.of(new EditorProtocol.PropertySnapshot("source", EditorProtocol.PROPERTY_TEXT, "/example.gif"),
-                        new EditorProtocol.PropertySnapshot("speed", EditorProtocol.PROPERTY_NUMBER, "0.5")));
-        var snapshot = new EditorProtocol.SnapshotPacket(5, "gif-project", 800, 450, true, false, "26.3", List.of(node),
+                List.of(new PropertySnapshot("source", EditorProtocol.PROPERTY_TEXT, "/example.gif"),
+                        new PropertySnapshot("speed", EditorProtocol.PROPERTY_NUMBER, "0.5")));
+        var snapshot = new SnapshotPacket(5, "gif-project", 800, 450, true, false, "26.3", List.of(node),
                 List.of(), List.of(image("/example.gif")), List.of());
         assertEquals(snapshot, EditorProtocol.decode(EditorProtocol.encode(snapshot)));
         var state = new EditorState();
@@ -92,7 +104,7 @@ class EditorGifTest
         assertEquals(node, state.find("gif"));
         for (String value : List.of("0.5", "2"))
         {
-            var speed = new EditorProtocol.SetPropertyPacket(5, EditorProtocol.TAB_FRONTEND, "gif", "speed", value);
+            var speed = new SetPropertyPacket(5, EditorProtocol.TAB_FRONTEND, "gif", "speed", value);
             assertEquals(speed, EditorProtocol.decode(EditorProtocol.encode(speed)));
         }
         assertTrue(EffectPropertyRules.animated(EditorProtocol.KIND_GIF, "speed"));
@@ -101,8 +113,8 @@ class EditorGifTest
         assertFalse(EffectPropertyRules.animated(EditorProtocol.KIND_IMAGE, "speed"));
     }
 
-    private static EditorProtocol.ImageSnapshot image(String path)
+    private static ImageSnapshot image(String path)
     {
-        return new EditorProtocol.ImageSnapshot(path, 400, 100);
+        return new ImageSnapshot(path, 400, 100);
     }
 }

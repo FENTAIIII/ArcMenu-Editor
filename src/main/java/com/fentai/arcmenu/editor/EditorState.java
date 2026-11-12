@@ -1,22 +1,34 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
-import com.fentai.arcmenu.protocol.EffectProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.AckPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.CreatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DuplicatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.GroupPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.InstantiateTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.MovePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.ResizePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
+import com.fentai.arcmenu.protocol.EffectProtocol.NodeFrame;
+import com.fentai.arcmenu.protocol.EffectProtocol.SceneFrame;
 
-import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public final class EditorState
 {
-    private EditorProtocol.SnapshotPacket snapshot;
+    private SnapshotPacket snapshot;
     private String selectedId = "";
     private String selectionAnchor = "";
     private final LinkedHashSet<String> selected = new LinkedHashSet<>();
@@ -36,21 +48,21 @@ public final class EditorState
         long gestureId = 0;
         switch (packet)
         {
-        case EditorProtocol.MovePacket move ->
+        case MovePacket move ->
         {
             operation = EditorProtocol.OP_MOVE;
             gestureId = move.gestureId();
         }
-        case EditorProtocol.ResizePacket resize ->
+        case ResizePacket resize ->
         {
             operation = EditorProtocol.OP_RESIZE;
             gestureId = resize.gestureId();
         }
-        case EditorProtocol.CreatePacket ignored -> operation = EditorProtocol.OP_CREATE;
-        case EditorProtocol.DuplicatePacket ignored -> operation = EditorProtocol.OP_DUPLICATE;
-        case EditorProtocol.GroupPacket ignored -> operation = EditorProtocol.OP_GROUP;
-        case EditorProtocol.InstantiateTemplatePacket ignored -> operation = EditorProtocol.OP_TEMPLATE_INSTANTIATE;
-        case EditorProtocol.SetPropertyPacket property ->
+        case CreatePacket ignored -> operation = EditorProtocol.OP_CREATE;
+        case DuplicatePacket ignored -> operation = EditorProtocol.OP_DUPLICATE;
+        case GroupPacket ignored -> operation = EditorProtocol.OP_GROUP;
+        case InstantiateTemplatePacket ignored -> operation = EditorProtocol.OP_TEMPLATE_INSTANTIATE;
+        case SetPropertyPacket property ->
         {
             operation = EditorProtocol.OP_PROPERTY;
             gestureId = property.gestureId();
@@ -70,7 +82,7 @@ public final class EditorState
     private record SelectionRequest(byte operation, long selectionVersion, byte tab, String renamedId, long gestureId)
     {}
 
-    public void update(EditorProtocol.SnapshotPacket value)
+    public void update(SnapshotPacket value)
     {
         boolean newMenu = snapshot == null || !snapshot.menuId().equals(value.menuId());
         if (snapshot != null && newMenu)
@@ -101,13 +113,13 @@ public final class EditorState
     }
 
     /** Apply sampled values without consuming edit replies or changing selection and property schemas. */
-    public boolean update(EffectProtocol.SceneFrame value)
+    public boolean update(SceneFrame value)
     {
         if (snapshot == null || snapshot.revision() != value.revision() || !snapshot.menuId().equals(value.menuId()))
         {
             return false;
         }
-        var changes = new HashMap<String, EffectProtocol.NodeFrame>();
+        var changes = new HashMap<String, NodeFrame>();
         for (var node : value.nodes())
         {
             changes.put(node.id(), node);
@@ -116,12 +128,12 @@ public final class EditorState
         {
             return false;
         }
-        var ids = snapshot.frontend().stream().map(EditorProtocol.NodeSnapshot::id).collect(Collectors.toSet());
+        var ids = snapshot.frontend().stream().map(NodeSnapshot::id).collect(Collectors.toSet());
         if (!ids.containsAll(changes.keySet()))
         {
             return false;
         }
-        var frontend = new ArrayList<EditorProtocol.NodeSnapshot>(snapshot.frontend().size());
+        var frontend = new ArrayList<NodeSnapshot>(snapshot.frontend().size());
         for (var node : snapshot.frontend())
         {
             var frame = changes.get(node.id());
@@ -136,20 +148,20 @@ public final class EditorState
                 values.put(property.key(), property.value());
             }
             var properties = node.properties().stream()
-                    .map(property -> values.containsKey(property.key()) ? new EditorProtocol.PropertySnapshot(
+                    .map(property -> values.containsKey(property.key()) ? new PropertySnapshot(
                             property.key(), property.type(), values.get(property.key()), property.choices()) : property)
                     .toList();
-            frontend.add(new EditorProtocol.NodeSnapshot(node.id(), node.parentId(), node.kind(), frame.x(), frame.y(),
+            frontend.add(new NodeSnapshot(node.id(), node.parentId(), node.kind(), frame.x(), frame.y(),
                     frame.width(), frame.height(), frame.rotationZ(), frame.visible(), node.locked(), properties));
         }
-        snapshot = new EditorProtocol.SnapshotPacket(snapshot.revision(), snapshot.menuId(), snapshot.canvasWidth(),
+        snapshot = new SnapshotPacket(snapshot.revision(), snapshot.menuId(), snapshot.canvasWidth(),
                 snapshot.canvasHeight(), snapshot.dirty(), snapshot.saved(), snapshot.serverVersion(), frontend,
                 snapshot.backend(), snapshot.images(), snapshot.templates(), snapshot.exactRectangles());
         return true;
     }
 
     /** Applies the compact authoritative response used between live-drag samples. */
-    public long apply(EditorProtocol.AckPacket value)
+    public long apply(AckPacket value)
     {
         status = value.message();
         errorStatus = false;
@@ -192,20 +204,20 @@ public final class EditorState
             return gestureId;
         }
         byte responseTab = request == null ? activeTab : request.tab;
-        List<EditorProtocol.NodeSnapshot> frontend = responseTab == EditorProtocol.TAB_FRONTEND
+        List<NodeSnapshot> frontend = responseTab == EditorProtocol.TAB_FRONTEND
                 ? updateGeometry(snapshot.frontend(), value, false)
                 : snapshot.frontend();
-        List<EditorProtocol.NodeSnapshot> backend = responseTab == EditorProtocol.TAB_BACKEND
+        List<NodeSnapshot> backend = responseTab == EditorProtocol.TAB_BACKEND
                 ? updateGeometry(snapshot.backend(), value, true)
                 : snapshot.backend();
-        snapshot = new EditorProtocol.SnapshotPacket(value.revision(), snapshot.menuId(), snapshot.canvasWidth(),
+        snapshot = new SnapshotPacket(value.revision(), snapshot.menuId(), snapshot.canvasWidth(),
                 snapshot.canvasHeight(), value.dirty(), value.saved(), snapshot.serverVersion(), frontend, backend,
                 snapshot.images(), snapshot.templates(), snapshot.exactRectangles());
         return gestureId;
     }
 
-    private static List<EditorProtocol.NodeSnapshot> updateGeometry(List<EditorProtocol.NodeSnapshot> nodes,
-            EditorProtocol.AckPacket value, boolean backend)
+    private static List<NodeSnapshot> updateGeometry(List<NodeSnapshot> nodes,
+            AckPacket value, boolean backend)
     {
         if (value.nodeId().isBlank() || !Double.isFinite(value.x()) || !Double.isFinite(value.y())
                 || !Double.isFinite(value.width()) || !Double.isFinite(value.height()))
@@ -214,15 +226,15 @@ public final class EditorState
         }
         var target = nodes.stream().filter(node -> node.id().equals(value.nodeId())).findFirst().orElse(null);
         boolean group = backend && target != null && target.kind() == EditorProtocol.KIND_GROUP;
-        Map<String, EditorProtocol.NodeSnapshot> index = group
-                ? nodes.stream().collect(Collectors.toMap(EditorProtocol.NodeSnapshot::id, node -> node))
+        Map<String, NodeSnapshot> index = group
+                ? nodes.stream().collect(Collectors.toMap(NodeSnapshot::id, node -> node))
                 : Map.of();
-        List<EditorProtocol.NodeSnapshot> result = new ArrayList<>(nodes.size());
-        for (EditorProtocol.NodeSnapshot node : nodes)
+        List<NodeSnapshot> result = new ArrayList<>(nodes.size());
+        for (NodeSnapshot node : nodes)
         {
             if (node.id().equals(value.nodeId()))
             {
-                result.add(new EditorProtocol.NodeSnapshot(node.id(), node.parentId(), node.kind(), value.x(),
+                result.add(new NodeSnapshot(node.id(), node.parentId(), node.kind(), value.x(),
                         value.y(), value.width(), value.height(), node.rotationZ(), node.visible(), node.locked(),
                         node.properties()));
             }
@@ -230,7 +242,7 @@ public final class EditorState
             {
                 double scaleX = value.width() / target.width();
                 double scaleY = value.height() / target.height();
-                result.add(new EditorProtocol.NodeSnapshot(node.id(), node.parentId(), node.kind(),
+                result.add(new NodeSnapshot(node.id(), node.parentId(), node.kind(),
                         value.x() + (node.x() - target.x()) * scaleX, value.y() + (node.y() - target.y()) * scaleY,
                         node.width() * scaleX, node.height() * scaleY, 0, node.visible(), node.locked(),
                         node.properties()));
@@ -243,8 +255,8 @@ public final class EditorState
         return result;
     }
 
-    private static boolean descendantOf(EditorProtocol.NodeSnapshot node, String ancestor,
-            Map<String, EditorProtocol.NodeSnapshot> index)
+    private static boolean descendantOf(NodeSnapshot node, String ancestor,
+            Map<String, NodeSnapshot> index)
     {
         Set<String> visited = new HashSet<>();
         String parent = node.parentId();
@@ -260,7 +272,7 @@ public final class EditorState
         return false;
     }
 
-    public EditorProtocol.SnapshotPacket snapshot()
+    public SnapshotPacket snapshot()
     {
         return snapshot;
     }
@@ -415,7 +427,7 @@ public final class EditorState
         locked.clear();
     }
 
-    public List<EditorProtocol.NodeSnapshot> nodes()
+    public List<NodeSnapshot> nodes()
     {
         if (snapshot == null)
         {
@@ -424,7 +436,7 @@ public final class EditorState
         return activeTab == EditorProtocol.TAB_FRONTEND ? snapshot.frontend() : snapshot.backend();
     }
 
-    public EditorProtocol.NodeSnapshot find(String id)
+    public NodeSnapshot find(String id)
     {
         if (id == null || id.isBlank())
         {

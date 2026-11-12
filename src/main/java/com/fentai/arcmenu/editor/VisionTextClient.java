@@ -1,6 +1,8 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.VisionProtocol;
+import com.fentai.arcmenu.protocol.VisionProtocol.TextState;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -13,7 +15,7 @@ import net.minecraft.network.chat.Component;
 /** A native text/IME host without an inventory, Screen, or visible widget. */
 public final class VisionTextClient
 {
-    private static VisionProtocol.TextState state;
+    private static TextState state;
     private static EditBox input;
     private static VisionCursorMath.Point anchor;
 
@@ -25,7 +27,7 @@ public final class VisionTextClient
         return input != null && state != null;
     }
 
-    public static void receive(VisionProtocol.TextState next)
+    public static void receive(TextState next)
     {
         if (!next.active())
         {

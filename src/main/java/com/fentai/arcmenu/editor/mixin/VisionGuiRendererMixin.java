@@ -1,7 +1,8 @@
 package com.fentai.arcmenu.editor.mixin;
 
-import com.fentai.arcmenu.editor.VisionSceneRenderer;
 import com.fentai.arcmenu.editor.VisionSceneRenderState;
+import com.fentai.arcmenu.editor.VisionSceneRenderer;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.render.GuiRenderer;
 import net.minecraft.client.gui.render.pip.PictureInPictureRenderer;
@@ -14,8 +15,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 
 @Mixin(GuiRenderer.class)
 abstract class VisionGuiRendererMixin

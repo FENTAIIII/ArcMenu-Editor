@@ -1,14 +1,25 @@
 package com.fentai.arcmenu.editor.mcp;
 
-import com.google.gson.*;
-import org.junit.jupiter.api.Test;
-import java.net.*;
-import java.net.http.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import static org.junit.jupiter.api.Assertions.*;
 import com.fentai.arcmenu.editor.EffectCommands;
 import com.fentai.arcmenu.protocol.EditorProtocol;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import org.junit.jupiter.api.Test;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class McpServerTest
 {
@@ -45,8 +56,8 @@ final class McpServerTest
         {
             request.header("Origin", origin);
         }
-        return HttpClient.newHttpClient().send(request.POST(HttpRequest.BodyPublishers.ofString(body)).build(),
-                HttpResponse.BodyHandlers.ofString());
+        return HttpClient.newHttpClient().send(request.POST(BodyPublishers.ofString(body)).build(),
+                BodyHandlers.ofString());
     }
 
     @Test
@@ -89,7 +100,7 @@ final class McpServerTest
             assertTrue(resource.body().contains("application/json"));
             var get = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + "/mcp"))
                     .header("Authorization", "Bearer " + TOKEN).GET().build();
-            assertEquals(405, HttpClient.newHttpClient().send(get, HttpResponse.BodyHandlers.ofString()).statusCode());
+            assertEquals(405, HttpClient.newHttpClient().send(get, BodyHandlers.ofString()).statusCode());
         }
     }
 

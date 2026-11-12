@@ -2,7 +2,8 @@ package com.fentai.arcmenu.editor;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import java.util.*;
+
+import java.util.List;
 
 /** Shared keyboard-accessible command menus for every Effect panel. */
 final class EffectPopup

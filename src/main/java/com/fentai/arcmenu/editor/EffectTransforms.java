@@ -1,25 +1,33 @@
 package com.fentai.arcmenu.editor;
 
-import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
+
 import org.joml.Matrix4d;
 import org.joml.Vector3d;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 /** Converts canvas movement to the selected layer's local axes through animated parent transforms. */
 public final class EffectTransforms
 {
-    public static double number(EditorProtocol.NodeSnapshot node, String key, double fallback)
+    public static double number(NodeSnapshot node, String key, double fallback)
     {
-        return node.properties().stream().filter(p -> p.key().equals(key)).map(EditorProtocol.PropertySnapshot::value)
+        return node.properties().stream().filter(p -> p.key().equals(key)).map(PropertySnapshot::value)
                 .mapToDouble(Double::parseDouble).findFirst().orElse(fallback);
     }
 
-    public static Vector3d localDelta(EditorProtocol.NodeSnapshot node, List<EditorProtocol.NodeSnapshot> nodes,
+    public static Vector3d localDelta(NodeSnapshot node, List<NodeSnapshot> nodes,
             double x, double y)
     {
-        Map<String, EditorProtocol.NodeSnapshot> indexed = new HashMap<>();
+        Map<String, NodeSnapshot> indexed = new HashMap<>();
         nodes.forEach(n -> indexed.put(n.id(), n));
-        var parents = new ArrayList<EditorProtocol.NodeSnapshot>();
+        var parents = new ArrayList<NodeSnapshot>();
         var seen = new HashSet<String>();
         String id = node.parentId();
         while (!id.isEmpty() && seen.add(id))

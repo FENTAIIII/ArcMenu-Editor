@@ -1,11 +1,14 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.WorkspaceState.LocalPack;
+
 import com.google.gson.JsonObject;
+
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.Locale;
 
 /** Pure markup fragments for the embedded workspace document. */
 public final class WorkspaceMarkup
@@ -158,7 +161,7 @@ public final class WorkspaceMarkup
                 + "<p>" + escape(EditorI18n.text("arcmenu_editor.projects.ppb_hint")) + "</p>";
     }
 
-    public static String packs(List<WorkspaceState.LocalPack> packs, String selectedFilename,
+    public static String packs(List<LocalPack> packs, String selectedFilename,
             Map<String, String> covers)
     {
         StringBuilder html = new StringBuilder("<div class='resource-grid'>");

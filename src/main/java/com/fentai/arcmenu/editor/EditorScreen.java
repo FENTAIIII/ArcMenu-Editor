@@ -1,6 +1,36 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.EditorLayout.ScreenRect;
+import com.fentai.arcmenu.editor.mcp.EditorMcp;
+import com.fentai.arcmenu.editor.mcp.McpScreen;
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.ApplyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ClosePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.CreatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeleteManyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeletePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeleteTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DuplicatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.GroupPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.InstantiateTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.MovePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.RedoPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ReorderPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ReparentPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ResizePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SavePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SaveTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SwitchTabPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.TemplateSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.UndoPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.UngroupPacket;
+import com.fentai.arcmenu.protocol.EffectProtocol;
+
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -12,17 +42,13 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import com.fentai.arcmenu.editor.mcp.EditorMcp;
-import com.fentai.arcmenu.editor.mcp.McpScreen;
-import com.fentai.arcmenu.protocol.EffectProtocol;
-import com.mojang.blaze3d.platform.InputConstants;
-import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 public final class EditorScreen extends Screen implements EffectTimeline.Host
 {
@@ -250,13 +276,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             addRenderableWidget(effectTimeline.rebuildSearch(font, currentLayout.templates(), restoreTimelineSearch));
         }
-        EditorProtocol.NodeSnapshot node = state.find(state.selectedId());
+        NodeSnapshot node = state.find(state.selectedId());
         if (node != null)
         {
             int fieldX = currentLayout.properties().x() + 94;
             int fieldWidth = Math.max(70, currentLayout.properties().width() - 105);
             int index = 0;
-            for (EditorProtocol.PropertySnapshot property : node.properties())
+            for (PropertySnapshot property : node.properties())
             {
                 int y = currentLayout.properties().y() + 28 + index * 24 - propertyScroll;
                 if (y >= currentLayout.properties().y() + 21 && y + 19 < currentLayout.properties().bottom() - 22)
@@ -368,7 +394,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         layout.save(ArcMenuEditorClient.preferencesFile());
         selectionCalibration.save(ArcMenuEditorClient.selectionCalibrationFile());
         EditorViewport.clear();
-        ArcMenuEditorClient.send(new EditorProtocol.ClosePacket());
+        ArcMenuEditorClient.send(new ClosePacket());
         super.onClose();
     }
 
@@ -450,7 +476,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private void drawHeader(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
     {
         graphics.text(font, "ArcMenu", 8, 8, TEXT, false);
-        EditorProtocol.SnapshotPacket snapshot = state.snapshot();
+        SnapshotPacket snapshot = state.snapshot();
         int x = 68;
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.header.frontend"),
                 state.activeTab() == EditorProtocol.TAB_FRONTEND, mouseX, mouseY);
@@ -618,9 +644,9 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         toolContentHeight = Math.max(0, y + toolsScroll - contentTop);
     }
 
-    private ElementSelectionCalibration.Calibration nodeCalibration(EditorProtocol.NodeSnapshot node)
+    private ElementSelectionCalibration.Calibration nodeCalibration(NodeSnapshot node)
     {
-        EditorProtocol.SnapshotPacket snapshot = state.snapshot();
+        SnapshotPacket snapshot = state.snapshot();
         return selectionCalibration.forNode(node.kind(), snapshot != null && snapshot.exactRectangles());
     }
 
@@ -632,7 +658,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         var view = currentLayout.viewport();
         var virtual = virtualScreen();
-        EditorProtocol.SnapshotPacket snapshot = state.snapshot();
+        SnapshotPacket snapshot = state.snapshot();
         if (snapshot == null)
         {
             graphics.centeredText(font, EditorI18n.text("arcmenu_editor.viewport.open_instruction"),
@@ -640,8 +666,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             return;
         }
         graphics.enableScissor(view.x(), view.y(), view.right(), view.bottom());
-        List<EditorProtocol.NodeSnapshot> nodes = new ArrayList<>(state.nodes());
-        for (EditorProtocol.NodeSnapshot node : nodes)
+        List<NodeSnapshot> nodes = new ArrayList<>(state.nodes());
+        for (NodeSnapshot node : nodes)
         {
             if (state.activeTab() == EditorProtocol.TAB_FRONTEND && !state.selected(node.id()))
             {
@@ -706,8 +732,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 : state.selectedIds().size() + " / " + state.nodes().size();
         graphics.text(font, selectedCount, panel.right() - font.width(selectedCount) - 7, panel.y() + 28, MUTED, false);
         nodeRows.clear();
-        Map<String, List<EditorProtocol.NodeSnapshot>> children = new HashMap<>();
-        for (EditorProtocol.NodeSnapshot node : state.nodes())
+        Map<String, List<NodeSnapshot>> children = new HashMap<>();
+        for (NodeSnapshot node : state.nodes())
         {
             children.computeIfAbsent(node.parentId(), ignored -> new ArrayList<>()).add(node);
         }
@@ -805,10 +831,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 height, 0xFF161920, BORDER, TEXT);
     }
 
-    private void appendRows(Map<String, List<EditorProtocol.NodeSnapshot>> children, String parent, int depth,
+    private void appendRows(Map<String, List<NodeSnapshot>> children, String parent, int depth,
             int[] row)
     {
-        for (EditorProtocol.NodeSnapshot node : children.getOrDefault(parent, List.of()))
+        for (NodeSnapshot node : children.getOrDefault(parent, List.of()))
         {
             NodeRow value = new NodeRow(node, depth, row[0]++);
             nodeRows.add(value);
@@ -823,7 +849,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     {
         var panel = currentLayout.properties();
         title(graphics, panel, EditorI18n.text("arcmenu_editor.panel.properties"));
-        EditorProtocol.NodeSnapshot node = state.find(state.selectedId());
+        NodeSnapshot node = state.find(state.selectedId());
         if (node == null)
         {
             graphics.centeredText(font, EditorI18n.text("arcmenu_editor.properties.select"),
@@ -896,7 +922,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         int cardY = panel.y() + 45 - templateScroll;
         int cardW = 126;
         templateCards.clear();
-        List<EditorProtocol.TemplateSnapshot> templates = state.snapshot() == null ? List.of()
+        List<TemplateSnapshot> templates = state.snapshot() == null ? List.of()
                 : state.snapshot().templates();
         int columns = Math.max(1, (panel.width() - 18) / (cardW + 9));
         int cardCount = Math.max(1, templates.size());
@@ -906,7 +932,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             int x = panel.x() + 10 + (i % columns) * (cardW + 9);
             int y = cardY + (i / columns) * 86;
-            EditorProtocol.TemplateSnapshot template = templates.isEmpty() ? null : templates.get(i);
+            TemplateSnapshot template = templates.isEmpty() ? null : templates.get(i);
             boolean visible = y + 78 >= panel.y() + 43 && y < panel.bottom();
             if (!visible)
             {
@@ -1149,7 +1175,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             var target = state.find(imageSourceTarget);
             if (target != null && EditorImageTypes.imageKind(target.kind()))
             {
-                ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(),
+                ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(),
                         EditorProtocol.TAB_FRONTEND, target.id(), "source", image.path()));
                 imageSourceTarget = "";
             }
@@ -1423,11 +1449,11 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                     int toggleX = currentLayout.manager().x() + 8 + row.depth * 13;
                     if (x >= currentLayout.manager().right() - 36 && x < currentLayout.manager().right() - 22)
                     {
-                        EditorProtocol.PropertySnapshot visible = row.node.properties().stream()
+                        PropertySnapshot visible = row.node.properties().stream()
                                 .filter(property -> property.key().equals("visible")).findFirst().orElse(null);
                         if (visible != null)
                         {
-                            ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(),
+                            ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(),
                                     state.activeTab(), row.node.id(), "visible",
                                     Boolean.toString(!Boolean.parseBoolean(visible.value()))));
                         }
@@ -1468,7 +1494,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         if (virtualScreen().contains(x, y) && state.snapshot() != null)
         {
-            EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
+            NodeSnapshot selected = state.find(state.selectedId());
             if (selected != null && !state.locked(selected.id()) && resizeHandleHit(selected, x, y))
             {
                 resizingNode = true;
@@ -1476,7 +1502,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 beginLiveGesture();
                 return true;
             }
-            EditorProtocol.NodeSnapshot hit = hitNode(x, y);
+            NodeSnapshot hit = hitNode(x, y);
             if (hit != null)
             {
                 if (event.hasControlDown())
@@ -1615,7 +1641,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
 
     private void openCalibrationSettings()
     {
-        EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
+        NodeSnapshot selected = state.find(state.selectedId());
         if (selected != null && supportsCalibration(selected.kind()))
         {
             calibrationKind = selected.kind();
@@ -1694,25 +1720,25 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         state.activeTab(tab);
         propertyScroll = 0;
         rebuildWidgets();
-        ArcMenuEditorClient.send(new EditorProtocol.SwitchTabPacket(tab));
+        ArcMenuEditorClient.send(new SwitchTabPacket(tab));
     }
 
     private void create(byte kind, String imageSource)
     {
-        EditorProtocol.SnapshotPacket snapshot = state.snapshot();
+        SnapshotPacket snapshot = state.snapshot();
         if (snapshot == null)
         {
             return;
         }
         String parent = "";
-        EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
+        NodeSnapshot selected = state.find(state.selectedId());
         if (selected != null && selected.kind() == EditorProtocol.KIND_GROUP)
         {
             parent = selected.id();
             state.expanded().add(parent);
         }
         ArcMenuEditorClient.send(
-                new EditorProtocol.CreatePacket(snapshot.revision(), state.activeTab(), kind, parent, imageSource));
+                new CreatePacket(snapshot.revision(), state.activeTab(), kind, parent, imageSource));
     }
 
     private void performHeaderAction(HeaderAction action)
@@ -1732,17 +1758,17 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             openCalibrationSettings();
             return;
         }
-        EditorProtocol.SnapshotPacket snapshot = state.snapshot();
+        SnapshotPacket snapshot = state.snapshot();
         if (snapshot == null)
         {
             return;
         }
         switch (action)
         {
-        case UNDO -> ArcMenuEditorClient.send(new EditorProtocol.UndoPacket(snapshot.revision()));
-        case REDO -> ArcMenuEditorClient.send(new EditorProtocol.RedoPacket(snapshot.revision()));
-        case SAVE -> ArcMenuEditorClient.send(new EditorProtocol.SavePacket(snapshot.revision()));
-        case APPLY -> ArcMenuEditorClient.send(new EditorProtocol.ApplyPacket(snapshot.revision()));
+        case UNDO -> ArcMenuEditorClient.send(new UndoPacket(snapshot.revision()));
+        case REDO -> ArcMenuEditorClient.send(new RedoPacket(snapshot.revision()));
+        case SAVE -> ArcMenuEditorClient.send(new SavePacket(snapshot.revision()));
+        case APPLY -> ArcMenuEditorClient.send(new ApplyPacket(snapshot.revision()));
         case SETTINGS, MCP, PROJECTS, MARKET ->
             {
             }
@@ -1854,7 +1880,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             List<String> selected = selectedOrder();
             if (selected.size() == 1)
             {
-                EditorProtocol.NodeSnapshot node = state.find(selected.getFirst());
+                NodeSnapshot node = state.find(selected.getFirst());
                 if (node != null && node.kind() == EditorProtocol.KIND_GROUP)
                 {
                     pendingTemplateNode = node.id();
@@ -1877,12 +1903,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                     state.expanded().add(target.node.id());
                     if (sameParent(selected, target.node.id()))
                     {
-                        ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(state.snapshot().revision(),
+                        ArcMenuEditorClient.send(new ReorderPacket(state.snapshot().revision(),
                                 state.activeTab(), selected, ""));
                     }
                     else
                     {
-                        ArcMenuEditorClient.send(new EditorProtocol.ReparentPacket(state.snapshot().revision(),
+                        ArcMenuEditorClient.send(new ReparentPacket(state.snapshot().revision(),
                                 selected, target.node.id(), ""));
                     }
                 }
@@ -1895,12 +1921,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             {
                 if (sameParent(selected, target.node.parentId()))
                 {
-                    ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(state.snapshot().revision(),
+                    ArcMenuEditorClient.send(new ReorderPacket(state.snapshot().revision(),
                             state.activeTab(), selected, target.node.id()));
                 }
                 else if (canMoveToParent(selected, target.node.parentId()))
                 {
-                    ArcMenuEditorClient.send(new EditorProtocol.ReparentPacket(state.snapshot().revision(), selected,
+                    ArcMenuEditorClient.send(new ReparentPacket(state.snapshot().revision(), selected,
                             target.node.parentId(), target.node.id()));
                 }
                 else
@@ -1912,13 +1938,13 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             {
                 if (sameParent(selected, ""))
                 {
-                    ArcMenuEditorClient.send(new EditorProtocol.ReorderPacket(state.snapshot().revision(),
+                    ArcMenuEditorClient.send(new ReorderPacket(state.snapshot().revision(),
                             state.activeTab(), selected, ""));
                 }
                 else if (canMoveToParent(selected, ""))
                 {
                     ArcMenuEditorClient
-                            .send(new EditorProtocol.ReparentPacket(state.snapshot().revision(), selected, "", ""));
+                            .send(new ReparentPacket(state.snapshot().revision(), selected, "", ""));
                 }
             }
         }
@@ -1926,7 +1952,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 && currentLayout.manager().contains(event.x(), event.y()) && state.snapshot() != null)
         {
             ArcMenuEditorClient
-                    .send(new EditorProtocol.InstantiateTemplatePacket(state.snapshot().revision(), draggingTemplate));
+                    .send(new InstantiateTemplatePacket(state.snapshot().revision(), draggingTemplate));
         }
         dragCandidateNode = "";
         draggingTemplate = "";
@@ -1978,12 +2004,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         if (resizingNode)
         {
-            ArcMenuEditorClient.send(new EditorProtocol.ResizePacket(state.snapshot().revision(), state.activeTab(),
+            ArcMenuEditorClient.send(new ResizePacket(state.snapshot().revision(), state.activeTab(),
                     draggingNode, pendingDragPointer, activeGestureId, finalUpdate));
         }
         else if (!draggingNode.isBlank())
         {
-            ArcMenuEditorClient.send(new EditorProtocol.MovePacket(state.snapshot().revision(), state.activeTab(),
+            ArcMenuEditorClient.send(new MovePacket(state.snapshot().revision(), state.activeTab(),
                     draggingNode, pendingDragPointer, grabOffsetX, grabOffsetY, activeGestureId, finalUpdate));
         }
         else
@@ -2028,7 +2054,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             }
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(), state.activeTab(),
+        ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(), state.activeTab(),
                 propertyDrag.nodeId, propertyDrag.property.key(),
                 formatPropertyValue(propertyDrag.property, pendingPropertyValue), propertyDrag.gestureId, finalUpdate));
         sentPropertyValue = pendingPropertyValue;
@@ -2047,7 +2073,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         sentPropertyValue = Double.NaN;
     }
 
-    private static double propertyStep(EditorProtocol.PropertySnapshot property, MouseButtonEvent event)
+    private static double propertyStep(PropertySnapshot property, MouseButtonEvent event)
     {
         String key = property.key();
         double normal = key.startsWith("rotation.") ? 1.0
@@ -2067,7 +2093,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         return normal;
     }
 
-    private static double normalizePropertyValue(EditorProtocol.PropertySnapshot property, double value)
+    private static double normalizePropertyValue(PropertySnapshot property, double value)
     {
         if (!Double.isFinite(value))
         {
@@ -2088,7 +2114,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         return Math.abs(value) < 0.0000005 ? 0.0 : value;
     }
 
-    private static String formatPropertyValue(EditorProtocol.PropertySnapshot property, double value)
+    private static String formatPropertyValue(PropertySnapshot property, double value)
     {
         if (property.type() == EditorProtocol.PROPERTY_INTEGER)
         {
@@ -2147,7 +2173,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         if (currentLayout != null && currentLayout.properties().contains(mouseX, mouseY))
         {
-            EditorProtocol.NodeSnapshot node = state.find(state.selectedId());
+            NodeSnapshot node = state.find(state.selectedId());
             if (node != null)
             {
                 int content = node.properties().size() * 24;
@@ -2214,7 +2240,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             if (event.isConfirmation() && templateNameBox != null && state.snapshot() != null)
             {
                 String templateId = templateNameBox.getValue().trim().toLowerCase(Locale.ROOT);
-                ArcMenuEditorClient.send(new EditorProtocol.SaveTemplatePacket(state.snapshot().revision(),
+                ArcMenuEditorClient.send(new SaveTemplatePacket(state.snapshot().revision(),
                         pendingTemplateNode, templateId));
                 pendingTemplateNode = "";
                 rebuildWidgets();
@@ -2248,23 +2274,23 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             if (event.key() == GLFW.GLFW_KEY_Z)
             {
                 ArcMenuEditorClient
-                        .send(event.hasShiftDown() ? new EditorProtocol.RedoPacket(state.snapshot().revision())
-                                : new EditorProtocol.UndoPacket(state.snapshot().revision()));
+                        .send(event.hasShiftDown() ? new RedoPacket(state.snapshot().revision())
+                                : new UndoPacket(state.snapshot().revision()));
                 return true;
             }
             if (event.key() == GLFW.GLFW_KEY_Y)
             {
-                ArcMenuEditorClient.send(new EditorProtocol.RedoPacket(state.snapshot().revision()));
+                ArcMenuEditorClient.send(new RedoPacket(state.snapshot().revision()));
                 return true;
             }
             if (event.key() == GLFW.GLFW_KEY_S)
             {
-                ArcMenuEditorClient.send(new EditorProtocol.SavePacket(state.snapshot().revision()));
+                ArcMenuEditorClient.send(new SavePacket(state.snapshot().revision()));
                 return true;
             }
             if (event.key() == GLFW.GLFW_KEY_A)
             {
-                state.selectAll(state.nodes().stream().map(EditorProtocol.NodeSnapshot::id).toList());
+                state.selectAll(state.nodes().stream().map(NodeSnapshot::id).toList());
                 rebuildWidgets();
                 return true;
             }
@@ -2275,7 +2301,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             }
             if (event.key() == GLFW.GLFW_KEY_V)
             {
-                EditorProtocol.NodeSnapshot selected = state.find(state.selectedId());
+                NodeSnapshot selected = state.find(state.selectedId());
                 if (event.hasShiftDown() && selected != null && selected.kind() == EditorProtocol.KIND_GROUP)
                 {
                     pasteSelection(false, selected.id());
@@ -2355,7 +2381,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             state.status(EditorI18n.text("arcmenu_editor.status.clipboard_unavailable"));
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.DuplicatePacket(state.snapshot().revision(), state.activeTab(),
+        ArcMenuEditorClient.send(new DuplicatePacket(state.snapshot().revision(), state.activeTab(),
                 clipboardIds, targetParent, preserveParents));
     }
 
@@ -2365,7 +2391,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.DuplicatePacket(state.snapshot().revision(), state.activeTab(),
+        ArcMenuEditorClient.send(new DuplicatePacket(state.snapshot().revision(), state.activeTab(),
                 selectedOrder(), "", true));
     }
 
@@ -2375,7 +2401,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.GroupPacket(state.snapshot().revision(), selectedOrder()));
+        ArcMenuEditorClient.send(new GroupPacket(state.snapshot().revision(), selectedOrder()));
     }
 
     private void ungroupSelection()
@@ -2390,7 +2416,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.UngroupPacket(state.snapshot().revision(), node.id()));
+        ArcMenuEditorClient.send(new UngroupPacket(state.snapshot().revision(), node.id()));
     }
 
     private void deleteSelection()
@@ -2403,12 +2429,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         if (ids.size() == 1)
         {
             ArcMenuEditorClient.send(
-                    new EditorProtocol.DeletePacket(state.snapshot().revision(), state.activeTab(), ids.getFirst()));
+                    new DeletePacket(state.snapshot().revision(), state.activeTab(), ids.getFirst()));
         }
         else
         {
             ArcMenuEditorClient
-                    .send(new EditorProtocol.DeleteManyPacket(state.snapshot().revision(), state.activeTab(), ids));
+                    .send(new DeleteManyPacket(state.snapshot().revision(), state.activeTab(), ids));
         }
     }
 
@@ -2442,7 +2468,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.SetPropertyPacket(state.snapshot().revision(), field.tab,
+        ArcMenuEditorClient.send(new SetPropertyPacket(state.snapshot().revision(), field.tab,
                 field.nodeId, field.property.key(), value));
     }
 
@@ -2453,7 +2479,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
 
     private List<String> selectedOrder()
     {
-        return state.nodes().stream().map(EditorProtocol.NodeSnapshot::id).filter(state::selected).toList();
+        return state.nodes().stream().map(NodeSnapshot::id).filter(state::selected).toList();
     }
 
     private boolean sameParent(List<String> ids, String parentId)
@@ -2462,7 +2488,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 && ids.stream().map(state::find).allMatch(node -> node != null && node.parentId().equals(parentId));
     }
 
-    private boolean canMoveIntoGroup(List<String> ids, EditorProtocol.NodeSnapshot target)
+    private boolean canMoveIntoGroup(List<String> ids, NodeSnapshot target)
     {
         return target.kind() == EditorProtocol.KIND_GROUP && canMoveToParent(ids, target.id());
     }
@@ -2477,7 +2503,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             return true;
         }
-        EditorProtocol.NodeSnapshot target = state.find(targetParentId);
+        NodeSnapshot target = state.find(targetParentId);
         if (target == null || target.kind() != EditorProtocol.KIND_GROUP)
         {
             return false;
@@ -2490,7 +2516,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             {
                 return false;
             }
-            EditorProtocol.NodeSnapshot node = state.find(cursor);
+            NodeSnapshot node = state.find(cursor);
             cursor = node == null ? "" : node.parentId();
         }
         return true;
@@ -2568,14 +2594,14 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         {
             return;
         }
-        ArcMenuEditorClient.send(new EditorProtocol.DeleteTemplatePacket(state.snapshot().revision(), templateId));
+        ArcMenuEditorClient.send(new DeleteTemplatePacket(state.snapshot().revision(), templateId));
         state.status(EditorI18n.text("arcmenu_editor.status.deleting_template", templateId));
     }
 
     private void selectChildren(String parentId)
     {
         List<String> children = state.nodes().stream().filter(node -> node.parentId().equals(parentId))
-                .map(EditorProtocol.NodeSnapshot::id).toList();
+                .map(NodeSnapshot::id).toList();
         state.selectAll(children);
         state.expanded().add(parentId);
         rebuildWidgets();
@@ -2614,7 +2640,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
     }
 
-    private EditorProtocol.NodeSnapshot hitNode(double x, double y)
+    private NodeSnapshot hitNode(double x, double y)
     {
         return state.nodes().stream().filter(node ->
         {
@@ -2631,7 +2657,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }).max(Comparator.comparingInt(node -> state.nodes().indexOf(node))).orElse(null);
     }
 
-    private boolean resizeHandleHit(EditorProtocol.NodeSnapshot node, double screenX, double screenY)
+    private boolean resizeHandleHit(NodeSnapshot node, double screenX, double screenY)
     {
         ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
         int handleX = screenX(calibration.proxyX(node.x(), node.width()) + calibration.proxyWidth(node.width()) / 2);
@@ -2661,7 +2687,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private EditorProtocol.Pointer snappedPointer(double mouseX, double mouseY, boolean snappingDisabled)
     {
         EditorProtocol.Pointer pointer = boundedPointer(mouseX, mouseY, false);
-        EditorProtocol.NodeSnapshot node = state.find(draggingNode);
+        NodeSnapshot node = state.find(draggingNode);
         activeSnap = CanvasSnapping.NONE;
         if (snappingDisabled || node == null)
         {
@@ -2672,14 +2698,14 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         double centerY = pointer.clientY() - grabOffsetY;
         CanvasSnapping.Box moving = visibleBox(node, centerX, centerY);
         List<CanvasSnapping.Box> others = new ArrayList<>();
-        for (EditorProtocol.NodeSnapshot other : state.nodes())
+        for (NodeSnapshot other : state.nodes())
         {
             if (other.visible() && !related(other, node))
             {
                 others.add(visibleBox(other, other.x(), other.y()));
             }
         }
-        EditorProtocol.SnapshotPacket snapshot = state.snapshot();
+        SnapshotPacket snapshot = state.snapshot();
         double halfWidth = snapshot.canvasWidth() / 2.0;
         double halfHeight = snapshot.canvasHeight() / 2.0;
         CanvasSnapping.Box canvas = new CanvasSnapping.Box(-halfWidth, halfWidth, -halfHeight, halfHeight);
@@ -2696,7 +2722,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     }
 
     /** The calibrated box drawn for {@code node} when its centre is at the given menu position. */
-    private CanvasSnapping.Box visibleBox(EditorProtocol.NodeSnapshot node, double centerX, double centerY)
+    private CanvasSnapping.Box visibleBox(NodeSnapshot node, double centerX, double centerY)
     {
         ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
         double drawX = calibration.proxyX(centerX, node.width());
@@ -2707,12 +2733,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     }
 
     /** Whether one node contains the other, so their boxes move together and must not snap to each other. */
-    private boolean related(EditorProtocol.NodeSnapshot first, EditorProtocol.NodeSnapshot second)
+    private boolean related(NodeSnapshot first, NodeSnapshot second)
     {
         return first.id().equals(second.id()) || isAncestor(first.id(), second) || isAncestor(second.id(), first);
     }
 
-    private boolean isAncestor(String ancestorId, EditorProtocol.NodeSnapshot node)
+    private boolean isAncestor(String ancestorId, NodeSnapshot node)
     {
         Set<String> visited = new HashSet<>();
         String parentId = node.parentId();
@@ -2722,7 +2748,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             {
                 return true;
             }
-            EditorProtocol.NodeSnapshot parent = state.find(parentId);
+            NodeSnapshot parent = state.find(parentId);
             parentId = parent == null ? "" : parent.parentId();
         }
         return false;
@@ -2755,7 +2781,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private EditorProtocol.Pointer resizePointer(double mouseX, double mouseY)
     {
         var view = virtualScreen();
-        EditorProtocol.NodeSnapshot node = state.find(draggingNode);
+        NodeSnapshot node = state.find(draggingNode);
         ElementSelectionCalibration.Calibration calibration = node == null ? ElementSelectionCalibration.IDENTITY
                 : nodeCalibration(node);
         double nodeX = node == null ? 0.0 : node.x();
@@ -2804,7 +2830,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         return snapshot.canvasHeight() / 2.0 - (screenY - view.y()) / view.height() * snapshot.canvasHeight();
     }
 
-    private EditorLayout.ScreenRect virtualScreen()
+    private ScreenRect virtualScreen()
     {
         return layout.virtualScreen(currentLayout);
     }
@@ -2855,14 +2881,14 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         return value.substring(0, Math.max(0, maxCharacters - 3)) + "...";
     }
 
-    private static String displayPropertyValue(EditorProtocol.PropertySnapshot property)
+    private static String displayPropertyValue(PropertySnapshot property)
     {
         return property.type() == EditorProtocol.PROPERTY_MULTILINE
                 ? property.value().replace("\\", "\\\\").replace("\r", "").replace("\n", "\\n")
                 : property.value();
     }
 
-    private static String submittedPropertyValue(EditorProtocol.PropertySnapshot property, String value)
+    private static String submittedPropertyValue(PropertySnapshot property, String value)
     {
         if (property.type() != EditorProtocol.PROPERTY_MULTILINE)
         {
@@ -3016,7 +3042,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         return String.format(Locale.ROOT, "%.3f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
-    private static boolean isNumeric(EditorProtocol.PropertySnapshot property)
+    private static boolean isNumeric(PropertySnapshot property)
     {
         return property.type() == EditorProtocol.PROPERTY_NUMBER || property.type() == EditorProtocol.PROPERTY_INTEGER;
     }
@@ -3071,12 +3097,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
 
     private static final class NodeRow
     {
-        private final EditorProtocol.NodeSnapshot node;
+        private final NodeSnapshot node;
         private final int depth;
         private final int index;
         private int screenY = Integer.MIN_VALUE;
 
-        private NodeRow(EditorProtocol.NodeSnapshot node, int depth, int index)
+        private NodeRow(NodeSnapshot node, int depth, int index)
         {
             this.node = node;
             this.depth = depth;
@@ -3084,7 +3110,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
     }
 
-    private record PropertyField(String nodeId, byte tab, EditorProtocol.PropertySnapshot property, EditBox box, int y,
+    private record PropertyField(String nodeId, byte tab, PropertySnapshot property, EditBox box, int y,
             EditorLayout.Rect rect)
     {}
 
@@ -3100,7 +3126,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private record FolderRow(String path, EditorLayout.Rect rect)
     {}
 
-    private record TemplateCard(EditorProtocol.TemplateSnapshot template, EditorLayout.Rect rect)
+    private record TemplateCard(TemplateSnapshot template, EditorLayout.Rect rect)
     {}
 
     private record ManagerButton(ManagerAction action, EditorLayout.Rect rect)
@@ -3115,7 +3141,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
     private static final class PropertyDrag
     {
         private final String nodeId;
-        private final EditorProtocol.PropertySnapshot property;
+        private final PropertySnapshot property;
         private final double initialValue;
         private final double startX;
         @SuppressWarnings("unused")
@@ -3123,7 +3149,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         private final long gestureId;
         private boolean dragging;
 
-        private PropertyDrag(String nodeId, EditorProtocol.PropertySnapshot property, double initialValue,
+        private PropertyDrag(String nodeId, PropertySnapshot property, double initialValue,
                 double startX, double startY, long gestureId)
         {
             this.nodeId = nodeId;

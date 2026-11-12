@@ -1,7 +1,11 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.MarketClient.RequestException;
+
 import com.mojang.authlib.exceptions.InvalidCredentialsException;
+
 import java.io.IOException;
+import java.net.http.HttpTimeoutException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -10,7 +14,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
-import java.net.http.HttpTimeoutException;
 
 /** Localizes displayed marketplace failures while retaining their original diagnostics. */
 final class MarketMessages
@@ -49,7 +52,7 @@ final class MarketMessages
     static String keyFor(Throwable failure)
     {
         Throwable cause = cause(failure);
-        if (cause instanceof MarketClient.RequestException request)
+        if (cause instanceof RequestException request)
         {
             String dependency = dependencyKey(request.getMessage());
             if (request.code().equals("invalid_manifest") && !dependency.isEmpty())

@@ -4,11 +4,14 @@ import com.fentai.arcmenu.editor.aui.internal.element.AbstractText;
 import com.fentai.arcmenu.editor.aui.internal.element.Body;
 import com.fentai.arcmenu.editor.aui.internal.init.Document;
 import com.fentai.arcmenu.editor.aui.internal.init.Element;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuiButtonKeysTest
 {

@@ -1,7 +1,10 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
 import com.fentai.arcmenu.protocol.EffectProtocol;
+
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.client.gui.Font;
@@ -10,8 +13,20 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import org.lwjgl.glfw.GLFW;
-import java.util.*;
-import com.google.gson.Gson;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /** Composition layers, timed clips and inline temporal curves in the Effect workspace. */
@@ -277,8 +292,8 @@ final class EffectTimeline
         eye(graphics, panel.x() + 6, panel.y() + 49, EffectUi.MUTED);
         graphics.fill(panel.x() + 22, panel.y() + 46, panel.x() + 25, panel.y() + 49, EffectUi.MUTED);
         drawRuler(graphics, font);
-        var nodes = scene.snapshot() == null ? List.<EditorProtocol.NodeSnapshot>of() : scene.snapshot().frontend();
-        var hierarchy = new HashMap<String, EditorProtocol.NodeSnapshot>();
+        var nodes = scene.snapshot() == null ? List.<NodeSnapshot>of() : scene.snapshot().frontend();
+        var hierarchy = new HashMap<String, NodeSnapshot>();
         for (var node : nodes)
         {
             hierarchy.put(node.id(), node);
@@ -832,7 +847,7 @@ final class EffectTimeline
         return step;
     }
 
-    private void updateHierarchy(String projectId, Map<String, EditorProtocol.NodeSnapshot> hierarchy)
+    private void updateHierarchy(String projectId, Map<String, NodeSnapshot> hierarchy)
     {
         if (!hierarchyProject.equals(projectId))
         {
@@ -871,7 +886,7 @@ final class EffectTimeline
         }
     }
 
-    private boolean hiddenByGroup(EditorProtocol.NodeSnapshot node, Map<String, EditorProtocol.NodeSnapshot> hierarchy)
+    private boolean hiddenByGroup(NodeSnapshot node, Map<String, NodeSnapshot> hierarchy)
     {
         var visited = new HashSet<String>();
         while (!node.parentId().isEmpty() && visited.add(node.parentId()))
@@ -889,8 +904,8 @@ final class EffectTimeline
         return false;
     }
 
-    private static int hierarchyDepth(EditorProtocol.NodeSnapshot node,
-            Map<String, EditorProtocol.NodeSnapshot> hierarchy)
+    private static int hierarchyDepth(NodeSnapshot node,
+            Map<String, NodeSnapshot> hierarchy)
     {
         int depth = 0;
         var visited = new HashSet<String>();
@@ -911,7 +926,7 @@ final class EffectTimeline
         return y >= gridTop && y + 16 <= panel.bottom() - 14;
     }
 
-    private List<EffectProtocol.Track> visibleTracks(EditorProtocol.NodeSnapshot node,
+    private List<EffectProtocol.Track> visibleTracks(NodeSnapshot node,
             List<EffectProtocol.Track> tracks)
     {
         var result = new ArrayList<>(tracks.stream().filter(track -> track.target().equals(node.id())

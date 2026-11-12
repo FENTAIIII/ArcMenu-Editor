@@ -1,6 +1,8 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -21,7 +23,7 @@ final class EffectHierarchy
         var selected = new HashSet<>(selection);
         return scene.nodes().stream()
                 .filter(node -> selected.contains(node.id()) && !hasAncestor(scene, node.parentId(), selected))
-                .map(EditorProtocol.NodeSnapshot::id).toList();
+                .map(NodeSnapshot::id).toList();
     }
 
     private static boolean hasAncestor(EditorState scene, String parent, Set<String> ids)
@@ -130,7 +132,7 @@ final class EffectHierarchy
         if (after)
         {
             var siblings = scene.nodes().stream().filter(n -> n.parentId().equals(parent) && !ids.contains(n.id()))
-                    .map(EditorProtocol.NodeSnapshot::id).toList();
+                    .map(NodeSnapshot::id).toList();
             int next = siblings.indexOf(node.id()) + 1;
             before = next < siblings.size() ? siblings.get(next) : "";
         }
@@ -146,7 +148,7 @@ final class EffectHierarchy
     static String reorderBefore(EditorState scene, List<String> ids, String action)
     {
         var siblings = scene.nodes().stream().filter(n -> n.parentId().equals(scene.find(ids.getFirst()).parentId()))
-                .map(EditorProtocol.NodeSnapshot::id).toList();
+                .map(NodeSnapshot::id).toList();
         var rest = new ArrayList<>(siblings);
         rest.removeAll(ids);
         int first = siblings.indexOf(ids.getFirst());

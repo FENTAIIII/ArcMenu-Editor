@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor.mixin;
 
 import com.fentai.arcmenu.editor.VisionCursorClient;
+
 import net.minecraft.client.gui.Gui;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

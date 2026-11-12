@@ -1,10 +1,12 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EffectProtocol;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import java.util.Collection;
+
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;

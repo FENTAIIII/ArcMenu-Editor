@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor.mixin;
 
 import com.fentai.arcmenu.editor.VisionCursorClient;
+
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.input.KeyEvent;
 import org.spongepowered.asm.mixin.Mixin;

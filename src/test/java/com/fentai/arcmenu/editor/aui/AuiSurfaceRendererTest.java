@@ -1,19 +1,26 @@
 package com.fentai.arcmenu.editor.aui;
 
+import com.fentai.arcmenu.editor.aui.AuiSurfaceRenderer.SurfaceTexture;
 import com.fentai.arcmenu.editor.aui.internal.render.AABB;
 import com.fentai.arcmenu.editor.aui.internal.render.Mask;
 import com.fentai.arcmenu.editor.aui.internal.spi.AuiServices;
 import com.fentai.arcmenu.editor.aui.internal.spi.MeshFormat;
 import com.fentai.arcmenu.editor.aui.internal.spi.MeshMode;
 import com.fentai.arcmenu.editor.aui.internal.spi.RenderHandle;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 import org.joml.Matrix4f;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Font;
 import java.awt.font.FontRenderContext;
 import java.awt.image.BufferedImage;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuiSurfaceRendererTest
 {
@@ -45,7 +52,7 @@ class AuiSurfaceRendererTest
                     var renderer = new AuiSurfaceRenderer();
                     renderer.begin(64, 40, scale);
                     var render = RenderHandle.of("font/glyph-test");
-                    renderer.service().registerTexture(new AuiSurfaceRenderer.SurfaceTexture(atlas), "font/glyph-test");
+                    renderer.service().registerTexture(new SurfaceTexture(atlas), "font/glyph-test");
                     var batch = renderer.service().beginTextureBatch(render);
                     var pose = new Matrix4f().translation(3, 2, 0).scale(scale, scale, 1);
                     renderer.service().emitTextureQuad(batch, pose, deviceX / scale, 8 / scale, 7 / scale, 11 / scale,
@@ -90,7 +97,7 @@ class AuiSurfaceRendererTest
         var renderer = new AuiSurfaceRenderer();
         renderer.begin(16, 16, 1.25);
         var render = RenderHandle.of("clipped-image");
-        renderer.service().registerTexture(new AuiSurfaceRenderer.SurfaceTexture(image), "clipped-image");
+        renderer.service().registerTexture(new SurfaceTexture(image), "clipped-image");
         var batch = renderer.service().beginTextureBatch(render);
         renderer.service().emitTextureQuad(batch, new Matrix4f().scale(1.25f, 1.25f, 1), 4 / 1.25f, 4 / 1.25f,
                 6 / 1.25f, 6 / 1.25f, -.25f, -.25f, 1.25f, 1.25f, 0xff2846bd);
@@ -249,7 +256,7 @@ class AuiSurfaceRendererTest
     {
         var image = new BufferedImage(4, 4, BufferedImage.TYPE_INT_ARGB);
         image.setRGB(2, 1, 0xffffffff);
-        var texture = new AuiSurfaceRenderer.SurfaceTexture(image);
+        var texture = new SurfaceTexture(image);
         for (int i = 0; i < 2200; i++)
         {
             assertNotNull(texture.tinted(0xff000000 | i));

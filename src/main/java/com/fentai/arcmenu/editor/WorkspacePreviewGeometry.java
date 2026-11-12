@@ -1,12 +1,14 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.EditorLayout.ScreenRect;
+
 /** Native-pixel preview crops never enlarge a low-resolution project or read outside the framebuffer. */
 final class WorkspacePreviewGeometry
 {
     record Crop(int x, int y, int width, int height, int outputWidth, int outputHeight, int offsetX, int offsetY)
     {}
 
-    static Crop crop(int framebufferWidth, int framebufferHeight, EditorLayout.ScreenRect plane)
+    static Crop crop(int framebufferWidth, int framebufferHeight, ScreenRect plane)
     {
         if (framebufferWidth < 1280 || framebufferHeight < 720)
         {

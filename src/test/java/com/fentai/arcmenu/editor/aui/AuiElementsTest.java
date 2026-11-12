@@ -1,11 +1,18 @@
 package com.fentai.arcmenu.editor.aui;
 
-import com.fentai.arcmenu.editor.aui.internal.element.*;
+import com.fentai.arcmenu.editor.aui.internal.element.Img;
+import com.fentai.arcmenu.editor.aui.internal.element.Input;
+import com.fentai.arcmenu.editor.aui.internal.element.Option;
+import com.fentai.arcmenu.editor.aui.internal.element.Path;
+import com.fentai.arcmenu.editor.aui.internal.element.Select;
+import com.fentai.arcmenu.editor.aui.internal.element.Svg;
+import com.fentai.arcmenu.editor.aui.internal.element.TextArea;
 import com.fentai.arcmenu.editor.aui.internal.init.Document;
 import com.fentai.arcmenu.editor.aui.internal.init.Element;
+
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 class AuiElementsTest
 {

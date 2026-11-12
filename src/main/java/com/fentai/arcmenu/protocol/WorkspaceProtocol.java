@@ -1,8 +1,14 @@
 package com.fentai.arcmenu.protocol;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.*;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 
 /** Optional project-management channel. Existing menu and Effect protocols remain unchanged. */
 public final class WorkspaceProtocol

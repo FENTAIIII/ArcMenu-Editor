@@ -1,9 +1,10 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EffectProtocol;
+
 import java.util.ArrayDeque;
-import java.util.function.Consumer;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /** Serializes edits against authoritative revisions, including rapid keyframe drags and pasted keys. */
 public final class EffectState

@@ -1,20 +1,50 @@
 package com.fentai.arcmenu.editor;
 
-import com.fentai.arcmenu.editor.net.EditorPayload;
-import com.fentai.arcmenu.editor.net.EffectPayload;
-import com.fentai.arcmenu.protocol.EffectProtocol;
-import com.fentai.arcmenu.editor.net.FrameAssembler;
-import com.fentai.arcmenu.protocol.EditorProtocol;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.minecraft.client.Minecraft;
 import com.fentai.arcmenu.editor.mcp.EditorMcp;
 import com.fentai.arcmenu.editor.mcp.McpScreen;
+import com.fentai.arcmenu.editor.net.EditorPayload;
+import com.fentai.arcmenu.editor.net.EffectPayload;
+import com.fentai.arcmenu.editor.net.FrameAssembler;
+import com.fentai.arcmenu.protocol.EditorProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.AckPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ApplyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ClosePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.CreatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeleteManyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeletePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DeleteTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.DuplicatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ErrorPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.GroupPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.HelloPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.InstantiateTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.MovePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.PacketLimitException;
+import com.fentai.arcmenu.protocol.EditorProtocol.ProbePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.RedoPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ReorderPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ReparentPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.ResizePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SavePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SaveTemplatePacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.StringLimitException;
+import com.fentai.arcmenu.protocol.EditorProtocol.SwitchTabPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.UndoPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.UngroupPacket;
+import com.fentai.arcmenu.protocol.EffectProtocol;
+import com.fentai.arcmenu.protocol.EffectProtocol.SceneFrame;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
+
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.List;
@@ -87,7 +117,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
                         || client.screen instanceof EffectWorkspaceChild || client.screen instanceof McpScreen));
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> EffectAudioPreview.INSTANCE.close());
         ClientPlayConnectionEvents.JOIN
-                .register((listener, sender, client) -> send(new EditorProtocol.HelloPacket(CLIENT_VERSION)));
+                .register((listener, sender, client) -> send(new HelloPacket(CLIENT_VERSION)));
         ClientPlayConnectionEvents.JOIN.register((listener, sender, client) ->
         {
             effectWireVersion = 2;
@@ -123,7 +153,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
                 return;
             }
             EditorProtocol.Packet packet = EditorProtocol.decode(packetBytes);
-            if (packet instanceof EditorProtocol.SnapshotPacket snapshot)
+            if (packet instanceof SnapshotPacket snapshot)
             {
                 STATE.update(snapshot);
                 applyEffectSelection(client);
@@ -147,7 +177,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
                 }
                 WorkspaceClient.opened(false, snapshot.menuId());
             }
-            else if (packet instanceof EditorProtocol.SwitchTabPacket switched)
+            else if (packet instanceof SwitchTabPacket switched)
             {
                 STATE.activeTab(switched.tab());
                 if (client.screen instanceof EditorScreen screen)
@@ -155,7 +185,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
                     screen.serverStateChanged();
                 }
             }
-            else if (packet instanceof EditorProtocol.AckPacket ack)
+            else if (packet instanceof AckPacket ack)
             {
                 long gestureId = STATE.apply(ack);
                 releaseSceneEdits(SCENE_REPLIES.acknowledge(ack.operation()));
@@ -169,7 +199,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
                     screen.serverOperationCompleted(ack.operation(), gestureId);
                 }
             }
-            else if (packet instanceof EditorProtocol.ErrorPacket error)
+            else if (packet instanceof ErrorPacket error)
             {
                 STATE.error(EditorI18n.text("arcmenu_editor.status.error", error.message()));
                 EFFECT.reject();
@@ -229,7 +259,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
                     }
                 }
             }
-            else if (packet instanceof EffectProtocol.SceneFrame frame)
+            else if (packet instanceof SceneFrame frame)
             {
                 if (EFFECT.active() && STATE.update(frame) && client.screen instanceof EffectEditorScreen screen)
                 {
@@ -323,8 +353,8 @@ public final class ArcMenuEditorClient implements ClientModInitializer
             try
             {
                 byte[] bytes = EditorProtocol.encode(packet);
-                if (EFFECT.active() && !(packet instanceof EditorProtocol.HelloPacket)
-                        && !(packet instanceof EditorProtocol.ClosePacket))
+                if (EFFECT.active() && !(packet instanceof HelloPacket)
+                        && !(packet instanceof ClosePacket))
                 {
                     SCENE_REPLIES.enqueue(packet);
                     sceneRequestCount++;
@@ -396,10 +426,10 @@ public final class ArcMenuEditorClient implements ClientModInitializer
 
     private static void localFailure(RuntimeException error)
     {
-        String message = error instanceof EditorProtocol.StringLimitException limit
+        String message = error instanceof StringLimitException limit
                 ? EditorI18n.text("arcmenu_editor.status.string_too_long", limit.field(), limit.byteCount(),
                         EditorProtocol.MAX_STRING_BYTES)
-                : error instanceof EditorProtocol.PacketLimitException limit
+                : error instanceof PacketLimitException limit
                         ? EditorI18n.text("arcmenu_editor.status.packet_too_large", limit.byteCount(),
                                 EditorProtocol.MAX_PACKET_BYTES)
                         : EditorI18n.text("arcmenu_editor.status.protocol_error", error.getMessage());
@@ -414,7 +444,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
         {
             screen.serverOperationFailed();
         }
-        EditorMcp.scenePacket(new EditorProtocol.ErrorPacket(-1, message));
+        EditorMcp.scenePacket(new ErrorPacket(-1, message));
     }
 
     /** The Effect scene channel waits for the authoritative snapshot following a final ACK. */
@@ -500,10 +530,10 @@ public final class ArcMenuEditorClient implements ClientModInitializer
         {
             return switch (packet)
             {
-            case EditorProtocol.ProbePacket ignored -> false;
-            case EditorProtocol.MovePacket value -> value.finalUpdate();
-            case EditorProtocol.ResizePacket value -> value.finalUpdate();
-            case EditorProtocol.SetPropertyPacket value -> value.finalUpdate();
+            case ProbePacket ignored -> false;
+            case MovePacket value -> value.finalUpdate();
+            case ResizePacket value -> value.finalUpdate();
+            case SetPropertyPacket value -> value.finalUpdate();
             default -> true;
             };
         }
@@ -512,26 +542,26 @@ public final class ArcMenuEditorClient implements ClientModInitializer
         {
             return switch (packet)
             {
-            case EditorProtocol.MovePacket ignored -> EditorProtocol.OP_MOVE;
-            case EditorProtocol.ResizePacket ignored -> EditorProtocol.OP_RESIZE;
-            case EditorProtocol.SwitchTabPacket ignored -> EditorProtocol.OP_TAB;
-            case EditorProtocol.UndoPacket ignored -> EditorProtocol.OP_UNDO;
-            case EditorProtocol.RedoPacket ignored -> EditorProtocol.OP_REDO;
-            case EditorProtocol.SavePacket ignored -> EditorProtocol.OP_SAVE;
-            case EditorProtocol.ApplyPacket ignored -> EditorProtocol.OP_APPLY;
-            case EditorProtocol.ProbePacket ignored -> EditorProtocol.OP_PROBE;
-            case EditorProtocol.CreatePacket ignored -> EditorProtocol.OP_CREATE;
-            case EditorProtocol.DeletePacket ignored -> EditorProtocol.OP_DELETE;
-            case EditorProtocol.DeleteManyPacket ignored -> EditorProtocol.OP_DELETE_MANY;
-            case EditorProtocol.DuplicatePacket ignored -> EditorProtocol.OP_DUPLICATE;
-            case EditorProtocol.GroupPacket ignored -> EditorProtocol.OP_GROUP;
-            case EditorProtocol.UngroupPacket ignored -> EditorProtocol.OP_UNGROUP;
-            case EditorProtocol.ReorderPacket ignored -> EditorProtocol.OP_REORDER;
-            case EditorProtocol.ReparentPacket ignored -> EditorProtocol.OP_REPARENT;
-            case EditorProtocol.SetPropertyPacket ignored -> EditorProtocol.OP_PROPERTY;
-            case EditorProtocol.SaveTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_SAVE;
-            case EditorProtocol.InstantiateTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_INSTANTIATE;
-            case EditorProtocol.DeleteTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_DELETE;
+            case MovePacket ignored -> EditorProtocol.OP_MOVE;
+            case ResizePacket ignored -> EditorProtocol.OP_RESIZE;
+            case SwitchTabPacket ignored -> EditorProtocol.OP_TAB;
+            case UndoPacket ignored -> EditorProtocol.OP_UNDO;
+            case RedoPacket ignored -> EditorProtocol.OP_REDO;
+            case SavePacket ignored -> EditorProtocol.OP_SAVE;
+            case ApplyPacket ignored -> EditorProtocol.OP_APPLY;
+            case ProbePacket ignored -> EditorProtocol.OP_PROBE;
+            case CreatePacket ignored -> EditorProtocol.OP_CREATE;
+            case DeletePacket ignored -> EditorProtocol.OP_DELETE;
+            case DeleteManyPacket ignored -> EditorProtocol.OP_DELETE_MANY;
+            case DuplicatePacket ignored -> EditorProtocol.OP_DUPLICATE;
+            case GroupPacket ignored -> EditorProtocol.OP_GROUP;
+            case UngroupPacket ignored -> EditorProtocol.OP_UNGROUP;
+            case ReorderPacket ignored -> EditorProtocol.OP_REORDER;
+            case ReparentPacket ignored -> EditorProtocol.OP_REPARENT;
+            case SetPropertyPacket ignored -> EditorProtocol.OP_PROPERTY;
+            case SaveTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_SAVE;
+            case InstantiateTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_INSTANTIATE;
+            case DeleteTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_DELETE;
             default -> -1;
             };
         }
@@ -540,36 +570,36 @@ public final class ArcMenuEditorClient implements ClientModInitializer
         {
             return switch (packet)
             {
-            case EditorProtocol.MovePacket v -> new EditorProtocol.MovePacket(revision, v.tab(), v.nodeId(),
+            case MovePacket v -> new MovePacket(revision, v.tab(), v.nodeId(),
                     v.pointer(), v.grabOffsetX(), v.grabOffsetY(), v.gestureId(), v.finalUpdate());
-            case EditorProtocol.ResizePacket v -> new EditorProtocol.ResizePacket(revision, v.tab(), v.nodeId(),
+            case ResizePacket v -> new ResizePacket(revision, v.tab(), v.nodeId(),
                     v.pointer(), v.gestureId(), v.finalUpdate());
-            case EditorProtocol.UndoPacket ignored -> new EditorProtocol.UndoPacket(revision);
-            case EditorProtocol.RedoPacket ignored -> new EditorProtocol.RedoPacket(revision);
-            case EditorProtocol.SavePacket ignored -> new EditorProtocol.SavePacket(revision);
-            case EditorProtocol.ApplyPacket ignored -> new EditorProtocol.ApplyPacket(revision);
-            case EditorProtocol.ProbePacket v -> new EditorProtocol.ProbePacket(revision, v.tab(), v.pointer());
-            case EditorProtocol.CreatePacket v ->
-                new EditorProtocol.CreatePacket(revision, v.tab(), v.kind(), v.parentId(), v.initialSource());
-            case EditorProtocol.DeletePacket v -> new EditorProtocol.DeletePacket(revision, v.tab(), v.nodeId());
-            case EditorProtocol.DeleteManyPacket v ->
-                new EditorProtocol.DeleteManyPacket(revision, v.tab(), v.nodeIds());
-            case EditorProtocol.DuplicatePacket v -> new EditorProtocol.DuplicatePacket(revision, v.tab(), v.nodeIds(),
+            case UndoPacket ignored -> new UndoPacket(revision);
+            case RedoPacket ignored -> new RedoPacket(revision);
+            case SavePacket ignored -> new SavePacket(revision);
+            case ApplyPacket ignored -> new ApplyPacket(revision);
+            case ProbePacket v -> new ProbePacket(revision, v.tab(), v.pointer());
+            case CreatePacket v ->
+                new CreatePacket(revision, v.tab(), v.kind(), v.parentId(), v.initialSource());
+            case DeletePacket v -> new DeletePacket(revision, v.tab(), v.nodeId());
+            case DeleteManyPacket v ->
+                new DeleteManyPacket(revision, v.tab(), v.nodeIds());
+            case DuplicatePacket v -> new DuplicatePacket(revision, v.tab(), v.nodeIds(),
                     v.targetParentId(), v.preserveParents());
-            case EditorProtocol.GroupPacket v -> new EditorProtocol.GroupPacket(revision, v.nodeIds());
-            case EditorProtocol.UngroupPacket v -> new EditorProtocol.UngroupPacket(revision, v.nodeId());
-            case EditorProtocol.ReorderPacket v ->
-                new EditorProtocol.ReorderPacket(revision, v.tab(), v.nodeIds(), v.beforeId());
-            case EditorProtocol.ReparentPacket v ->
-                new EditorProtocol.ReparentPacket(revision, v.nodeIds(), v.targetParentId(), v.beforeId());
-            case EditorProtocol.SetPropertyPacket v -> new EditorProtocol.SetPropertyPacket(revision, v.tab(),
+            case GroupPacket v -> new GroupPacket(revision, v.nodeIds());
+            case UngroupPacket v -> new UngroupPacket(revision, v.nodeId());
+            case ReorderPacket v ->
+                new ReorderPacket(revision, v.tab(), v.nodeIds(), v.beforeId());
+            case ReparentPacket v ->
+                new ReparentPacket(revision, v.nodeIds(), v.targetParentId(), v.beforeId());
+            case SetPropertyPacket v -> new SetPropertyPacket(revision, v.tab(),
                     v.nodeId(), v.key(), v.value(), v.gestureId(), v.finalUpdate());
-            case EditorProtocol.SaveTemplatePacket v ->
-                new EditorProtocol.SaveTemplatePacket(revision, v.nodeId(), v.templateId());
-            case EditorProtocol.InstantiateTemplatePacket v ->
-                new EditorProtocol.InstantiateTemplatePacket(revision, v.templateId());
-            case EditorProtocol.DeleteTemplatePacket v ->
-                new EditorProtocol.DeleteTemplatePacket(revision, v.templateId());
+            case SaveTemplatePacket v ->
+                new SaveTemplatePacket(revision, v.nodeId(), v.templateId());
+            case InstantiateTemplatePacket v ->
+                new InstantiateTemplatePacket(revision, v.templateId());
+            case DeleteTemplatePacket v ->
+                new DeleteTemplatePacket(revision, v.templateId());
             default -> packet;
             };
         }

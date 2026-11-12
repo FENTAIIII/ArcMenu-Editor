@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+
 import java.util.Set;
 
 /** Animatable properties of the menu scene model; editor-only metadata has no stopwatch. */

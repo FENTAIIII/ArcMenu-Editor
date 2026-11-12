@@ -14,7 +14,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.jar.JarFile;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /** A maintained build must contain the actual Vision implementation and its installed hooks. */
 final class MaintainedFeaturesTest

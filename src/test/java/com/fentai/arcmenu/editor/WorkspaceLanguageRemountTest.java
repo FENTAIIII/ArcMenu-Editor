@@ -4,12 +4,14 @@ import com.fentai.arcmenu.editor.aui.internal.element.AbstractText;
 import com.fentai.arcmenu.editor.aui.internal.element.Body;
 import com.fentai.arcmenu.editor.aui.internal.init.Document;
 import com.fentai.arcmenu.editor.aui.internal.init.Element;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class WorkspaceLanguageRemountTest
 {

@@ -1,18 +1,34 @@
 package com.fentai.arcmenu.editor;
 
-import com.google.gson.JsonParser;
+import com.fentai.arcmenu.editor.MarketClient.RequestException;
+
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.authlib.exceptions.AuthenticationUnavailableException;
 import com.mojang.authlib.exceptions.InvalidCredentialsException;
+import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 import java.time.Duration;
-import java.util.concurrent.*;
-import javax.net.ssl.SSLHandshakeException;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import javax.net.ssl.SSLHandshakeException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class MarketClientTest
 {
@@ -253,10 +269,10 @@ class MarketClientTest
     {
         assertTrue(MarketClient.isTransient(new CompletionException(new IOException("Connection reset"))));
         assertTrue(MarketClient.isTransient(new TimeoutException("Timed out")));
-        assertTrue(MarketClient.isTransient(new MarketClient.RequestException(503, "mojang_unavailable", "Try later")));
-        assertTrue(MarketClient.isTransient(new MarketClient.RequestException(401, "join_not_verified", "Try later")));
+        assertTrue(MarketClient.isTransient(new RequestException(503, "mojang_unavailable", "Try later")));
+        assertTrue(MarketClient.isTransient(new RequestException(401, "join_not_verified", "Try later")));
         assertFalse(
-                MarketClient.isTransient(new MarketClient.RequestException(401, "invalid_token", "Invalid account")));
+                MarketClient.isTransient(new RequestException(401, "invalid_token", "Invalid account")));
         assertFalse(MarketClient.isTransient(
                 new CompletionException(new SSLHandshakeException("Certificate does not match its configured pin"))));
         assertTrue(MarketClient
@@ -271,7 +287,7 @@ class MarketClientTest
         var market = configured();
         var failure = assertThrows(CompletionException.class,
                 () -> market.handleResponse(503, "<html>upstream unavailable</html>", market.generation(), "", false));
-        var error = assertInstanceOf(MarketClient.RequestException.class, failure.getCause());
+        var error = assertInstanceOf(RequestException.class, failure.getCause());
         assertEquals(503, error.statusCode());
         assertEquals("http_error", error.code());
         assertTrue(MarketClient.isTransient(error));

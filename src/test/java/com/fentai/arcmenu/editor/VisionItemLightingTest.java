@@ -3,13 +3,18 @@ package com.fentai.arcmenu.editor;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Transformation;
 import net.minecraft.client.renderer.entity.state.DisplayEntityRenderState;
-import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Display.BillboardConstraints;
+import net.minecraft.world.entity.Display.FloatInterpolator;
+import net.minecraft.world.entity.Display.GenericInterpolator;
+import net.minecraft.world.entity.Display.RenderState;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 final class VisionItemLightingTest
 {
@@ -89,9 +94,9 @@ final class VisionItemLightingTest
                 return true;
             }
         };
-        state.renderState = new Display.RenderState(Display.GenericInterpolator.constant(new Transformation(authored)),
-                Display.BillboardConstraints.FIXED, 0xF000F0, Display.FloatInterpolator.constant(0),
-                Display.FloatInterpolator.constant(0), -1);
+        state.renderState = new RenderState(GenericInterpolator.constant(new Transformation(authored)),
+                BillboardConstraints.FIXED, 0xF000F0, FloatInterpolator.constant(0),
+                FloatInterpolator.constant(0), -1);
         return state;
     }
 }

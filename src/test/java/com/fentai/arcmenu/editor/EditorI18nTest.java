@@ -1,7 +1,9 @@
 package com.fentai.arcmenu.editor;
 
-import com.google.gson.JsonParser;
+import com.fentai.arcmenu.editor.MarketClient.RequestException;
 import com.fentai.arcmenu.editor.aui.internal.ui.UiTranslations;
+
+import com.google.gson.JsonParser;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
@@ -9,14 +11,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Exercises the game's live language rather than selecting an editor-specific locale. */
 @ResourceLock("minecraft-language")
@@ -144,7 +147,7 @@ final class EditorI18nTest
     void effectChoicesAndMarketplaceReasonsChangeLanguageWithoutChangingProjectDataOrDiagnostics()
     {
         String diagnostic = "Dependency entries must contain at most 2048 UTF-16 code units";
-        var failure = new MarketClient.RequestException(400, "invalid_manifest", diagnostic);
+        var failure = new RequestException(400, "invalid_manifest", diagnostic);
         String target = "menu.banner";
         String asset = "arcpack-aimv/audio/beat.ogg";
 

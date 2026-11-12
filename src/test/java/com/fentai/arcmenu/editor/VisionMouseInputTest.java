@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.VisionProtocol;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import org.junit.jupiter.api.Test;
 

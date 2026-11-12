@@ -3,10 +3,15 @@ package com.fentai.arcmenu.editor;
 import com.fentai.arcmenu.protocol.VisionHoverTable;
 import com.fentai.arcmenu.protocol.VisionProtocol;
 import com.fentai.arcmenu.protocol.VisionVisuals;
+import com.fentai.arcmenu.protocol.VisionVisuals.HoverTarget;
+
 import com.mojang.math.Transformation;
 import net.minecraft.client.renderer.entity.state.DisplayEntityRenderState;
 import net.minecraft.client.renderer.entity.state.TextDisplayEntityRenderState;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Display.GenericInterpolator;
+import net.minecraft.world.entity.Display.IntInterpolator;
+import net.minecraft.world.entity.Display.RenderState;
 import org.joml.Matrix4f;
 
 import java.util.HashMap;
@@ -17,7 +22,7 @@ public final class VisionVisualClient
 {
     private static VisionVisuals.Hover hover;
     private static VisionHoverTable table;
-    private static final Map<Integer, VisionVisuals.HoverTarget> targets = new HashMap<>();
+    private static final Map<Integer, HoverTarget> targets = new HashMap<>();
     private static final Map<Integer, VisionVisuals.Follow> follows = new HashMap<>();
     private static VisionVisuals.Vector eye;
     private static VisionVisuals.Vector direction;
@@ -112,8 +117,8 @@ public final class VisionVisualClient
                 transform.m31(transform.m31() + (float) offset.y());
                 transform.m32(transform.m32() + (float) offset.z());
                 var original = state.renderState;
-                state.renderState = new Display.RenderState(
-                        Display.GenericInterpolator.constant(new Transformation(transform)),
+                state.renderState = new RenderState(
+                        GenericInterpolator.constant(new Transformation(transform)),
                         original.billboardConstraints(), original.brightnessOverride(), original.shadowRadius(),
                         original.shadowStrength(), original.glowColorOverride());
             }
@@ -136,7 +141,7 @@ public final class VisionVisualClient
             {
                 var original = text.textRenderState;
                 text.textRenderState = new Display.TextDisplay.TextRenderState(original.text(), original.lineWidth(),
-                        original.textOpacity(), Display.IntInterpolator.constant(argb), original.flags());
+                        original.textOpacity(), IntInterpolator.constant(argb), original.flags());
             }
         }
         return true;

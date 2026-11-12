@@ -1,11 +1,13 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.editor.net.MenuInputPayload;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+
 import java.util.Arrays;
 
 /** Only forwards buttons when the connected server explicitly enables its menu input channel. */

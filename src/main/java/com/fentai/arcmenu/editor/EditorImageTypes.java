@@ -1,6 +1,7 @@
 package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
+
 import java.util.Locale;
 
 /** Original image paths identify their editor kind without adding protocol fields. */

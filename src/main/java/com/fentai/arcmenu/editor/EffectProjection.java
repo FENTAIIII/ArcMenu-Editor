@@ -1,19 +1,21 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.editor.EditorLayout.ScreenRect;
+
 /** Maps the server menu plane into the current Minecraft camera aperture in GUI units. */
 public final class EffectProjection
 {
     private EffectProjection()
     {}
 
-    public static EditorLayout.ScreenRect calculate(EditorLayout.Rect viewport, double canvasWidth, double canvasHeight,
+    public static ScreenRect calculate(EditorLayout.Rect viewport, double canvasWidth, double canvasHeight,
             double pixelsPerBlock, double distance, double offsetX, double offsetY, double verticalFov)
     {
-        return calculate(new EditorLayout.ScreenRect(viewport.x(), viewport.y(), viewport.width(), viewport.height()),
+        return calculate(new ScreenRect(viewport.x(), viewport.y(), viewport.width(), viewport.height()),
                 canvasWidth, canvasHeight, pixelsPerBlock, distance, offsetX, offsetY, verticalFov);
     }
 
-    public static EditorLayout.ScreenRect calculate(EditorLayout.ScreenRect viewport, double canvasWidth,
+    public static ScreenRect calculate(ScreenRect viewport, double canvasWidth,
             double canvasHeight, double pixelsPerBlock, double distance, double offsetX, double offsetY,
             double verticalFov)
     {
@@ -32,16 +34,16 @@ public final class EffectProjection
         double height = canvasHeight * scaleY;
         double centerX = viewport.x() + viewport.width() / 2.0 + offsetX * scaleX;
         double centerY = viewport.y() + viewport.height() / 2.0 - offsetY * scaleY;
-        return new EditorLayout.ScreenRect(centerX - width / 2, centerY - height / 2, width, height);
+        return new ScreenRect(centerX - width / 2, centerY - height / 2, width, height);
     }
 
     /** Converts the composited bottom-origin framebuffer aperture into the actual GUI rectangle. */
-    public static EditorLayout.ScreenRect guiAperture(EditorLayout.Rect framebuffer, int framebufferWidth,
+    public static ScreenRect guiAperture(EditorLayout.Rect framebuffer, int framebufferWidth,
             int framebufferHeight, int guiWidth, int guiHeight)
     {
         double scaleX = guiWidth / (double) framebufferWidth;
         double scaleY = guiHeight / (double) framebufferHeight;
-        return new EditorLayout.ScreenRect(framebuffer.x() * scaleX,
+        return new ScreenRect(framebuffer.x() * scaleX,
                 (framebufferHeight - framebuffer.y() - framebuffer.height()) * scaleY, framebuffer.width() * scaleX,
                 framebuffer.height() * scaleY);
     }
@@ -65,21 +67,21 @@ public final class EffectProjection
     }
 
     /** Applies the same framebuffer crop to GUI-space element geometry. */
-    public static EditorLayout.ScreenRect cropped(EditorLayout.ScreenRect raw, EditorLayout.Rect aperture,
+    public static ScreenRect cropped(ScreenRect raw, EditorLayout.Rect aperture,
             EditorLayout.Rect source, int sourceWidth, int sourceHeight)
     {
         return cropped(raw,
-                new EditorLayout.ScreenRect(aperture.x(), aperture.y(), aperture.width(), aperture.height()), source,
+                new ScreenRect(aperture.x(), aperture.y(), aperture.width(), aperture.height()), source,
                 sourceWidth, sourceHeight);
     }
 
-    public static EditorLayout.ScreenRect cropped(EditorLayout.ScreenRect raw, EditorLayout.ScreenRect aperture,
+    public static ScreenRect cropped(ScreenRect raw, ScreenRect aperture,
             EditorLayout.Rect source, int sourceWidth, int sourceHeight)
     {
         double scaleX = sourceWidth / (double) source.width();
         double scaleY = sourceHeight / (double) source.height();
         double sourceTop = (sourceHeight - source.y() - source.height()) / (double) sourceHeight;
-        return new EditorLayout.ScreenRect(
+        return new ScreenRect(
                 aperture.x() + (raw.x() - aperture.x() - source.x() / (double) sourceWidth * aperture.width()) * scaleX,
                 aperture.y() + (raw.y() - aperture.y() - sourceTop * aperture.height()) * scaleY, raw.width() * scaleX,
                 raw.height() * scaleY);

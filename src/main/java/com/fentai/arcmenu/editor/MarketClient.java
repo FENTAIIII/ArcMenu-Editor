@@ -1,22 +1,36 @@
 package com.fentai.arcmenu.editor;
 
-import com.google.gson.*;
+import com.fentai.arcmenu.protocol.MarketTls;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.authlib.exceptions.AuthenticationUnavailableException;
 import com.mojang.authlib.exceptions.InvalidCredentialsException;
+
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.StandardCharsets;
-import java.net.http.*;
-import java.time.Duration;
-import java.io.IOException;
 import java.security.cert.CertificateException;
+import java.time.Duration;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
-import com.fentai.arcmenu.protocol.MarketTls;
-import java.util.Objects;
 
 /** HTTPS metadata client. Minecraft session credentials never enter a marketplace request. */
 public final class MarketClient
@@ -491,15 +505,15 @@ public final class MarketClient
             }
             if (body == null)
             {
-                request.method(method, HttpRequest.BodyPublishers.noBody());
+                request.method(method, BodyPublishers.noBody());
             }
             else
             {
                 request.header("Content-Type", "application/json").method(method,
-                        HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8));
+                        BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8));
             }
             var transportRequest = transport.sendAsync(request.build(),
-                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    BodyHandlers.ofString(StandardCharsets.UTF_8));
             var result = transportRequest.thenApply(response -> handleResponse(response.statusCode(), response.body(),
                     requestGeneration, requestToken, requireAuth));
             result.whenComplete((reply, error) ->
@@ -583,7 +597,7 @@ public final class MarketClient
             }
             return images.get(imageGeneration + ":" + url,
                     () -> transport.sendAsync(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20)).GET().build(),
-                            HttpResponse.BodyHandlers.ofByteArray()).thenApply(response ->
+                            BodyHandlers.ofByteArray()).thenApply(response ->
                             {
                                 if (imageGeneration != generation)
                                 {

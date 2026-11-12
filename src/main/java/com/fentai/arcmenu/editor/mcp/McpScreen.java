@@ -1,12 +1,13 @@
 package com.fentai.arcmenu.editor.mcp;
 
-import com.fentai.arcmenu.editor.EditorI18n;
 import com.fentai.arcmenu.editor.ArcMenuEditorClient;
+import com.fentai.arcmenu.editor.EditorI18n;
 import com.fentai.arcmenu.editor.EditorScreen;
 import com.fentai.arcmenu.editor.EffectEditorScreen;
+
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public final class McpScreen extends Screen
 {

@@ -1,7 +1,15 @@
 package com.fentai.arcmenu.editor;
 
-import com.google.gson.*;
-import java.util.*;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /** Server-owned catalogue and a separate, deterministic project selection. */
 public final class WorkspaceState

@@ -1,6 +1,6 @@
 package com.fentai.arcmenu.editor;
 
-import java.util.*;
+import java.util.List;
 
 /** Command metadata shared by menu hints, shortcut lookup, command search and MCP discovery. */
 public final class EffectCommands

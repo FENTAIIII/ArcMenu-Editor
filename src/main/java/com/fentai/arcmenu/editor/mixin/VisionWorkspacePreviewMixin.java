@@ -3,6 +3,7 @@ package com.fentai.arcmenu.editor.mixin;
 import com.fentai.arcmenu.editor.EditorLayout;
 import com.fentai.arcmenu.editor.VisionSceneClient;
 import com.fentai.arcmenu.editor.WorkspacePreviewScreen;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

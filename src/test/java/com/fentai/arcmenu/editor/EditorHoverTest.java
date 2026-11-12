@@ -2,13 +2,23 @@ package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.editor.mcp.McpTools;
 import com.fentai.arcmenu.protocol.EditorProtocol;
-import com.fentai.arcmenu.protocol.EffectProtocol;
+import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.TemplateSnapshot;
+import com.fentai.arcmenu.protocol.EffectProtocol.NodeFrame;
+import com.fentai.arcmenu.protocol.EffectProtocol.SceneFrame;
+
 import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class EditorHoverTest
 {
@@ -30,11 +40,11 @@ final class EditorHoverTest
     void multilineHoverReactionMapsAndListsSurviveTheWireAndAuthoritativeSceneUpdates()
     {
         var region = region(ENTER, LEAVE);
-        var front = new EditorProtocol.NodeSnapshot("card", "", EditorProtocol.KIND_RECTANGLE, 0, 0, 64, 24, 0, true,
+        var front = new NodeSnapshot("card", "", EditorProtocol.KIND_RECTANGLE, 0, 0, 64, 24, 0, true,
                 false);
-        var snapshot = new EditorProtocol.SnapshotPacket(7, "shop", 320, 180, true, false, "26.3", List.of(front),
-                List.of(region), List.of(), List.of(new EditorProtocol.TemplateSnapshot("shop-card", "root", 2)));
-        var decoded = (EditorProtocol.SnapshotPacket) EditorProtocol.decode(EditorProtocol.encode(snapshot));
+        var snapshot = new SnapshotPacket(7, "shop", 320, 180, true, false, "26.3", List.of(front),
+                List.of(region), List.of(), List.of(new TemplateSnapshot("shop-card", "root", 2)));
+        var decoded = (SnapshotPacket) EditorProtocol.decode(EditorProtocol.encode(snapshot));
         var state = new EditorState();
         state.update(decoded);
         state.activeTab(EditorProtocol.TAB_BACKEND);
@@ -42,15 +52,15 @@ final class EditorHoverTest
 
         for (var property : region.properties())
         {
-            var edit = new EditorProtocol.SetPropertyPacket(7, EditorProtocol.TAB_BACKEND, region.id(), property.key(),
+            var edit = new SetPropertyPacket(7, EditorProtocol.TAB_BACKEND, region.id(), property.key(),
                     property.value());
             assertEquals(edit, EditorProtocol.decode(EditorProtocol.encode(edit)));
             assertEquals(property, state.find(region.id()).properties().stream()
                     .filter(value -> value.key().equals(property.key())).findFirst().orElseThrow());
         }
 
-        assertTrue(state.update(new EffectProtocol.SceneFrame(7, "shop",
-                List.of(new EffectProtocol.NodeFrame("card", 5, 10, 64, 24, 0, true, List.of())))));
+        assertTrue(state.update(new SceneFrame(7, "shop",
+                List.of(new NodeFrame("card", 5, 10, 64, 24, 0, true, List.of())))));
         assertEquals(List.of(region), state.snapshot().backend());
         assertEquals("shop-button", state.selectedId());
         assertEquals(snapshot.templates(), state.snapshot().templates());
@@ -70,7 +80,7 @@ final class EditorHoverTest
             args.addProperty("property", key);
             args.addProperty("value", "[]");
             assertDoesNotThrow(() -> McpTools.validate("arcmenu_edit", args));
-            var empty = new EditorProtocol.SetPropertyPacket(8, EditorProtocol.TAB_BACKEND, "shop-button", key, "[]");
+            var empty = new SetPropertyPacket(8, EditorProtocol.TAB_BACKEND, "shop-button", key, "[]");
             assertEquals(empty, EditorProtocol.decode(EditorProtocol.encode(empty)));
         }
         var editTool = McpTools.list().asList().stream().map(value -> value.getAsJsonObject())
@@ -82,11 +92,11 @@ final class EditorHoverTest
         assertTrue(description.contains("[] clears an event"));
     }
 
-    private static EditorProtocol.NodeSnapshot region(String enter, String leave)
+    private static NodeSnapshot region(String enter, String leave)
     {
-        return new EditorProtocol.NodeSnapshot("shop-button", "", EditorProtocol.KIND_REGION, 0, 0, 64, 24, 0, true,
+        return new NodeSnapshot("shop-button", "", EditorProtocol.KIND_REGION, 0, 0, 64, 24, 0, true,
                 false,
-                List.of(new EditorProtocol.PropertySnapshot("on-hover", EditorProtocol.PROPERTY_MULTILINE, enter),
-                        new EditorProtocol.PropertySnapshot("on-leave", EditorProtocol.PROPERTY_MULTILINE, leave)));
+                List.of(new PropertySnapshot("on-hover", EditorProtocol.PROPERTY_MULTILINE, enter),
+                        new PropertySnapshot("on-leave", EditorProtocol.PROPERTY_MULTILINE, leave)));
     }
 }

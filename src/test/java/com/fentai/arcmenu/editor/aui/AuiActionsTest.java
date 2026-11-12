@@ -2,16 +2,21 @@ package com.fentai.arcmenu.editor.aui;
 
 import com.fentai.arcmenu.editor.WorkspaceMarkup;
 import com.fentai.arcmenu.editor.WorkspaceState;
-import com.fentai.arcmenu.editor.aui.internal.element.Body;
 import com.fentai.arcmenu.editor.aui.internal.element.AbstractText;
+import com.fentai.arcmenu.editor.aui.internal.element.Body;
 import com.fentai.arcmenu.editor.aui.internal.init.Document;
 import com.fentai.arcmenu.editor.aui.internal.init.Element;
+
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuiActionsTest
 {

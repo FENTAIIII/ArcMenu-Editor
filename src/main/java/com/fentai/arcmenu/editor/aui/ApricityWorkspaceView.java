@@ -1,21 +1,32 @@
 package com.fentai.arcmenu.editor.aui;
 
 import com.fentai.arcmenu.editor.EditorI18n;
+import com.fentai.arcmenu.editor.aui.internal.element.AbstractText;
 import com.fentai.arcmenu.editor.aui.internal.event.Event;
 import com.fentai.arcmenu.editor.aui.internal.event.KeyEvent;
 import com.fentai.arcmenu.editor.aui.internal.event.MouseEvent;
 import com.fentai.arcmenu.editor.aui.internal.init.Document;
+import com.fentai.arcmenu.editor.aui.internal.init.Document.ContextScope;
 import com.fentai.arcmenu.editor.aui.internal.init.Element;
 import com.fentai.arcmenu.editor.aui.internal.layout.Position;
 import com.fentai.arcmenu.editor.aui.internal.layout.Size;
 import com.fentai.arcmenu.editor.aui.internal.parser.HTML;
 import com.fentai.arcmenu.editor.aui.internal.render.Base;
+import com.fentai.arcmenu.editor.aui.internal.render.Drawer;
+import com.fentai.arcmenu.editor.aui.internal.render.GlyphCache;
 import com.fentai.arcmenu.editor.aui.internal.render.Mask;
 import com.fentai.arcmenu.editor.aui.internal.render.Operation;
 import com.fentai.arcmenu.editor.aui.internal.render.Rect;
-import com.fentai.arcmenu.editor.aui.internal.spi.*;
+import com.fentai.arcmenu.editor.aui.internal.resource.async.image.ImageAsyncHandler;
+import com.fentai.arcmenu.editor.aui.internal.spi.AuiClientService;
+import com.fentai.arcmenu.editor.aui.internal.spi.AuiResourceService;
+import com.fentai.arcmenu.editor.aui.internal.spi.AuiServices;
+import com.fentai.arcmenu.editor.aui.internal.spi.RenderHandle;
+import com.fentai.arcmenu.editor.aui.internal.spi.TextureKey;
+import com.fentai.arcmenu.editor.aui.internal.style.Text;
 import com.fentai.arcmenu.editor.aui.internal.task.AbstractAsyncHandler;
 import com.fentai.arcmenu.editor.aui.internal.task.FrameTaskScheduler;
+
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.fabricmc.loader.api.FabricLoader;
@@ -27,28 +38,24 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
+import java.awt.Font;
+import java.awt.font.FontRenderContext;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
-import com.fentai.arcmenu.editor.aui.internal.element.AbstractText;
-import com.fentai.arcmenu.editor.aui.internal.render.Drawer;
-import com.fentai.arcmenu.editor.aui.internal.render.GlyphCache;
-import static com.fentai.arcmenu.editor.aui.internal.resource.Font.registerFont;
-import com.fentai.arcmenu.editor.aui.internal.resource.async.image.ImageAsyncHandler;
-import com.fentai.arcmenu.editor.aui.internal.style.Text;
-import java.awt.Font;
-import java.awt.font.FontRenderContext;
-import java.util.HashSet;
-import java.util.Objects;
 import java.util.function.Consumer;
+
+import static com.fentai.arcmenu.editor.aui.internal.resource.Font.registerFont;
 
 /** Owns one embedded ApricityUI document and a cached display surface. */
 public final class ApricityWorkspaceView implements AutoCloseable
@@ -344,7 +351,7 @@ public final class ApricityWorkspaceView implements AutoCloseable
         {
             return;
         }
-        try (Document.ContextScope ignored = Document.withContext(document))
+        try (ContextScope ignored = Document.withContext(document))
         {
             element.setScrollLeft(0);
             element.setScrollTop(0);
@@ -600,7 +607,7 @@ public final class ApricityWorkspaceView implements AutoCloseable
         int translated = translateKey(key);
         if (translated == 258)
         {
-            try (Document.ContextScope ignored = Document.withContext(document))
+            try (ContextScope ignored = Document.withContext(document))
             {
                 document.commitStyleRecalc();
                 Element modal = document.getElementById("modal_host");
@@ -726,7 +733,7 @@ public final class ApricityWorkspaceView implements AutoCloseable
         {
             return null;
         }
-        try (Document.ContextScope ignored = Document.withContext(document))
+        try (ContextScope ignored = Document.withContext(document))
         {
             document.commitStyleRecalc();
             document.commitRenderState();
