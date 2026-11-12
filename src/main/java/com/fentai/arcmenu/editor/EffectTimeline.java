@@ -230,6 +230,39 @@ final class EffectTimeline
         rows.clear();
         handleOne = null;
         handleTwo = null;
+        refreshSelectedKeys(effectSnapshot);
+        updateColumns();
+        drawHeader(graphics, font, effectSnapshot, mouseX, mouseY);
+        drawRuler(graphics, font);
+        var nodes = scene.snapshot() == null ? List.<NodeSnapshot>of() : scene.snapshot().frontend();
+        var hierarchy = new HashMap<String, NodeSnapshot>();
+        for (var node : nodes)
+        {
+            hierarchy.put(node.id(), node);
+        }
+        updateHierarchy(effectSnapshot.id(), hierarchy);
+        int index = 0;
+        visibleLayers.clear();
+        index = drawLayerRows(graphics, font, nodes, hierarchy, effectSnapshot, index);
+        index = drawCueRows(graphics, font, effectSnapshot, index);
+        rowScroll = Math.max(0, Math.min(rowScroll, Math.max(0, index - Math.max(1, (panel.height() - 69) / 16))));
+        graphics.fill(gridX - 1, panel.y() + 20, gridX, panel.bottom() - 14, EffectUi.BORDER);
+        if (graphMode)
+        {
+            drawGraph(graphics, font);
+        }
+        else
+        {
+            drawTicks(graphics);
+        }
+        drawPlayhead(graphics);
+        drawMarquee(graphics);
+        drawFooter(graphics, font, mouseX, mouseY);
+    }
+
+    /** Re-reads the selected keyframes from the latest snapshot, dropping keys that no longer exist. */
+    private void refreshSelectedKeys(EffectProtocol.Snapshot effectSnapshot)
+    {
         if (!gestureActive() && !state.busy())
         {
             var current = new LinkedHashSet<KeyRef>();
@@ -242,6 +275,11 @@ final class EffectTimeline
             selected.clear();
             selected.addAll(current);
         }
+    }
+
+    /** Recomputes the label column and grid geometry for the current panel size. */
+    private void updateColumns()
+    {
         if (!gestureActive())
         {
             labelWidth = Math.min(Math.max(0, panel.width() - 80), Math.max(118, (int) (panel.width() * .42)));
@@ -249,6 +287,12 @@ final class EffectTimeline
             gridWidth = Math.max(16, panel.right() - gridX - 5);
             gridTop = panel.y() + 54;
         }
+    }
+
+    /** Draws the toolbar, timecode, search box and column titles. */
+    private void drawHeader(GuiGraphicsExtractor graphics, Font font, EffectProtocol.Snapshot effectSnapshot,
+            int mouseX, int mouseY)
+    {
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.bottom(), 0xFF1B1B1B);
         graphics.fill(panel.x(), panel.y(), panel.right(), panel.y() + 20, EffectUi.HEADER);
         graphics.fill(panel.x(), panel.y() + 20, gridX, gridTop, EffectUi.PANEL);
@@ -294,16 +338,12 @@ final class EffectTimeline
         }
         eye(graphics, panel.x() + 6, panel.y() + 49, EffectUi.MUTED);
         graphics.fill(panel.x() + 22, panel.y() + 46, panel.x() + 25, panel.y() + 49, EffectUi.MUTED);
-        drawRuler(graphics, font);
-        var nodes = scene.snapshot() == null ? List.<NodeSnapshot>of() : scene.snapshot().frontend();
-        var hierarchy = new HashMap<String, NodeSnapshot>();
-        for (var node : nodes)
-        {
-            hierarchy.put(node.id(), node);
-        }
-        updateHierarchy(effectSnapshot.id(), hierarchy);
-        int index = 0;
-        visibleLayers.clear();
+    }
+
+    /** Draws a row per visible layer, followed by its expanded property tracks. */
+    private int drawLayerRows(GuiGraphicsExtractor graphics, Font font, List<NodeSnapshot> nodes,
+            Map<String, NodeSnapshot> hierarchy, EffectProtocol.Snapshot effectSnapshot, int index)
+    {
         for (var node : nodes)
         {
             if (hiddenByGroup(node, hierarchy))
@@ -413,6 +453,12 @@ final class EffectTimeline
                 }
             }
         }
+        return index;
+    }
+
+    /** Draws a row per audio or event cue. */
+    private int drawCueRows(GuiGraphicsExtractor graphics, Font font, EffectProtocol.Snapshot effectSnapshot, int index)
+    {
         for (var cue : effectSnapshot.cues())
         {
             if (!query.isEmpty() && !matches(cue.id()) && !matches(cue.kind())
@@ -457,16 +503,12 @@ final class EffectTimeline
                 }
             }
         }
-        rowScroll = Math.max(0, Math.min(rowScroll, Math.max(0, index - Math.max(1, (panel.height() - 69) / 16))));
-        graphics.fill(gridX - 1, panel.y() + 20, gridX, panel.bottom() - 14, EffectUi.BORDER);
-        if (graphMode)
-        {
-            drawGraph(graphics, font);
-        }
-        else
-        {
-            drawTicks(graphics);
-        }
+        return index;
+    }
+
+    /** Draws the playhead line and its handle on the ruler. */
+    private void drawPlayhead(GuiGraphicsExtractor graphics)
+    {
         int positionX = frameX(scrubbing ? dragFrame : state.playhead());
         if (positionX >= gridX && positionX <= panel.right() - 5)
         {
@@ -474,6 +516,11 @@ final class EffectTimeline
             graphics.fill(positionX - 3, panel.y() + 28, positionX + 4, panel.y() + 33, EffectUi.ACCENT);
             triangle(graphics, positionX - 2, panel.y() + 33, true, EffectUi.ACCENT);
         }
+    }
+
+    /** Draws the keyframe selection rectangle. */
+    private void drawMarquee(GuiGraphicsExtractor graphics)
+    {
         if (marquee)
         {
             int left = (int) Math.min(pointerOriginX, marqueeX);
@@ -483,7 +530,6 @@ final class EffectTimeline
             graphics.fill(left, top, right, bottom, 0x263D8FF5);
             graphics.outline(left, top, Math.max(1, right - left), Math.max(1, bottom - top), EffectUi.ACCENT);
         }
-        drawFooter(graphics, font, mouseX, mouseY);
     }
 
     private void waveform(GuiGraphicsExtractor graphics, EffectProtocol.Snapshot snapshot, EffectProtocol.Cue cue,
@@ -1372,25 +1418,7 @@ final class EffectTimeline
                 .findFirst().orElse(null);
         if (row == null)
         {
-            keysFocused = event.x() >= gridX;
-            if (event.y() < panel.bottom() - 14)
-            {
-                if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
-                {
-                    if (event.x() < gridX)
-                    {
-                        screen.timelineEmptyMenu(event.x(), event.y());
-                    }
-                    else
-                    {
-                        showMenu(event, emptyMenu(at(event.x())));
-                    }
-                }
-                else
-                {
-                    beginMarquee(event, event.x() < gridX);
-                }
-            }
+            clickBelowRows(event);
             return true;
         }
         if (clickCueRow(event, row, doubleClick))
@@ -1411,23 +1439,7 @@ final class EffectTimeline
         graphProperty = row.property;
         if (event.x() >= panel.x() + 29 && event.x() < panel.x() + 43 && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
         {
-            if (row.track.keys().isEmpty())
-            {
-                var node = scene.find(row.target);
-                var value = node == null ? null
-                        : node.properties().stream().filter(property -> property.key().equals(row.property)).findFirst()
-                                .orElse(null);
-                if (value != null)
-                {
-                    state.key(row.target, row.property, new EffectProtocol.Key((int) state.playhead(), value.value(),
-                            "linear", 1.0 / 3, 0, 2.0 / 3, 1), (int) state.playhead());
-                }
-            }
-            else
-            {
-                state.submit("track", row.target, row.property, 0, 0, Boolean.toString(!row.track.enabled()), "linear",
-                        0, 0, 0, 0);
-            }
+            clickStopwatch(row);
             return true;
         }
         if (event.x() < gridX)
@@ -1447,18 +1459,7 @@ final class EffectTimeline
                 .orElse(null);
         if (key == null || Math.abs(frameX(key.frame()) - event.x()) > 7)
         {
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
-            {
-                showMenu(event, trackMenu(row));
-            }
-            else if (doubleClick)
-            {
-                screen.effectDialog("key", row.target, row.property, at(event.x()), null, null);
-            }
-            else
-            {
-                beginMarquee(event, false);
-            }
+            clickTrackBackground(event, row, doubleClick);
             return true;
         }
         var ref = new KeyRef(row.target, row.property, key);
@@ -1482,6 +1483,70 @@ final class EffectTimeline
             dragFrame = key.frame();
         }
         return true;
+    }
+
+    /** Opens the empty-area menu, or starts a marquee, where no row is under the pointer. */
+    private void clickBelowRows(MouseButtonEvent event)
+    {
+        keysFocused = event.x() >= gridX;
+        if (event.y() < panel.bottom() - 14)
+        {
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+            {
+                if (event.x() < gridX)
+                {
+                    screen.timelineEmptyMenu(event.x(), event.y());
+                }
+                else
+                {
+                    showMenu(event, emptyMenu(at(event.x())));
+                }
+            }
+            else
+            {
+                beginMarquee(event, event.x() < gridX);
+            }
+        }
+    }
+
+    /** Adds the first key from the current value, or toggles the track when it already has keys. */
+    private void clickStopwatch(Row row)
+    {
+        if (row.track.keys().isEmpty())
+        {
+            var node = scene.find(row.target);
+            var value = node == null ? null
+                    : node.properties().stream().filter(property -> property.key().equals(row.property)).findFirst()
+                            .orElse(null);
+            if (value != null)
+            {
+                state.key(row.target, row.property,
+                        new EffectProtocol.Key((int) state.playhead(), value.value(), "linear", 1.0 / 3, 0, 2.0 / 3, 1),
+                        (int) state.playhead());
+            }
+        }
+        else
+        {
+            state.submit("track", row.target, row.property, 0, 0, Boolean.toString(!row.track.enabled()), "linear", 0,
+                    0, 0, 0);
+        }
+    }
+
+    /** Opens the track menu, the key dialog on a double click, or starts a marquee. */
+    private void clickTrackBackground(MouseButtonEvent event, Row row, boolean doubleClick)
+    {
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+        {
+            showMenu(event, trackMenu(row));
+        }
+        else if (doubleClick)
+        {
+            screen.effectDialog("key", row.target, row.property, at(event.x()), null, null);
+        }
+        else
+        {
+            beginMarquee(event, false);
+        }
     }
 
     /** Handles the ruler above the tracks: scrubbing, markers and the work area. */
@@ -1982,79 +2047,7 @@ final class EffectTimeline
     {
         if (marquee)
         {
-            if (Math.hypot(marqueeX - pointerOriginX, marqueeY - pointerOriginY) < 3)
-            {
-                if (!marqueeAdd)
-                {
-                    selected.clear();
-                    if (marqueeLayers)
-                    {
-                        scene.clearSelection();
-                        screen.serverStateChanged();
-                    }
-                }
-                if (!marqueeLayers)
-                {
-                    state.seek(at(event.x()));
-                }
-            }
-            else if (marqueeLayers)
-            {
-                var ids = new LinkedHashSet<String>();
-                if (marqueeAdd)
-                {
-                    ids.addAll(scene.selectedIds());
-                }
-                for (var row : rows)
-                {
-                    if (row.track == null && row.cue == null && EffectKeyframeGestures.inside(panel.x() + 65, row.y + 8,
-                            pointerOriginX, pointerOriginY, marqueeX, marqueeY))
-                    {
-                        ids.add(row.target);
-                    }
-                }
-                scene.selectAll(new ArrayList<>(ids));
-                screen.serverStateChanged();
-            }
-            else
-            {
-                if (!marqueeAdd)
-                {
-                    selected.clear();
-                }
-                if (graphMode && graphTrack != null)
-                {
-                    for (var key : graphTrack.keys())
-                    {
-                        if (EffectKeyframeGestures.inside(frameX(key.frame()),
-                                graphY(speedGraph ? graphSample(graphTrack, key.frame())
-                                        : Double.parseDouble(key.value())),
-                                pointerOriginX, pointerOriginY, marqueeX, marqueeY))
-                        {
-                            selected.add(new KeyRef(graphTrack.target(), graphTrack.property(), key));
-                        }
-                    }
-                }
-                else
-                {
-                    for (var row : rows)
-                    {
-                        if (row.track != null)
-                        {
-                            for (var key : row.track.keys())
-                            {
-                                if (EffectKeyframeGestures.inside(frameX(key.frame()), row.y + 8, pointerOriginX,
-                                        pointerOriginY, marqueeX, marqueeY))
-                                {
-                                    selected.add(new KeyRef(row.target, row.property, key));
-                                }
-                            }
-                        }
-                    }
-                }
-                selectionAnchor = selected.stream().findFirst().orElse(null);
-            }
-            cancelGesture();
+            finishMarquee(event);
             return true;
         }
         if (graphHandle != 0)
@@ -2068,15 +2061,7 @@ final class EffectTimeline
         }
         if (trimming != 0)
         {
-            if (draggingLayer != null && (trimStart != draggingLayer.start() || trimEnd != draggingLayer.end()))
-            {
-                setLayer(draggingLayer, trimStart, trimEnd, draggingLayer.enabled(), draggingLayer.solo());
-            }
-            else if (draggingLayer == null)
-            {
-                workRange(trimStart, trimEnd);
-            }
-            cancelGesture();
+            finishTrim();
             return true;
         }
         if (draggingMarker != null)
@@ -2097,42 +2082,145 @@ final class EffectTimeline
         }
         if (dragging != null)
         {
-            int delta = dragFrame - dragging.key.frame();
-            double valueDelta = draggingValue ? dragValue - Double.parseDouble(dragging.key.value()) : 0;
-            if (delta != 0 || Math.abs(valueDelta) > 1e-12)
-            {
-                submitBatch(event.hasAltDown() ? "copy-keys" : "move-keys", EffectKeyframeGestures
-                        .moved(refs(gestureKeys), delta, dragging.target, dragging.property, valueDelta));
-                selected.clear();
-                for (var ref : gestureKeys)
-                {
-                    var key = ref.key;
-                    String value = key.value();
-                    if (valueDelta != 0 && ref.target.equals(dragging.target) && ref.property.equals(dragging.property))
-                    {
-                        value = Double.toString(Double.parseDouble(value) + valueDelta);
-                    }
-                    selected.add(new KeyRef(ref.target, ref.property, new EffectProtocol.Key(key.frame() + delta, value,
-                            key.interpolation(), key.x1(), key.y1(), key.x2(), key.y2())));
-                }
-                selectionAnchor = selected.stream().findFirst().orElse(null);
-            }
-            cancelGesture();
+            finishKeyDrag(event);
             return true;
         }
         if (draggingCue != null)
         {
-            var cue = draggingCue;
-            if (dragFrame != cue.frame())
-            {
-                state.submit("cue", cue.id(), cue.kind(), dragFrame,
-                        cue.end() < 0 ? -1 : cue.end() + dragFrame - cue.frame(), cue.source(),
-                        cue.enabled() ? "linear" : "muted", cue.volume(), cue.pitch(), 0, 0);
-            }
-            cancelGesture();
+            finishCueDrag();
             return true;
         }
         return false;
+    }
+
+    /** Selects the keys or layers inside the released marquee; a click without dragging clears the selection or seeks. */
+    private void finishMarquee(MouseButtonEvent event)
+    {
+        if (Math.hypot(marqueeX - pointerOriginX, marqueeY - pointerOriginY) < 3)
+        {
+            if (!marqueeAdd)
+            {
+                selected.clear();
+                if (marqueeLayers)
+                {
+                    scene.clearSelection();
+                    screen.serverStateChanged();
+                }
+            }
+            if (!marqueeLayers)
+            {
+                state.seek(at(event.x()));
+            }
+        }
+        else if (marqueeLayers)
+        {
+            var ids = new LinkedHashSet<String>();
+            if (marqueeAdd)
+            {
+                ids.addAll(scene.selectedIds());
+            }
+            for (var row : rows)
+            {
+                if (row.track == null && row.cue == null && EffectKeyframeGestures.inside(panel.x() + 65, row.y + 8,
+                        pointerOriginX, pointerOriginY, marqueeX, marqueeY))
+                {
+                    ids.add(row.target);
+                }
+            }
+            scene.selectAll(new ArrayList<>(ids));
+            screen.serverStateChanged();
+        }
+        else
+        {
+            if (!marqueeAdd)
+            {
+                selected.clear();
+            }
+            if (graphMode && graphTrack != null)
+            {
+                for (var key : graphTrack.keys())
+                {
+                    if (EffectKeyframeGestures.inside(frameX(key.frame()),
+                            graphY(speedGraph ? graphSample(graphTrack, key.frame()) : Double.parseDouble(key.value())),
+                            pointerOriginX, pointerOriginY, marqueeX, marqueeY))
+                    {
+                        selected.add(new KeyRef(graphTrack.target(), graphTrack.property(), key));
+                    }
+                }
+            }
+            else
+            {
+                for (var row : rows)
+                {
+                    if (row.track != null)
+                    {
+                        for (var key : row.track.keys())
+                        {
+                            if (EffectKeyframeGestures.inside(frameX(key.frame()), row.y + 8, pointerOriginX,
+                                    pointerOriginY, marqueeX, marqueeY))
+                            {
+                                selected.add(new KeyRef(row.target, row.property, key));
+                            }
+                        }
+                    }
+                }
+            }
+            selectionAnchor = selected.stream().findFirst().orElse(null);
+        }
+        cancelGesture();
+    }
+
+    /** Applies the dragged layer span, or the work area when no layer was dragged. */
+    private void finishTrim()
+    {
+        if (draggingLayer != null && (trimStart != draggingLayer.start() || trimEnd != draggingLayer.end()))
+        {
+            setLayer(draggingLayer, trimStart, trimEnd, draggingLayer.enabled(), draggingLayer.solo());
+        }
+        else if (draggingLayer == null)
+        {
+            workRange(trimStart, trimEnd);
+        }
+        cancelGesture();
+    }
+
+    /** Sends the moved or Alt-copied keyframes and keeps them selected at their new frames. */
+    private void finishKeyDrag(MouseButtonEvent event)
+    {
+        int delta = dragFrame - dragging.key.frame();
+        double valueDelta = draggingValue ? dragValue - Double.parseDouble(dragging.key.value()) : 0;
+        if (delta != 0 || Math.abs(valueDelta) > 1e-12)
+        {
+            submitBatch(event.hasAltDown() ? "copy-keys" : "move-keys", EffectKeyframeGestures.moved(refs(gestureKeys),
+                    delta, dragging.target, dragging.property, valueDelta));
+            selected.clear();
+            for (var ref : gestureKeys)
+            {
+                var key = ref.key;
+                String value = key.value();
+                if (valueDelta != 0 && ref.target.equals(dragging.target) && ref.property.equals(dragging.property))
+                {
+                    value = Double.toString(Double.parseDouble(value) + valueDelta);
+                }
+                selected.add(new KeyRef(ref.target, ref.property, new EffectProtocol.Key(key.frame() + delta, value,
+                        key.interpolation(), key.x1(), key.y1(), key.x2(), key.y2())));
+            }
+            selectionAnchor = selected.stream().findFirst().orElse(null);
+        }
+        cancelGesture();
+    }
+
+    /** Sends the moved cue. */
+    private void finishCueDrag()
+    {
+        var cue = draggingCue;
+        if (dragFrame != cue.frame())
+        {
+            state.submit("cue", cue.id(), cue.kind(), dragFrame,
+                    cue.end() < 0 ? -1 : cue.end() + dragFrame - cue.frame(), cue.source(),
+                    cue.enabled() ? "linear" : "muted", cue.volume(), cue.pitch(), 0, 0);
+        }
+        cancelGesture();
     }
 
     boolean scroll(double x, double y, double amount, boolean control, boolean shift)
@@ -2663,45 +2751,15 @@ final class EffectTimeline
         }
         case "paste-keys" ->
         {
-            if (clipboard.isEmpty())
-            {
-                return false;
-            }
-            var available = clipboard.stream().filter(ref -> scene.find(ref.target) != null && !locked(ref.target))
-                    .toList();
-            int first = available.stream().mapToInt(ref -> ref.key.frame()).min().orElse(0);
-            int last = available.stream().mapToInt(ref -> ref.key.frame()).max().orElse(0);
-            if (last - first > state.snapshot().duration())
-            {
-                return false;
-            }
-            submitBatch("set-keys", EffectKeyframeGestures.pasted(refs(available), (int) state.playhead(),
-                    state.snapshot().duration()));
+            return pasteKeys();
         }
         case "delete-keys" ->
         {
-            if (selected.isEmpty())
-            {
-                return false;
-            }
-            submitBatch(action, EffectKeyframeGestures.references(refs(selected)));
-            selected.clear();
+            return deleteKeys(action);
         }
         case "select-all-keys" ->
         {
-            selected.clear();
-            var targetIds = scene.selectedIds();
-            for (var track : state.snapshot().tracks())
-            {
-                if (targetIds.isEmpty() || targetIds.contains(track.target()))
-                {
-                    for (var key : track.keys())
-                    {
-                        selected.add(new KeyRef(track.target(), track.property(), key));
-                    }
-                }
-            }
-            selectionAnchor = selected.stream().findFirst().orElse(null);
+            selectAllKeys();
         }
         case "deselect-keys" ->
         {
@@ -2711,53 +2769,19 @@ final class EffectTimeline
         case "select-equal-keys", "select-previous-keys", "select-following-keys" -> selectRelated(action);
         case "ease", "ease-in", "ease-out" ->
         {
-            if (!easingAvailable())
-            {
-                return false;
-            }
-            submitBatch("move-keys", EffectKeyframeGestures.eased(refs(selected), state.snapshot().tracks(), action));
+            return easeKeys(action);
         }
         case "linear", "hold", "bezier", "auto-bezier" ->
         {
-            if (selected.isEmpty())
-            {
-                return false;
-            }
-            var payload = EffectKeyframeGestures.references(refs(selected));
-            payload.addProperty("interpolation", action);
-            payload.addProperty("x1", 1.0 / 3);
-            payload.addProperty("y1", 0);
-            payload.addProperty("x2", 2.0 / 3);
-            payload.addProperty("y2", 1);
-            submitBatch("interpolation-keys", payload);
+            return setInterpolation(action);
         }
         case "reverse-keys" ->
         {
-            if (!reversible())
-            {
-                return false;
-            }
-            submitBatch("move-keys", EffectKeyframeGestures.reversed(refs(selected)));
-            selected.clear();
+            return reverseKeys();
         }
         case "previous-key", "next-key" ->
         {
-            double current = state.playhead();
-            var frames = new TreeSet<Integer>();
-            for (var track : state.snapshot().tracks())
-            {
-                if (scene.selectedIds().isEmpty() || scene.selected(track.target()))
-                {
-                    track.keys().forEach(key -> frames.add(key.frame()));
-                }
-            }
-            state.snapshot().markers().forEach(marker -> frames.add(marker.frame()));
-            Integer frame = action.equals("previous-key") ? frames.lower((int) Math.ceil(current))
-                    : frames.higher((int) Math.floor(current));
-            if (frame != null)
-            {
-                seekVisible(frame);
-            }
+            seekAdjacentKey(action);
         }
         case "first-frame" -> seekVisible(0);
         case "last-frame" -> seekVisible(Math.max(0, state.snapshot().duration() - 1));
@@ -2781,16 +2805,7 @@ final class EffectTimeline
         case "align-layer-end" -> alignSelected(false);
         case "align-layer-comp-start", "align-layer-comp-end" ->
         {
-            var layers = selectedLayerRoots().stream().map(this::layer).toList();
-            if (layers.isEmpty())
-            {
-                return false;
-            }
-            int delta = action.equals("align-layer-comp-start")
-                    ? -layers.stream().mapToInt(EffectProtocol.Layer::start).min().orElse(0)
-                    : state.snapshot().duration() - layers.stream().mapToInt(EffectProtocol.Layer::end).max()
-                            .orElse(state.snapshot().duration());
-            return moveSelectedLayers(delta);
+            return alignToComposition(action);
         }
         case "move-layers-back" ->
         {
@@ -2845,25 +2860,7 @@ final class EffectTimeline
             {
                 return false;
             }
-            int first = selected.stream().mapToInt(ref -> ref.key.frame()).min().orElse(0);
-            int last = selected.stream().mapToInt(ref -> ref.key.frame()).max().orElse(0);
-            double span = Math.max(10, last - first);
-            double wanted = Math.min(state.snapshot().duration(), span * 1.25);
-            zoom = state.snapshot().duration() / wanted;
-            offset = Math.max(0, Math.min(state.snapshot().duration() - wanted, first - span * .125));
-            if (graphMode && !speedGraph)
-            {
-                var values = selected.stream()
-                        .filter(ref -> ref.target.equals(graphTarget) && ref.property.equals(graphProperty))
-                        .mapToDouble(ref -> Double.parseDouble(ref.key.value())).summaryStatistics();
-                if (values.getCount() > 0)
-                {
-                    double pad = Math.max(.1, (values.getMax() - values.getMin()) * .15);
-                    graphMin = values.getMin() - pad;
-                    graphMax = values.getMax() + pad;
-                    graphAutoZoom = false;
-                }
-            }
+            fitSelection();
         }
         case "expand-all" ->
         {
@@ -2887,6 +2884,156 @@ final class EffectTimeline
         }
         }
         return true;
+    }
+
+    /** Pastes the copied keys at the playhead; false when the clipboard is empty or longer than the composition. */
+    private boolean pasteKeys()
+    {
+        if (clipboard.isEmpty())
+        {
+            return false;
+        }
+        var available = clipboard.stream().filter(ref -> scene.find(ref.target) != null && !locked(ref.target))
+                .toList();
+        int first = available.stream().mapToInt(ref -> ref.key.frame()).min().orElse(0);
+        int last = available.stream().mapToInt(ref -> ref.key.frame()).max().orElse(0);
+        if (last - first > state.snapshot().duration())
+        {
+            return false;
+        }
+        submitBatch("set-keys",
+                EffectKeyframeGestures.pasted(refs(available), (int) state.playhead(), state.snapshot().duration()));
+        return true;
+    }
+
+    /** Deletes the selected keys; false when none is selected. */
+    private boolean deleteKeys(String action)
+    {
+        if (selected.isEmpty())
+        {
+            return false;
+        }
+        submitBatch(action, EffectKeyframeGestures.references(refs(selected)));
+        selected.clear();
+        return true;
+    }
+
+    /** Applies an ease to the selected keys; false when easing is not available for them. */
+    private boolean easeKeys(String action)
+    {
+        if (!easingAvailable())
+        {
+            return false;
+        }
+        submitBatch("move-keys", EffectKeyframeGestures.eased(refs(selected), state.snapshot().tracks(), action));
+        return true;
+    }
+
+    /** Sets the interpolation of the selected keys; false when none is selected. */
+    private boolean setInterpolation(String action)
+    {
+        if (selected.isEmpty())
+        {
+            return false;
+        }
+        var payload = EffectKeyframeGestures.references(refs(selected));
+        payload.addProperty("interpolation", action);
+        payload.addProperty("x1", 1.0 / 3);
+        payload.addProperty("y1", 0);
+        payload.addProperty("x2", 2.0 / 3);
+        payload.addProperty("y2", 1);
+        submitBatch("interpolation-keys", payload);
+        return true;
+    }
+
+    /** Reverses the timing of the selected keys; false when the selection cannot be reversed. */
+    private boolean reverseKeys()
+    {
+        if (!reversible())
+        {
+            return false;
+        }
+        submitBatch("move-keys", EffectKeyframeGestures.reversed(refs(selected)));
+        selected.clear();
+        return true;
+    }
+
+    /** Moves the selected layers to the composition start or end; false when no layer is selected. */
+    private boolean alignToComposition(String action)
+    {
+        var layers = selectedLayerRoots().stream().map(this::layer).toList();
+        if (layers.isEmpty())
+        {
+            return false;
+        }
+        int delta = action.equals("align-layer-comp-start")
+                ? -layers.stream().mapToInt(EffectProtocol.Layer::start).min().orElse(0)
+                : state.snapshot().duration()
+                        - layers.stream().mapToInt(EffectProtocol.Layer::end).max().orElse(state.snapshot().duration());
+        return moveSelectedLayers(delta);
+    }
+
+    /** Selects every key of the selected layers, or of all layers when none is selected. */
+    private void selectAllKeys()
+    {
+        selected.clear();
+        var targetIds = scene.selectedIds();
+        for (var track : state.snapshot().tracks())
+        {
+            if (targetIds.isEmpty() || targetIds.contains(track.target()))
+            {
+                for (var key : track.keys())
+                {
+                    selected.add(new KeyRef(track.target(), track.property(), key));
+                }
+            }
+        }
+        selectionAnchor = selected.stream().findFirst().orElse(null);
+    }
+
+    /** Moves the playhead to the previous or next key or marker frame. */
+    private void seekAdjacentKey(String action)
+    {
+        double current = state.playhead();
+        var frames = new TreeSet<Integer>();
+        for (var track : state.snapshot().tracks())
+        {
+            if (scene.selectedIds().isEmpty() || scene.selected(track.target()))
+            {
+                track.keys().forEach(key -> frames.add(key.frame()));
+            }
+        }
+        state.snapshot().markers().forEach(marker -> frames.add(marker.frame()));
+        Integer frame = action.equals("previous-key") ? frames.lower((int) Math.ceil(current))
+                : frames.higher((int) Math.floor(current));
+        if (frame != null)
+        {
+            seekVisible(frame);
+        }
+    }
+
+    /** Zooms the timeline, and the value graph, to the selected keys. */
+    private void fitSelection()
+    {
+        int first = selected.stream().mapToInt(ref -> ref.key.frame()).min().orElse(0);
+        int last = selected.stream().mapToInt(ref -> ref.key.frame()).max().orElse(0);
+        double span = Math.max(10, last - first);
+        double wanted = Math.min(state.snapshot().duration(), span * 1.25);
+        zoom = state.snapshot().duration() / wanted;
+        offset = Math.max(0, Math.min(state.snapshot().duration() - wanted, first - span * .125));
+        if (graphMode && !speedGraph)
+        {
+            var values = selected.stream()
+                    .filter(ref -> ref.target.equals(graphTarget) && ref.property.equals(graphProperty))
+                    .mapToDouble(ref -> Double.parseDouble(ref.key.value())).summaryStatistics();
+            if (values.getCount() > 0)
+            {
+                double pad = Math.max(.1, (values.getMax() - values.getMin()) * .15);
+                graphMin = values.getMin() - pad;
+                graphMax = values.getMax() + pad;
+                graphAutoZoom = false;
+            }
+        }
     }
 
     static Map<String, String> shortcuts()

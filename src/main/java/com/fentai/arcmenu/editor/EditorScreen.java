@@ -66,11 +66,11 @@ import static com.fentai.arcmenu.editor.EditorColors.FIELD;
 import static com.fentai.arcmenu.editor.EditorColors.HEADER;
 import static com.fentai.arcmenu.editor.EditorColors.HIGHLIGHT;
 import static com.fentai.arcmenu.editor.EditorColors.ICON_HOVER;
-import static com.fentai.arcmenu.editor.EditorColors.POPUP_BACKGROUND;
 import static com.fentai.arcmenu.editor.EditorColors.MUTED;
 import static com.fentai.arcmenu.editor.EditorColors.OVERLAY_TEXT;
 import static com.fentai.arcmenu.editor.EditorColors.PANEL;
 import static com.fentai.arcmenu.editor.EditorColors.PANEL_ALT;
+import static com.fentai.arcmenu.editor.EditorColors.POPUP_BACKGROUND;
 import static com.fentai.arcmenu.editor.EditorColors.ROW_HOVER;
 import static com.fentai.arcmenu.editor.EditorColors.SELECTED;
 import static com.fentai.arcmenu.editor.EditorColors.SNAP_GUIDE;
@@ -1041,6 +1041,32 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 Math.min(Math.max(0, assetLibrary.folders().size() * 20 - visibleHeight), folderScroll));
         graphics.enableScissor(panel.x(), top, divider, panel.bottom());
         int index = 0;
+        drawFolderRows(graphics, top, index, panel, divider, mouseX, mouseY);
+        graphics.disableScissor();
+
+        List<EditorAssetLibrary.Entry> entries = assetLibrary.entries();
+        int gridX = divider + 8;
+        int gridWidth = panel.right() - gridX - 8;
+        int columns = Math.max(1, (gridWidth + 7) / 115);
+        int cardW = Math.min(150, Math.max(50, (gridWidth - (columns - 1) * 7) / columns));
+        int rowHeight = 76;
+        imageContentHeight = ((entries.size() + columns - 1) / columns) * rowHeight + 4;
+        imageScroll = Math.max(0, Math.min(Math.max(0, imageContentHeight - visibleHeight), imageScroll));
+        assetCards.clear();
+        graphics.enableScissor(divider + 1, top, panel.right(), panel.bottom());
+        drawAssetCards(graphics, entries, gridX, columns, cardW, top, rowHeight, panel, mouseX, mouseY);
+        if (entries.isEmpty())
+        {
+            graphics.centeredText(font, EditorI18n.text("arcmenu_editor.images.none"),
+                    divider + (panel.right() - divider) / 2, top + 25, MUTED);
+        }
+        graphics.disableScissor();
+    }
+
+    /** Draws the folder tree of the image library. */
+    private void drawFolderRows(GuiGraphicsExtractor graphics, int top, int index, EditorLayout.Rect panel, int divider,
+            int mouseX, int mouseY)
+    {
         for (String path : assetLibrary.folders())
         {
             int y = top + index++ * 20 - folderScroll;
@@ -1067,18 +1093,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 hoverTooltip = new HoverTooltip(path.isEmpty() ? label : path, mouseX + 8, mouseY - 20);
             }
         }
-        graphics.disableScissor();
+    }
 
-        List<EditorAssetLibrary.Entry> entries = assetLibrary.entries();
-        int gridX = divider + 8;
-        int gridWidth = panel.right() - gridX - 8;
-        int columns = Math.max(1, (gridWidth + 7) / 115);
-        int cardW = Math.min(150, Math.max(50, (gridWidth - (columns - 1) * 7) / columns));
-        int rowHeight = 76;
-        imageContentHeight = ((entries.size() + columns - 1) / columns) * rowHeight + 4;
-        imageScroll = Math.max(0, Math.min(Math.max(0, imageContentHeight - visibleHeight), imageScroll));
-        assetCards.clear();
-        graphics.enableScissor(divider + 1, top, panel.right(), panel.bottom());
+    /** Draws the image cards of the current folder. */
+    private void drawAssetCards(GuiGraphicsExtractor graphics, List<EditorAssetLibrary.Entry> entries, int gridX,
+            int columns, int cardW, int top, int rowHeight, EditorLayout.Rect panel, int mouseX, int mouseY)
+    {
         for (int i = 0; i < entries.size(); i++)
         {
             var entry = entries.get(i);
@@ -1133,12 +1153,6 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 hoverTooltip = new HoverTooltip(entry.path(), mouseX + 8, mouseY - 20);
             }
         }
-        if (entries.isEmpty())
-        {
-            graphics.centeredText(font, EditorI18n.text("arcmenu_editor.images.none"),
-                    divider + (panel.right() - divider) / 2, top + 25, MUTED);
-        }
-        graphics.disableScissor();
     }
 
     private boolean clickImages(double x, double y, boolean doubleClick)
@@ -1937,36 +1951,12 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         }
         if (propertyDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
         {
-            if (!propertyDrag.dragging)
-            {
-                PropertyDrag clicked = propertyDrag;
-                finishPropertyGesture();
-                propertyField(clicked.property.key()).ifPresent(this::focusProperty);
-            }
-            else
-            {
-                propertyReleased = true;
-                flushPropertyDrag(true);
-            }
+            releasePropertyDrag();
             return true;
         }
         if (activeGestureId != 0)
         {
-            if (pendingDragPointer != null && currentLayout != null)
-            {
-                pendingDragPointer = resizingNode ? boundedPointer(event.x(), event.y(), true)
-                        : snappedPointer(event.x(), event.y(), event.hasAltDown());
-            }
-            dragReleased = true;
-            if (pendingDragPointer == null)
-            {
-                finishLiveGesture();
-            }
-            else
-            {
-                flushLiveDrag(true);
-            }
-            resizeTarget = ResizeTarget.NONE;
+            releaseLiveGesture(event);
             return true;
         }
         boolean managerDragged = !dragCandidateNode.isBlank()
@@ -1991,58 +1981,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         else if (managerDragged && currentLayout != null && currentLayout.manager().contains(event.x(), event.y())
                 && state.snapshot() != null)
         {
-            NodeRow target = nodeRowAt(event.y());
-            List<String> selected = selectedOrder();
-            if (target != null && target.node.kind() == EditorProtocol.KIND_GROUP)
-            {
-                if (canMoveIntoGroup(selected, target.node))
-                {
-                    state.expanded().add(target.node.id());
-                    if (sameParent(selected, target.node.id()))
-                    {
-                        ArcMenuEditorClient
-                                .send(new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected, ""));
-                    }
-                    else
-                    {
-                        ArcMenuEditorClient
-                                .send(new ReparentPacket(state.snapshot().revision(), selected, target.node.id(), ""));
-                    }
-                }
-                else
-                {
-                    state.status(EditorI18n.text("arcmenu_editor.status.invalid_group_drop"));
-                }
-            }
-            else if (target != null && !selected.contains(target.node.id()))
-            {
-                if (sameParent(selected, target.node.parentId()))
-                {
-                    ArcMenuEditorClient.send(new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected,
-                            target.node.id()));
-                }
-                else if (canMoveToParent(selected, target.node.parentId()))
-                {
-                    ArcMenuEditorClient.send(new ReparentPacket(state.snapshot().revision(), selected,
-                            target.node.parentId(), target.node.id()));
-                }
-                else
-                {
-                    state.status(EditorI18n.text("arcmenu_editor.status.invalid_group_drop"));
-                }
-            }
-            else if (target == null && event.y() >= currentLayout.manager().y() + 46)
-            {
-                if (sameParent(selected, ""))
-                {
-                    ArcMenuEditorClient
-                            .send(new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected, ""));
-                }
-                else if (canMoveToParent(selected, ""))
-                {
-                    ArcMenuEditorClient.send(new ReparentPacket(state.snapshot().revision(), selected, "", ""));
-                }
-            }
+            dropOnManager(event);
         }
         if (!draggingTemplate.isBlank() && currentLayout != null
                 && currentLayout.manager().contains(event.x(), event.y()) && state.snapshot() != null)
@@ -2053,6 +1992,99 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         draggingTemplate = "";
         resizeTarget = ResizeTarget.NONE;
         return super.mouseReleased(event);
+    }
+
+    /** Focuses a clicked property field, or sends the final dragged value. */
+    private void releasePropertyDrag()
+    {
+        if (!propertyDrag.dragging)
+        {
+            PropertyDrag clicked = propertyDrag;
+            finishPropertyGesture();
+            propertyField(clicked.property.key()).ifPresent(this::focusProperty);
+        }
+        else
+        {
+            propertyReleased = true;
+            flushPropertyDrag(true);
+        }
+    }
+
+    /** Sends the final pointer of a canvas move or resize. */
+    private void releaseLiveGesture(MouseButtonEvent event)
+    {
+        if (pendingDragPointer != null && currentLayout != null)
+        {
+            pendingDragPointer = resizingNode ? boundedPointer(event.x(), event.y(), true)
+                    : snappedPointer(event.x(), event.y(), event.hasAltDown());
+        }
+        dragReleased = true;
+        if (pendingDragPointer == null)
+        {
+            finishLiveGesture();
+        }
+        else
+        {
+            flushLiveDrag(true);
+        }
+        resizeTarget = ResizeTarget.NONE;
+    }
+
+    /** Reorders or reparents the dragged elements onto the manager row under the pointer. */
+    private void dropOnManager(MouseButtonEvent event)
+    {
+        NodeRow target = nodeRowAt(event.y());
+        List<String> selected = selectedOrder();
+        if (target != null && target.node.kind() == EditorProtocol.KIND_GROUP)
+        {
+            if (canMoveIntoGroup(selected, target.node))
+            {
+                state.expanded().add(target.node.id());
+                if (sameParent(selected, target.node.id()))
+                {
+                    ArcMenuEditorClient
+                            .send(new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected, ""));
+                }
+                else
+                {
+                    ArcMenuEditorClient
+                            .send(new ReparentPacket(state.snapshot().revision(), selected, target.node.id(), ""));
+                }
+            }
+            else
+            {
+                state.status(EditorI18n.text("arcmenu_editor.status.invalid_group_drop"));
+            }
+        }
+        else if (target != null && !selected.contains(target.node.id()))
+        {
+            if (sameParent(selected, target.node.parentId()))
+            {
+                ArcMenuEditorClient.send(
+                        new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected, target.node.id()));
+            }
+            else if (canMoveToParent(selected, target.node.parentId()))
+            {
+                ArcMenuEditorClient.send(new ReparentPacket(state.snapshot().revision(), selected,
+                        target.node.parentId(), target.node.id()));
+            }
+            else
+            {
+                state.status(EditorI18n.text("arcmenu_editor.status.invalid_group_drop"));
+            }
+        }
+        else if (target == null && event.y() >= currentLayout.manager().y() + 46)
+        {
+            if (sameParent(selected, ""))
+            {
+                ArcMenuEditorClient
+                        .send(new ReorderPacket(state.snapshot().revision(), state.activeTab(), selected, ""));
+            }
+            else if (canMoveToParent(selected, ""))
+            {
+                ArcMenuEditorClient.send(new ReparentPacket(state.snapshot().revision(), selected, "", ""));
+            }
+        }
     }
 
     /**
@@ -2294,6 +2326,26 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             }
             return super.keyPressed(event);
         }
+        if (controlShortcut(event))
+        {
+            return true;
+        }
+        if (event.key() == GLFW.GLFW_KEY_F2 && state.selectedIds().size() == 1)
+        {
+            focusIdProperty();
+            return true;
+        }
+        if (state.snapshot() != null && event.key() == GLFW.GLFW_KEY_DELETE && !state.selectedIds().isEmpty())
+        {
+            deleteSelection();
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    /** Runs the Ctrl shortcuts of the menu editor: undo, redo, save, clipboard, grouping and selection. */
+    private boolean controlShortcut(KeyEvent event)
+    {
         if (state.snapshot() != null && event.hasControlDown())
         {
             if (event.key() == GLFW.GLFW_KEY_Z)
@@ -2354,17 +2406,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 return true;
             }
         }
-        if (event.key() == GLFW.GLFW_KEY_F2 && state.selectedIds().size() == 1)
-        {
-            focusIdProperty();
-            return true;
-        }
-        if (state.snapshot() != null && event.key() == GLFW.GLFW_KEY_DELETE && !state.selectedIds().isEmpty())
-        {
-            deleteSelection();
-            return true;
-        }
-        return super.keyPressed(event);
+        return false;
     }
 
     private void performManagerAction(ManagerAction action)

@@ -376,71 +376,7 @@ public final class EditorMcp
             }
             if (name.equals("effect_workspace"))
             {
-                String operation = required(args, "operation");
-                if (!operation.equals("state"))
-                {
-                    Pending request = new Pending();
-                    request.anyAck = true;
-                    pending = request;
-                    try
-                    {
-                        boolean sent = main(() ->
-                        {
-                            Minecraft client = Minecraft.getInstance();
-                            int modifiers = (bool(args, "ctrl", false) ? 2 : 0) | (bool(args, "shift", false) ? 1 : 0)
-                                    | (bool(args, "alt", false) ? 4 : 0);
-                            if (client.screen instanceof EditorScreen menuEditor)
-                            {
-                                // Menu editor pointer input is acknowledged through the scene state, not Effect acks.
-                                if (!menuEditor.pointerInput(operation, number(args, "x", 0), number(args, "y", 0),
-                                        integer(args, "button", 0), modifiers, number(args, "dx", 0),
-                                        number(args, "dy", 0)))
-                                {
-                                    throw new IllegalArgumentException("The menu editor did not handle that input");
-                                }
-                                return false;
-                            }
-                            var screen = client.screen instanceof EffectEditorScreen workspace ? workspace
-                                    : client.screen instanceof EffectWorkspaceChild child ? child.workspace() : null;
-                            if (screen == null)
-                            {
-                                throw new IllegalStateException(
-                                        "Open the Effect workspace before using workspace input");
-                            }
-                            if (ArcMenuEditorClient.EFFECT.busy())
-                            {
-                                throw new IllegalStateException("Wait for pending Effect edits");
-                            }
-                            long before = ArcMenuEditorClient.sceneRequestCount();
-                            boolean handled = screen.workspaceInput(operation, string(args, "command", ""),
-                                    string(args, "shortcut", ""), number(args, "x", 0), number(args, "y", 0),
-                                    integer(args, "button", 0),
-                                    (bool(args, "ctrl", false) ? 2 : 0) | (bool(args, "shift", false) ? 1 : 0)
-                                            | (bool(args, "alt", false) ? 4 : 0),
-                                    number(args, "dx", 0), number(args, "dy", 0));
-                            if (!handled)
-                            {
-                                throw new IllegalArgumentException(
-                                        "The workspace did not handle that command or input");
-                            }
-                            return ArcMenuEditorClient.sceneRequestCount() != before
-                                    || ArcMenuEditorClient.EFFECT.busy();
-                        });
-                        if (sent)
-                        {
-                            await(request);
-                        }
-                        waitTicks(3);
-                    }
-                    finally
-                    {
-                        if (pending == request)
-                        {
-                            pending = null;
-                        }
-                    }
-                }
-                return McpTools.result(main(EditorMcp::state));
+                return effectWorkspace(args);
             }
             if (name.equals("arcmenu_screenshot"))
             {
@@ -453,87 +389,15 @@ public final class EditorMcp
             }
             if (name.equals("effect_capture_frames"))
             {
-                JsonArray frames = args.getAsJsonArray("frames");
-                JsonArray content = new JsonArray();
-                JsonArray metadata = new JsonArray();
-                for (JsonElement frame : frames)
-                {
-                    int frameIndex = frame.getAsInt();
-                    effectEdit("seek", "", "", frameIndex, 0, "", "linear", new double[] { 0, 0, 0, 0 }, args);
-                    JsonObject shot = capture(args, frameIndex);
-                    shot.getAsJsonArray("content").forEach(content::add);
-                    metadata.add(shot.get("structuredContent"));
-                }
-                JsonObject result = new JsonObject();
-                JsonObject data = new JsonObject();
-                data.add("frames", metadata);
-                result.add("structuredContent", data);
-                result.add("content", content);
-                return result;
+                return captureFrames(args);
             }
             if (name.equals("arcmenu_open"))
             {
-                String id = required(args, "id");
-                identifier(id);
-                String from = string(args, "fromMenu", "");
-                if (!from.isEmpty())
-                {
-                    identifier(from);
-                }
-                Pending request = new Pending();
-                request.openId = id;
-                request.openingEffect = required(args, "mode").equals("effect");
-                pending = request;
-                try
-                {
-                    main(() ->
-                    {
-                        Minecraft client = Minecraft.getInstance();
-                        if (client.player == null || client.getConnection() == null)
-                        {
-                            throw new IllegalStateException("Join an ArcMenu server first");
-                        }
-                        client.getConnection()
-                                .sendCommand("arcmenu " + (request.openingEffect ? "editeffect " : "edit ") + id
-                                        + (request.openingEffect ? (from.isEmpty() ? "" : " " + from)
-                                                : (bool(args, "create", false)
-                                                        ? " create" + (from.isEmpty() ? "" : " " + from)
-                                                        : "")));
-                        return null;
-                    });
-                    await(request);
-                }
-                finally
-                {
-                    if (pending == request)
-                    {
-                        pending = null;
-                    }
-                }
-                return McpTools.result(main(EditorMcp::state));
+                return openProject(args);
             }
             if (name.equals("arcmenu_select"))
             {
-                byte tab = tab(args);
-                if (main(() -> ArcMenuEditorClient.state().activeTab()) != tab)
-                {
-                    sceneEdit(new SwitchTabPacket(tab), EditorProtocol.OP_TAB);
-                }
-                main(() ->
-                {
-                    var state = ArcMenuEditorClient.state();
-                    List<String> ids = strings(args, "ids");
-                    for (String id : ids)
-                    {
-                        if (state.find(id) == null)
-                        {
-                            throw new IllegalArgumentException("Element is missing: " + id);
-                        }
-                    }
-                    state.selectAll(ids);
-                    refresh();
-                    return null;
-                });
+                selectElements(args);
             }
             else if (name.equals("arcmenu_edit"))
             {
@@ -545,6 +409,158 @@ public final class EditorMcp
             }
             return McpTools.result(main(EditorMcp::state));
         }
+    }
+
+    /** Runs workspace commands, shortcuts and pointer input in the Effect workspace or the menu editor. */
+    private static JsonObject effectWorkspace(JsonObject args) throws Exception
+    {
+        String operation = required(args, "operation");
+        if (!operation.equals("state"))
+        {
+            Pending request = new Pending();
+            request.anyAck = true;
+            pending = request;
+            try
+            {
+                boolean sent = main(() ->
+                {
+                    Minecraft client = Minecraft.getInstance();
+                    int modifiers = (bool(args, "ctrl", false) ? 2 : 0) | (bool(args, "shift", false) ? 1 : 0)
+                            | (bool(args, "alt", false) ? 4 : 0);
+                    if (client.screen instanceof EditorScreen menuEditor)
+                    {
+                        // Menu editor pointer input is acknowledged through the scene state, not Effect acks.
+                        if (!menuEditor.pointerInput(operation, number(args, "x", 0), number(args, "y", 0),
+                                integer(args, "button", 0), modifiers, number(args, "dx", 0), number(args, "dy", 0)))
+                        {
+                            throw new IllegalArgumentException("The menu editor did not handle that input");
+                        }
+                        return false;
+                    }
+                    var screen = client.screen instanceof EffectEditorScreen workspace ? workspace
+                            : client.screen instanceof EffectWorkspaceChild child ? child.workspace() : null;
+                    if (screen == null)
+                    {
+                        throw new IllegalStateException("Open the Effect workspace before using workspace input");
+                    }
+                    if (ArcMenuEditorClient.EFFECT.busy())
+                    {
+                        throw new IllegalStateException("Wait for pending Effect edits");
+                    }
+                    long before = ArcMenuEditorClient.sceneRequestCount();
+                    boolean handled = screen.workspaceInput(operation, string(args, "command", ""),
+                            string(args, "shortcut", ""), number(args, "x", 0), number(args, "y", 0),
+                            integer(args, "button", 0), (bool(args, "ctrl", false) ? 2 : 0)
+                                    | (bool(args, "shift", false) ? 1 : 0) | (bool(args, "alt", false) ? 4 : 0),
+                            number(args, "dx", 0), number(args, "dy", 0));
+                    if (!handled)
+                    {
+                        throw new IllegalArgumentException("The workspace did not handle that command or input");
+                    }
+                    return ArcMenuEditorClient.sceneRequestCount() != before || ArcMenuEditorClient.EFFECT.busy();
+                });
+                if (sent)
+                {
+                    await(request);
+                }
+                waitTicks(3);
+            }
+            finally
+            {
+                if (pending == request)
+                {
+                    pending = null;
+                }
+            }
+        }
+        return McpTools.result(main(EditorMcp::state));
+    }
+
+    /** Seeks to each requested frame and captures it. */
+    private static JsonObject captureFrames(JsonObject args) throws Exception
+    {
+        JsonArray frames = args.getAsJsonArray("frames");
+        JsonArray content = new JsonArray();
+        JsonArray metadata = new JsonArray();
+        for (JsonElement frame : frames)
+        {
+            int frameIndex = frame.getAsInt();
+            effectEdit("seek", "", "", frameIndex, 0, "", "linear", new double[] { 0, 0, 0, 0 }, args);
+            JsonObject shot = capture(args, frameIndex);
+            shot.getAsJsonArray("content").forEach(content::add);
+            metadata.add(shot.get("structuredContent"));
+        }
+        JsonObject result = new JsonObject();
+        JsonObject data = new JsonObject();
+        data.add("frames", metadata);
+        result.add("structuredContent", data);
+        result.add("content", content);
+        return result;
+    }
+
+    /** Opens a menu or Effect composition through the server command and waits for the editor. */
+    private static JsonObject openProject(JsonObject args) throws Exception
+    {
+        String id = required(args, "id");
+        identifier(id);
+        String from = string(args, "fromMenu", "");
+        if (!from.isEmpty())
+        {
+            identifier(from);
+        }
+        Pending request = new Pending();
+        request.openId = id;
+        request.openingEffect = required(args, "mode").equals("effect");
+        pending = request;
+        try
+        {
+            main(() ->
+            {
+                Minecraft client = Minecraft.getInstance();
+                if (client.player == null || client.getConnection() == null)
+                {
+                    throw new IllegalStateException("Join an ArcMenu server first");
+                }
+                client.getConnection().sendCommand("arcmenu " + (request.openingEffect ? "editeffect " : "edit ") + id
+                        + (request.openingEffect ? (from.isEmpty() ? "" : " " + from)
+                                : (bool(args, "create", false) ? " create" + (from.isEmpty() ? "" : " " + from) : "")));
+                return null;
+            });
+            await(request);
+        }
+        finally
+        {
+            if (pending == request)
+            {
+                pending = null;
+            }
+        }
+        return McpTools.result(main(EditorMcp::state));
+    }
+
+    /** Selects elements by id in the requested tab. */
+    private static void selectElements(JsonObject args) throws Exception
+    {
+        byte tab = tab(args);
+        if (main(() -> ArcMenuEditorClient.state().activeTab()) != tab)
+        {
+            sceneEdit(new SwitchTabPacket(tab), EditorProtocol.OP_TAB);
+        }
+        main(() ->
+        {
+            var state = ArcMenuEditorClient.state();
+            List<String> ids = strings(args, "ids");
+            for (String id : ids)
+            {
+                if (state.find(id) == null)
+                {
+                    throw new IllegalArgumentException("Element is missing: " + id);
+                }
+            }
+            state.selectAll(ids);
+            refresh();
+            return null;
+        });
     }
 
     private static JsonObject workspaceProjects(JsonObject args) throws Exception
@@ -566,114 +582,23 @@ public final class EditorMcp
         }
         if (action.equals("select"))
         {
-            main(() ->
-            {
-                var catalogue = WorkspaceClient.STATE;
-                catalogue.selectAll(List.of());
-                var rows = catalogue.rows("");
-                for (String key : strings(args, "ids"))
-                {
-                    var match = catalogue.projects().stream().filter(project -> project.key().equals(key)).findFirst()
-                            .orElseThrow(() -> new IllegalArgumentException("Unknown project: " + key));
-                    catalogue.select(match, true, false, rows);
-                }
-                var client = Minecraft.getInstance();
-                if (client.screen instanceof WorkspaceScreen manager)
-                {
-                    manager.selectionChanged();
-                }
-                return null;
-            });
-            return McpTools.result(main(EditorMcp::state));
+            return selectProjects(args);
         }
         if (action.equals("select_pack"))
         {
-            var parameters = JsonParser.parseString(string(args, "parameters", "{}")).getAsJsonObject();
-            main(() ->
-            {
-                var client = Minecraft.getInstance();
-                if (!(client.screen instanceof WorkspaceScreen manager))
-                {
-                    throw new IllegalStateException("Open the native project manager first");
-                }
-                manager.selectLocalPackage(required(parameters, "filename"));
-                return null;
-            });
-            return McpTools.result(main(EditorMcp::state));
+            return selectPack(args);
         }
         if (action.equals("input"))
         {
-            main(() ->
-            {
-                var client = Minecraft.getInstance();
-                if (!(client.screen instanceof WorkspaceScreen manager))
-                {
-                    throw new IllegalStateException("Open the native project manager first");
-                }
-                if (!manager.input(required(args, "field"), required(args, "value")))
-                {
-                    throw new IllegalStateException(
-                            "The workspace field is unavailable or an operation is already in progress");
-                }
-                return null;
-            });
-            return McpTools.result(main(EditorMcp::state));
+            return projectInput(args);
         }
         if (action.equals("click") || action.equals("keypress"))
         {
-            main(() ->
-            {
-                var client = Minecraft.getInstance();
-                if (action.equals("click"))
-                {
-                    if (!(client.screen instanceof WorkspaceScreen manager))
-                    {
-                        throw new IllegalStateException("Open the native project manager first");
-                    }
-                    var event = mouseEvent(number(args, "x", 0), number(args, "y", 0), integer(args, "button", 0), 0);
-                    manager.mouseMoved(event.x(), event.y());
-                    manager.mouseClicked(event, false);
-                    manager.mouseReleased(event);
-                }
-                else
-                {
-                    var event = new KeyEvent(workspaceKey(required(args, "key")), 0, 0);
-                    if (client.screen instanceof WorkspaceScreen manager)
-                    {
-                        manager.keyPressed(event);
-                    }
-                    else if (client.screen instanceof WorkspacePreviewScreen preview)
-                    {
-                        preview.keyPressed(event);
-                    }
-                    else
-                    {
-                        throw new IllegalStateException(
-                                "Open the native project manager or a package preview capture first");
-                    }
-                }
-                return null;
-            });
-            waitTicks(2);
-            return McpTools.result(main(EditorMcp::state));
+            return projectPointer(args, action);
         }
         if (action.equals("command"))
         {
-            main(() ->
-            {
-                var client = Minecraft.getInstance();
-                if (!(client.screen instanceof WorkspaceScreen manager))
-                {
-                    throw new IllegalStateException("Open the native project manager first");
-                }
-                if (!manager.command(required(args, "command")))
-                {
-                    throw new IllegalStateException(
-                            "The workspace command is unavailable or an operation is already in progress");
-                }
-                return null;
-            });
-            return McpTools.result(main(EditorMcp::state));
+            return projectCommand(args);
         }
         JsonObject parameters = JsonParser.parseString(string(args, "parameters", "{}")).getAsJsonObject();
         CompletableFuture<JsonObject> future = main(() ->
@@ -701,6 +626,127 @@ public final class EditorMcp
             return WorkspaceClient.request(action, parameters);
         });
         return McpTools.result(future.get(190, TimeUnit.SECONDS));
+    }
+
+    /** Selects projects by type:id key. */
+    private static JsonObject selectProjects(JsonObject args) throws Exception
+    {
+        main(() ->
+        {
+            var catalogue = WorkspaceClient.STATE;
+            catalogue.selectAll(List.of());
+            var rows = catalogue.rows("");
+            for (String key : strings(args, "ids"))
+            {
+                var match = catalogue.projects().stream().filter(project -> project.key().equals(key)).findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Unknown project: " + key));
+                catalogue.select(match, true, false, rows);
+            }
+            var client = Minecraft.getInstance();
+            if (client.screen instanceof WorkspaceScreen manager)
+            {
+                manager.selectionChanged();
+            }
+            return null;
+        });
+        return McpTools.result(main(EditorMcp::state));
+    }
+
+    /** Selects a saved local package by file name. */
+    private static JsonObject selectPack(JsonObject args) throws Exception
+    {
+        var parameters = JsonParser.parseString(string(args, "parameters", "{}")).getAsJsonObject();
+        main(() ->
+        {
+            var client = Minecraft.getInstance();
+            if (!(client.screen instanceof WorkspaceScreen manager))
+            {
+                throw new IllegalStateException("Open the native project manager first");
+            }
+            manager.selectLocalPackage(required(parameters, "filename"));
+            return null;
+        });
+        return McpTools.result(main(EditorMcp::state));
+    }
+
+    /** Types into a visible field of the project manager. */
+    private static JsonObject projectInput(JsonObject args) throws Exception
+    {
+        main(() ->
+        {
+            var client = Minecraft.getInstance();
+            if (!(client.screen instanceof WorkspaceScreen manager))
+            {
+                throw new IllegalStateException("Open the native project manager first");
+            }
+            if (!manager.input(required(args, "field"), required(args, "value")))
+            {
+                throw new IllegalStateException(
+                        "The workspace field is unavailable or an operation is already in progress");
+            }
+            return null;
+        });
+        return McpTools.result(main(EditorMcp::state));
+    }
+
+    /** Sends a real pointer press or key press to the project manager. */
+    private static JsonObject projectPointer(JsonObject args, String action) throws Exception
+    {
+        main(() ->
+        {
+            var client = Minecraft.getInstance();
+            if (action.equals("click"))
+            {
+                if (!(client.screen instanceof WorkspaceScreen manager))
+                {
+                    throw new IllegalStateException("Open the native project manager first");
+                }
+                var event = mouseEvent(number(args, "x", 0), number(args, "y", 0), integer(args, "button", 0), 0);
+                manager.mouseMoved(event.x(), event.y());
+                manager.mouseClicked(event, false);
+                manager.mouseReleased(event);
+            }
+            else
+            {
+                var event = new KeyEvent(workspaceKey(required(args, "key")), 0, 0);
+                if (client.screen instanceof WorkspaceScreen manager)
+                {
+                    manager.keyPressed(event);
+                }
+                else if (client.screen instanceof WorkspacePreviewScreen preview)
+                {
+                    preview.keyPressed(event);
+                }
+                else
+                {
+                    throw new IllegalStateException(
+                            "Open the native project manager or a package preview capture first");
+                }
+            }
+            return null;
+        });
+        waitTicks(2);
+        return McpTools.result(main(EditorMcp::state));
+    }
+
+    /** Invokes a named control of the project manager. */
+    private static JsonObject projectCommand(JsonObject args) throws Exception
+    {
+        main(() ->
+        {
+            var client = Minecraft.getInstance();
+            if (!(client.screen instanceof WorkspaceScreen manager))
+            {
+                throw new IllegalStateException("Open the native project manager first");
+            }
+            if (!manager.command(required(args, "command")))
+            {
+                throw new IllegalStateException(
+                        "The workspace command is unavailable or an operation is already in progress");
+            }
+            return null;
+        });
+        return McpTools.result(main(EditorMcp::state));
     }
 
     private static MouseButtonEvent mouseEvent(double x, double y, int button, int mods)
@@ -733,18 +779,7 @@ public final class EditorMcp
         String action = required(args, "action");
         if (action.equals("state"))
         {
-            var reply = main(() ->
-            {
-                var json = new JsonObject();
-                json.addProperty("available", WorkspaceClient.MARKET.available());
-                json.addProperty("authenticated", WorkspaceClient.MARKET.authenticated());
-                json.addProperty("username", WorkspaceClient.MARKET.userName());
-                json.addProperty("authStatus", WorkspaceClient.authStatus());
-                json.addProperty("authStage", WorkspaceClient.authStage());
-                json.addProperty("authError", WorkspaceClient.authError());
-                return json;
-            });
-            return McpTools.result(reply);
+            return marketState(args);
         }
         if (action.equals("open"))
         {
@@ -763,20 +798,7 @@ public final class EditorMcp
         }
         if (action.equals("show") || action.equals("logout"))
         {
-            main(() ->
-            {
-                var client = Minecraft.getInstance();
-                if (action.equals("logout"))
-                {
-                    WorkspaceClient.MARKET.clearAuthentication();
-                }
-                else
-                {
-                    WorkspaceClient.open(client.screen, true);
-                }
-                return null;
-            });
-            return McpTools.result(main(EditorMcp::state));
+            return showMarket(args, action);
         }
         CompletableFuture<JsonObject> future = main(
                 () -> WorkspaceClient.MARKET.available() ? CompletableFuture.completedFuture(new JsonObject())
@@ -875,6 +897,42 @@ public final class EditorMcp
             return scheduled;
         });
         return McpTools.result(future.get(action.equals("install") ? 190 : 60, TimeUnit.SECONDS));
+    }
+
+    /** Reports the marketplace connection and sign-in state. */
+    private static JsonObject marketState(JsonObject args) throws Exception
+    {
+        var reply = main(() ->
+        {
+            var json = new JsonObject();
+            json.addProperty("available", WorkspaceClient.MARKET.available());
+            json.addProperty("authenticated", WorkspaceClient.MARKET.authenticated());
+            json.addProperty("username", WorkspaceClient.MARKET.userName());
+            json.addProperty("authStatus", WorkspaceClient.authStatus());
+            json.addProperty("authStage", WorkspaceClient.authStage());
+            json.addProperty("authError", WorkspaceClient.authError());
+            return json;
+        });
+        return McpTools.result(reply);
+    }
+
+    /** Opens the marketplace page, or signs out, through the native manager. */
+    private static JsonObject showMarket(JsonObject args, String action) throws Exception
+    {
+        main(() ->
+        {
+            var client = Minecraft.getInstance();
+            if (action.equals("logout"))
+            {
+                WorkspaceClient.MARKET.clearAuthentication();
+            }
+            else
+            {
+                WorkspaceClient.open(client.screen, true);
+            }
+            return null;
+        });
+        return McpTools.result(main(EditorMcp::state));
     }
 
     private static void identifier(String value)

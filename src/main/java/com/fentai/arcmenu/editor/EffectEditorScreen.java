@@ -19,6 +19,7 @@ import com.fentai.arcmenu.protocol.EditorProtocol.ReorderPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.ReparentPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.ResizePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.UndoPacket;
 import com.fentai.arcmenu.protocol.EffectProtocol;
 
@@ -540,6 +541,31 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         EffectUi.text(graphics, font, EffectUi.label("name"), panel.x() + 8, y + 75, EffectUi.MUTED);
         List<ProjectEntry> items = new ArrayList<>();
+        collectProjectItems(items, effectSnapshot, sceneSnapshot);
+        if (!projectQuery.isEmpty())
+        {
+            items.removeIf(item -> !item.id.toLowerCase(Locale.ROOT).contains(projectQuery.toLowerCase(Locale.ROOT)));
+        }
+        visibleProjectLayers = items.stream().filter(item -> item.kind.equals("layer")).map(ProjectEntry::id).toList();
+        int start = y + 91;
+        int visible = Math.max(1, (panel.bottom() - start - 21) / 19);
+        projectScroll = Math.min(projectScroll, Math.max(0, items.size() - visible));
+        drawProjectRows(graphics, items, visible, start, panel, mouseX, mouseY);
+        button(graphics, new EditorLayout.Rect(panel.x() + 5, panel.bottom() - 19, 19, 15), "+",
+                EffectUi.label("add_layer"), () -> openedMenu = "layer", false, mouseX, mouseY);
+        button(graphics, new EditorLayout.Rect(panel.x() + 28, panel.bottom() - 19, 19, 15), "×",
+                EffectUi.label("delete"), this::delete, false, mouseX, mouseY);
+        EffectUi.text(graphics, font,
+                EffectUi.fit(font,
+                        projectTab.equals("assets") ? EffectUi.label("asset_hint") : EffectUi.label("project_hint"),
+                        panel.width() - 57),
+                panel.x() + 53, panel.bottom() - 15, EffectUi.MUTED);
+    }
+
+    /** Lists the layers or assets shown in the project panel. */
+    private void collectProjectItems(List<ProjectEntry> items, EffectProtocol.Snapshot effectSnapshot,
+            SnapshotPacket sceneSnapshot)
+    {
         if (projectTab.equals("project"))
         {
             items.add(new ProjectEntry(effectSnapshot.id(), "composition", null, () ->
@@ -575,14 +601,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                         () -> create(EditorImageTypes.kind(image.path()), image.path())));
             }
         }
-        if (!projectQuery.isEmpty())
-        {
-            items.removeIf(item -> !item.id.toLowerCase(Locale.ROOT).contains(projectQuery.toLowerCase(Locale.ROOT)));
-        }
-        visibleProjectLayers = items.stream().filter(item -> item.kind.equals("layer")).map(ProjectEntry::id).toList();
-        int start = y + 91;
-        int visible = Math.max(1, (panel.bottom() - start - 21) / 19);
-        projectScroll = Math.min(projectScroll, Math.max(0, items.size() - visible));
+    }
+
+    /** Draws the visible rows of the project panel. */
+    private void drawProjectRows(GuiGraphicsExtractor graphics, List<ProjectEntry> items, int visible, int start,
+            EditorLayout.Rect panel, int mouseX, int mouseY)
+    {
         for (int i = projectScroll; i < Math.min(items.size(), projectScroll + visible); i++)
         {
             var item = items.get(i);
@@ -626,15 +650,6 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
                     panel.x() + 20 + inset, rowY + 5, EffectUi.TEXT);
             entries.add(new ProjectEntry(item.id, item.kind, rect, item.action));
         }
-        button(graphics, new EditorLayout.Rect(panel.x() + 5, panel.bottom() - 19, 19, 15), "+",
-                EffectUi.label("add_layer"), () -> openedMenu = "layer", false, mouseX, mouseY);
-        button(graphics, new EditorLayout.Rect(panel.x() + 28, panel.bottom() - 19, 19, 15), "×",
-                EffectUi.label("delete"), this::delete, false, mouseX, mouseY);
-        EffectUi.text(graphics, font,
-                EffectUi.fit(font,
-                        projectTab.equals("assets") ? EffectUi.label("asset_hint") : EffectUi.label("project_hint"),
-                        panel.width() - 57),
-                panel.x() + 53, panel.bottom() - 15, EffectUi.MUTED);
     }
 
     private void composition(GuiGraphicsExtractor graphics, int mouseX, int mouseY)
@@ -1562,20 +1577,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (!hierarchyDrag.isEmpty())
         {
-            if (hierarchyDragging)
-            {
-                var drop = hierarchyDropAt(event.x(), event.y());
-                if (drop != null)
-                {
-                    moveLayers(hierarchyDrag, drop.parent(), drop.before());
-                }
-            }
-            else if (!hierarchyClick.isEmpty())
-            {
-                scene.selectOnly(hierarchyClick);
-                rebuildWidgets();
-            }
-            cancelHierarchyDrag();
+            finishHierarchyDrag(event);
             return true;
         }
         if (divider != 0)
@@ -1585,17 +1587,7 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (!rotationTarget.isEmpty())
         {
-            String id = rotationTarget;
-            rotationTarget = "";
-            var root = new JsonObject();
-            var changes = new JsonArray();
-            var change = new JsonObject();
-            change.addProperty("target", id);
-            change.addProperty("property", "rotation.z");
-            change.addProperty("value", formatNumber(rotationValue));
-            changes.add(change);
-            root.add("changes", changes);
-            effect.submit("properties", "", "", (int) effect.playhead(), 0, root.toString(), "linear", 0, 0, 0, 0);
+            submitRotation();
             return true;
         }
         if (scrubField != null)
@@ -1622,47 +1614,12 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (marquee)
         {
-            marquee = false;
-            double left = Math.min(marqueeX, marqueeEndX);
-            double right = Math.max(marqueeX, marqueeEndX);
-            double top = Math.min(marqueeY, marqueeEndY);
-            double bottom = Math.max(marqueeY, marqueeEndY);
-            for (var node : scene.nodes())
-            {
-                if (node.visible() && !scene.locked(node.id()) && !node.locked() && sx(node.x()) >= left
-                        && sx(node.x()) <= right && sy(node.y()) >= top && sy(node.y()) <= bottom
-                        && !scene.selected(node.id()))
-                {
-                    scene.toggleSelection(node.id());
-                }
-            }
-            rebuildWidgets();
+            finishMarquee();
             return true;
         }
         if (!draggedAsset.isEmpty())
         {
-            String asset = draggedAsset;
-            draggedAsset = "";
-            if (EditorImageTypes.image(asset))
-            {
-                if (panels.viewport().contains(event.x(), event.y())
-                        || panels.timeline().contains(event.x(), event.y()))
-                {
-                    create(EditorImageTypes.kind(asset), asset);
-                }
-            }
-            else if (panels.timeline().contains(event.x(), event.y())
-                    || panels.viewport().contains(event.x(), event.y()))
-            {
-                effectDialog("cue", "", "",
-                        panels.timeline().contains(event.x(), event.y()) ? timeline.frameAt(event.x())
-                                : (int) effect.playhead(),
-                        null,
-                        new EffectProtocol.Cue("cue-" + System.currentTimeMillis(),
-                                panels.timeline().contains(event.x(), event.y()) ? timeline.frameAt(event.x())
-                                        : (int) effect.playhead(),
-                                -1, asset.endsWith(".nbs") ? "nbs" : "sound", asset, 1, 1, true));
-            }
+            dropAsset(event);
             return true;
         }
         if (timeline.release(event))
@@ -1671,18 +1628,104 @@ public final class EffectEditorScreen extends Screen implements EffectTimeline.H
         }
         if (gesture != 0)
         {
-            released = true;
-            if (pending == null)
-            {
-                finishDrag();
-            }
-            else
-            {
-                flushDrag();
-            }
+            releaseElementDrag();
             return true;
         }
         return super.mouseReleased(event);
+    }
+
+    /** Moves the dragged layers to the drop row, or selects the clicked layer when it was not dragged. */
+    private void finishHierarchyDrag(MouseButtonEvent event)
+    {
+        if (hierarchyDragging)
+        {
+            var drop = hierarchyDropAt(event.x(), event.y());
+            if (drop != null)
+            {
+                moveLayers(hierarchyDrag, drop.parent(), drop.before());
+            }
+        }
+        else if (!hierarchyClick.isEmpty())
+        {
+            scene.selectOnly(hierarchyClick);
+            rebuildWidgets();
+        }
+        cancelHierarchyDrag();
+    }
+
+    /** Sends the rotation set by dragging the rotation handle as a keyframe at the playhead. */
+    private void submitRotation()
+    {
+        String id = rotationTarget;
+        rotationTarget = "";
+        var root = new JsonObject();
+        var changes = new JsonArray();
+        var change = new JsonObject();
+        change.addProperty("target", id);
+        change.addProperty("property", "rotation.z");
+        change.addProperty("value", formatNumber(rotationValue));
+        changes.add(change);
+        root.add("changes", changes);
+        effect.submit("properties", "", "", (int) effect.playhead(), 0, root.toString(), "linear", 0, 0, 0, 0);
+    }
+
+    /** Selects the layers inside the released marquee. */
+    private void finishMarquee()
+    {
+        marquee = false;
+        double left = Math.min(marqueeX, marqueeEndX);
+        double right = Math.max(marqueeX, marqueeEndX);
+        double top = Math.min(marqueeY, marqueeEndY);
+        double bottom = Math.max(marqueeY, marqueeEndY);
+        for (var node : scene.nodes())
+        {
+            if (node.visible() && !scene.locked(node.id()) && !node.locked() && sx(node.x()) >= left
+                    && sx(node.x()) <= right && sy(node.y()) >= top && sy(node.y()) <= bottom
+                    && !scene.selected(node.id()))
+            {
+                scene.toggleSelection(node.id());
+            }
+        }
+        rebuildWidgets();
+    }
+
+    /** Creates an image layer, or opens a cue dialog for a sound, where an asset is dropped. */
+    private void dropAsset(MouseButtonEvent event)
+    {
+        String asset = draggedAsset;
+        draggedAsset = "";
+        if (EditorImageTypes.image(asset))
+        {
+            if (panels.viewport().contains(event.x(), event.y()) || panels.timeline().contains(event.x(), event.y()))
+            {
+                create(EditorImageTypes.kind(asset), asset);
+            }
+        }
+        else if (panels.timeline().contains(event.x(), event.y()) || panels.viewport().contains(event.x(), event.y()))
+        {
+            effectDialog("cue", "", "",
+                    panels.timeline().contains(event.x(), event.y()) ? timeline.frameAt(event.x())
+                            : (int) effect.playhead(),
+                    null,
+                    new EffectProtocol.Cue("cue-" + System.currentTimeMillis(),
+                            panels.timeline().contains(event.x(), event.y()) ? timeline.frameAt(event.x())
+                                    : (int) effect.playhead(),
+                            -1, asset.endsWith(".nbs") ? "nbs" : "sound", asset, 1, 1, true));
+        }
+    }
+
+    /** Sends the final move or resize of the dragged element, or ends the gesture if nothing is pending. */
+    private void releaseElementDrag()
+    {
+        released = true;
+        if (pending == null)
+        {
+            finishDrag();
+        }
+        else
+        {
+            flushDrag();
+        }
     }
 
     @Override

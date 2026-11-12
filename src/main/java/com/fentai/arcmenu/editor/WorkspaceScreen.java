@@ -1367,6 +1367,15 @@ public final class WorkspaceScreen extends Screen
                     "filter-pill" + (detailTab.equals(value) ? " active" : "")));
         }
         content.append("</div>");
+        appendDetailTab(previews, content, id);
+        content.append("</div>");
+        html("content", content.toString());
+        paintDetailInspector(author, id);
+    }
+
+    /** Appends the gallery, versions or overview tab of a marketplace listing. */
+    private void appendDetailTab(JsonArray previews, StringBuilder content, String id)
+    {
         if (detailTab.equals("gallery"))
         {
             int first = previewIndex / 12 * 12;
@@ -1446,8 +1455,11 @@ public final class WorkspaceScreen extends Screen
                 }
             }
         }
-        content.append("</div>");
-        html("content", content.toString());
+    }
+
+    /** Fills the inspector beside a marketplace listing. */
+    private void paintDetailInspector(String author, String id)
+    {
         String inspect = "<div class='inspector-label'>" + e(studio("market.resource"))
                 + "</div><span class='pill pill-green'>" + e(market("free")) + "</span><div class='inspector-actions'>"
                 + button("install", market("install"), !enabled("install"), "button button-primary button-wide")
@@ -1547,78 +1559,7 @@ public final class WorkspaceScreen extends Screen
         boolean mounting = !instance.equals(fragments.get("modal.instance"));
         if (mounting)
         {
-            fragments.put("modal.instance", instance);
-            for (String id : List.of("modal_review", "modal_notice", "modal_footer_actions"))
-            {
-                fragments.remove(id);
-            }
-            StringBuilder value = new StringBuilder("<div class='modal-backdrop'><div id='studio_modal' class='modal")
-                    .append(listing ? " wide" : "").append("' style='").append(modalStyle)
-                    .append("'><div id='modal_header' class='modal-header' style='").append(headerStyle)
-                    .append("'><div><span class='modal-eyebrow'>").append(e(studio("modal.eyebrow")))
-                    .append("</span><h2>").append(e(modal.mode.equals("rate") ? market("rate") : project(modal.mode)))
-                    .append("</h2></div>")
-                    .append(WorkspaceMarkup.button("modal_cancel", "header", studio("cancel"), modal.busy,
-                            "button button-ghost button-small"))
-                    .append("</div><div id='modal_body' class='modal-body' style='").append(bodyStyle)
-                    .append("'><p class='modal-hint'>").append(e(project("hint." + modal.mode)))
-                    .append("</p><div class='").append(listing ? "publish-layout" : "modal-fields-layout")
-                    .append("'><div class='publish-fields'>");
-            if (modal.mode.equals("rate"))
-            {
-                value.append("<div class='rating-buttons'>");
-                for (int stars = 1; stars <= 5; stars++)
-                {
-                    value.append(WorkspaceMarkup.button("rate_stars", Integer.toString(stars), "★".repeat(stars),
-                            pending("rate"), "button button-secondary"));
-                }
-                value.append("</div>");
-            }
-            else
-            {
-                value.append("<div class='form-grid'>");
-                for (var field : modal.values.entrySet())
-                {
-                    String key = field.getKey();
-                    String type = key.equals("description") ? "textarea"
-                            : List.of("width", "height", "pixelsPerBlock", "distance").contains(key) ? "number"
-                                    : "text";
-                    if (key.equals("allowCe"))
-                    {
-                        type = "select-ce";
-                    }
-                    value.append(WorkspaceMarkup.field("field_" + key, project("field." + key), field.getValue(),
-                            project("help." + key), type,
-                            List.of("id", "filename", "title", "description").contains(key)));
-                }
-                value.append("</div>");
-            }
-            int count = 0;
-            for (var modalProject : modal.projects)
-            {
-                if (count++ >= 12)
-                {
-                    break;
-                }
-                value.append("<div class='confirmation-resource'>").append(WorkspaceMarkup.icon(modalProject.type()))
-                        .append("<span>").append(e(modalProject.id())).append("</span></div>");
-            }
-            if (modal.projects.size() > 12)
-            {
-                value.append("<p class='modal-hint'>").append(e(studio("selection.count", modal.projects.size())))
-                        .append("</p>");
-            }
-            value.append("</div>");
-            if (listing)
-            {
-                value.append("<aside id='modal_review' class='publish-review'></aside>");
-            }
-            value.append(
-                    "</div><div id='modal_notice'></div></div><div id='modal_footer_actions' class='modal-footer' style='")
-                    .append(footerStyle).append("'></div></div></div>");
-            String markup = value.toString();
-            remountFields(modal.values, () -> html("modal_host", markup),
-                    (key, initial) -> view.setValue("field_" + key, initial));
+            mountModal(instance, listing, modalStyle, headerStyle, bodyStyle, footerStyle);
         }
         attr("studio_modal", "style", modalStyle);
         attr("modal_header", "style", headerStyle);
@@ -1647,6 +1588,80 @@ public final class WorkspaceScreen extends Screen
                             .contains(modal.mode) ? "button-danger" : "button-primary"));
         }
         html("modal_footer_actions", actions);
+    }
+
+    /** Builds the modal's markup the first time this modal instance is shown. */
+    private void mountModal(String instance, boolean listing, String modalStyle, String headerStyle, String bodyStyle,
+            String footerStyle)
+    {
+        fragments.put("modal.instance", instance);
+        for (String id : List.of("modal_review", "modal_notice", "modal_footer_actions"))
+        {
+            fragments.remove(id);
+        }
+        StringBuilder value = new StringBuilder("<div class='modal-backdrop'><div id='studio_modal' class='modal")
+                .append(listing ? " wide" : "").append("' style='").append(modalStyle)
+                .append("'><div id='modal_header' class='modal-header' style='").append(headerStyle)
+                .append("'><div><span class='modal-eyebrow'>").append(e(studio("modal.eyebrow"))).append("</span><h2>")
+                .append(e(modal.mode.equals("rate") ? market("rate") : project(modal.mode))).append("</h2></div>")
+                .append(WorkspaceMarkup.button("modal_cancel", "header", studio("cancel"), modal.busy,
+                        "button button-ghost button-small"))
+                .append("</div><div id='modal_body' class='modal-body' style='").append(bodyStyle)
+                .append("'><p class='modal-hint'>").append(e(project("hint." + modal.mode))).append("</p><div class='")
+                .append(listing ? "publish-layout" : "modal-fields-layout").append("'><div class='publish-fields'>");
+        if (modal.mode.equals("rate"))
+        {
+            value.append("<div class='rating-buttons'>");
+            for (int stars = 1; stars <= 5; stars++)
+            {
+                value.append(WorkspaceMarkup.button("rate_stars", Integer.toString(stars), "★".repeat(stars),
+                        pending("rate"), "button button-secondary"));
+            }
+            value.append("</div>");
+        }
+        else
+        {
+            value.append("<div class='form-grid'>");
+            for (var field : modal.values.entrySet())
+            {
+                String key = field.getKey();
+                String type = key.equals("description") ? "textarea"
+                        : List.of("width", "height", "pixelsPerBlock", "distance").contains(key) ? "number" : "text";
+                if (key.equals("allowCe"))
+                {
+                    type = "select-ce";
+                }
+                value.append(WorkspaceMarkup.field("field_" + key, project("field." + key), field.getValue(),
+                        project("help." + key), type, List.of("id", "filename", "title", "description").contains(key)));
+            }
+            value.append("</div>");
+        }
+        int count = 0;
+        for (var modalProject : modal.projects)
+        {
+            if (count++ >= 12)
+            {
+                break;
+            }
+            value.append("<div class='confirmation-resource'>").append(WorkspaceMarkup.icon(modalProject.type()))
+                    .append("<span>").append(e(modalProject.id())).append("</span></div>");
+        }
+        if (modal.projects.size() > 12)
+        {
+            value.append("<p class='modal-hint'>").append(e(studio("selection.count", modal.projects.size())))
+                    .append("</p>");
+        }
+        value.append("</div>");
+        if (listing)
+        {
+            value.append("<aside id='modal_review' class='publish-review'></aside>");
+        }
+        value.append(
+                "</div><div id='modal_notice'></div></div><div id='modal_footer_actions' class='modal-footer' style='")
+                .append(footerStyle).append("'></div></div></div>");
+        String markup = value.toString();
+        remountFields(modal.values, () -> html("modal_host", markup),
+                (key, initial) -> view.setValue("field_" + key, initial));
     }
 
     static void remountFields(Map<String, String> fields, Runnable mount, BiConsumer<String, String> restore)

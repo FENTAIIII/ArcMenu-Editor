@@ -2,6 +2,7 @@ package com.fentai.arcmenu.editor;
 
 import com.fentai.arcmenu.protocol.EditorProtocol;
 import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

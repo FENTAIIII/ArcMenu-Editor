@@ -85,89 +85,19 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
         top = Math.max(8, (height - body) / 2);
         if (mode.equals("key"))
         {
-            var nodes = scene.snapshot() == null ? List.<NodeSnapshot>of() : scene.snapshot().frontend();
-            if (target.isEmpty() && !nodes.isEmpty())
-            {
-                target = nodes.getFirst().id();
-            }
-            choose("target", target, nodes.stream().map(NodeSnapshot::id).toList(), value ->
-            {
-                target = value;
-                property = "";
-                init();
-            });
-            var node = scene.find(target);
-            var properties = node == null ? List.<PropertySnapshot>of()
-                    : node.properties().stream()
-                            .filter(animatable -> EffectPropertyRules.animated(node.kind(), animatable.key())).toList();
-            if (property.isEmpty() && !properties.isEmpty())
-            {
-                property = properties.getFirst().key();
-            }
-            choose("property", property, properties.stream().map(PropertySnapshot::key).toList(), value ->
-            {
-                property = value;
-                var box = fields.get("value");
-                if (box != null)
-                {
-                    box.setValue(defaultValue());
-                }
-            });
-            field("frame", Integer.toString(initialFrame));
-            field("value", initialKey == null ? defaultValue() : initialKey.value());
-            choose("interpolation", initialKey == null ? "linear" : initialKey.interpolation(),
-                    List.of("linear", "hold", "bezier", "auto-bezier", "ease-in", "ease-out", "ease-in-out"), ignored ->
-                    {});
-            field("x1", Double.toString(initialKey == null ? 1.0 / 3 : initialKey.x1()));
-            field("y1", Double.toString(initialKey == null ? 0 : initialKey.y1()));
-            field("x2", Double.toString(initialKey == null ? 2.0 / 3 : initialKey.x2()));
-            field("y2", Double.toString(initialKey == null ? 1 : initialKey.y2()));
-            choose("graph-mode", speedGraph ? "speed" : "value", List.of("value", "speed"),
-                    value -> speedGraph = value.equals("speed"));
-            graph = new EditorLayout.Rect(left + 38, top + 26 + labels.size() * rowHeight, boxWidth - 76, 86);
+            addKeyFields();
         }
         else if (mode.equals("cue"))
         {
-            field("id", initialCue == null ? "cue-" + initialFrame + "-" + state.snapshot().cues().size()
-                    : initialCue.id());
-            field("frame", Integer.toString(initialFrame));
-            choose("kind", initialCue == null ? "sound" : initialCue.kind(),
-                    List.of("sound", "nbs", "action", "command", "console"), ignored ->
-                    {});
-            field("source", initialCue == null ? "minecraft:block.note_block.chime" : initialCue.source());
-            field("end", Integer.toString(initialCue == null ? -1 : initialCue.end()));
-            field("volume", Double.toString(initialCue == null ? 1 : initialCue.volume()));
-            field("pitch", Double.toString(initialCue == null ? 1 : initialCue.pitch()));
-            choose("enabled", initialCue == null || initialCue.enabled() ? "true" : "false", List.of("true", "false"),
-                    ignored ->
-                    {});
-            choose("asset", "", state.snapshot().assets(), value ->
-            {
-                fields.get("source").setValue(value);
-                choices.put("kind", value.endsWith(".nbs") ? "nbs" : "sound");
-            });
+            addCueFields();
         }
         else if (mode.equals("layer"))
         {
-            var layer = state.snapshot().layers().stream().filter(candidate -> candidate.target().equals(target))
-                    .findFirst().orElse(null);
-            field("target", target);
-            field("start", Integer.toString(layer == null ? 0 : layer.start()));
-            field("end", Integer.toString(layer == null ? state.snapshot().duration() : layer.end()));
-            choose("enabled", layer == null || layer.enabled() ? "true" : "false", List.of("true", "false"), ignored ->
-            {});
-            choose("solo", layer != null && layer.solo() ? "true" : "false", List.of("true", "false"), ignored ->
-            {});
+            addLayerFields();
         }
         else if (mode.equals("settings"))
         {
-            var effectSnapshot = state.snapshot();
-            field("fps", Double.toString(effectSnapshot.fps()));
-            field("duration", Integer.toString(effectSnapshot.duration()));
-            field("start", Integer.toString(effectSnapshot.workStart()));
-            field("end", Integer.toString(effectSnapshot.workEnd()));
-            choose("loop", Boolean.toString(effectSnapshot.loop()), List.of("true", "false"), ignored ->
-            {});
+            addSettingsFields();
         }
         else
         {
@@ -206,6 +136,100 @@ public final class EffectDialog extends Screen implements EffectWorkspaceChild
                 fields.get("y2").setValue("1");
             }).bounds(left + 88, bottom, 76, 20).build());
         }
+    }
+
+    /** Adds the frame, value and easing fields of the keyframe dialog. */
+    private void addKeyFields()
+    {
+        var nodes = scene.snapshot() == null ? List.<NodeSnapshot>of() : scene.snapshot().frontend();
+        if (target.isEmpty() && !nodes.isEmpty())
+        {
+            target = nodes.getFirst().id();
+        }
+        choose("target", target, nodes.stream().map(NodeSnapshot::id).toList(), value ->
+        {
+            target = value;
+            property = "";
+            init();
+        });
+        var node = scene.find(target);
+        var properties = node == null ? List.<PropertySnapshot>of()
+                : node.properties().stream()
+                        .filter(animatable -> EffectPropertyRules.animated(node.kind(), animatable.key())).toList();
+        if (property.isEmpty() && !properties.isEmpty())
+        {
+            property = properties.getFirst().key();
+        }
+        choose("property", property, properties.stream().map(PropertySnapshot::key).toList(), value ->
+        {
+            property = value;
+            var box = fields.get("value");
+            if (box != null)
+            {
+                box.setValue(defaultValue());
+            }
+        });
+        field("frame", Integer.toString(initialFrame));
+        field("value", initialKey == null ? defaultValue() : initialKey.value());
+        choose("interpolation", initialKey == null ? "linear" : initialKey.interpolation(),
+                List.of("linear", "hold", "bezier", "auto-bezier", "ease-in", "ease-out", "ease-in-out"), ignored ->
+                {});
+        field("x1", Double.toString(initialKey == null ? 1.0 / 3 : initialKey.x1()));
+        field("y1", Double.toString(initialKey == null ? 0 : initialKey.y1()));
+        field("x2", Double.toString(initialKey == null ? 2.0 / 3 : initialKey.x2()));
+        field("y2", Double.toString(initialKey == null ? 1 : initialKey.y2()));
+        choose("graph-mode", speedGraph ? "speed" : "value", List.of("value", "speed"),
+                value -> speedGraph = value.equals("speed"));
+        graph = new EditorLayout.Rect(left + 38, top + 26 + labels.size() * rowHeight, boxWidth - 76, 86);
+    }
+
+    /** Adds the fields of the cue dialog. */
+    private void addCueFields()
+    {
+        field("id",
+                initialCue == null ? "cue-" + initialFrame + "-" + state.snapshot().cues().size() : initialCue.id());
+        field("frame", Integer.toString(initialFrame));
+        choose("kind", initialCue == null ? "sound" : initialCue.kind(),
+                List.of("sound", "nbs", "action", "command", "console"), ignored ->
+                {});
+        field("source", initialCue == null ? "minecraft:block.note_block.chime" : initialCue.source());
+        field("end", Integer.toString(initialCue == null ? -1 : initialCue.end()));
+        field("volume", Double.toString(initialCue == null ? 1 : initialCue.volume()));
+        field("pitch", Double.toString(initialCue == null ? 1 : initialCue.pitch()));
+        choose("enabled", initialCue == null || initialCue.enabled() ? "true" : "false", List.of("true", "false"),
+                ignored ->
+                {});
+        choose("asset", "", state.snapshot().assets(), value ->
+        {
+            fields.get("source").setValue(value);
+            choices.put("kind", value.endsWith(".nbs") ? "nbs" : "sound");
+        });
+    }
+
+    /** Adds the span fields of the layer dialog. */
+    private void addLayerFields()
+    {
+        var layer = state.snapshot().layers().stream().filter(candidate -> candidate.target().equals(target))
+                .findFirst().orElse(null);
+        field("target", target);
+        field("start", Integer.toString(layer == null ? 0 : layer.start()));
+        field("end", Integer.toString(layer == null ? state.snapshot().duration() : layer.end()));
+        choose("enabled", layer == null || layer.enabled() ? "true" : "false", List.of("true", "false"), ignored ->
+        {});
+        choose("solo", layer != null && layer.solo() ? "true" : "false", List.of("true", "false"), ignored ->
+        {});
+    }
+
+    /** Adds the composition settings fields. */
+    private void addSettingsFields()
+    {
+        var effectSnapshot = state.snapshot();
+        field("fps", Double.toString(effectSnapshot.fps()));
+        field("duration", Integer.toString(effectSnapshot.duration()));
+        field("start", Integer.toString(effectSnapshot.workStart()));
+        field("end", Integer.toString(effectSnapshot.workEnd()));
+        choose("loop", Boolean.toString(effectSnapshot.loop()), List.of("true", "false"), ignored ->
+        {});
     }
 
     private String defaultValue()

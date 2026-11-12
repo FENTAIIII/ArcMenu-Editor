@@ -11,8 +11,8 @@ import static com.fentai.arcmenu.editor.EditorColors.BORDER;
 import static com.fentai.arcmenu.editor.EditorColors.DISABLED_SHORTCUT;
 import static com.fentai.arcmenu.editor.EditorColors.DISABLED_TEXT;
 import static com.fentai.arcmenu.editor.EditorColors.DROP_SHADOW;
-import static com.fentai.arcmenu.editor.EditorColors.POPUP_BACKGROUND;
 import static com.fentai.arcmenu.editor.EditorColors.MUTED;
+import static com.fentai.arcmenu.editor.EditorColors.POPUP_BACKGROUND;
 import static com.fentai.arcmenu.editor.EditorColors.SELECTED;
 import static com.fentai.arcmenu.editor.EditorColors.TEXT;
 
