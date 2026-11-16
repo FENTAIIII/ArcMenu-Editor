@@ -156,7 +156,8 @@ public final class EditorState
         }
         snapshot = new SnapshotPacket(snapshot.revision(), snapshot.menuId(), snapshot.canvasWidth(),
                 snapshot.canvasHeight(), snapshot.dirty(), snapshot.saved(), snapshot.serverVersion(), frontend,
-                snapshot.backend(), snapshot.images(), snapshot.templates(), snapshot.exactRectangles());
+                snapshot.backend(), snapshot.images(), snapshot.templates(), snapshot.exactRectangles(),
+                snapshot.quickAction());
         return true;
     }
 
@@ -212,7 +213,8 @@ public final class EditorState
                 : snapshot.backend();
         snapshot = new SnapshotPacket(value.revision(), snapshot.menuId(), snapshot.canvasWidth(),
                 snapshot.canvasHeight(), value.dirty(), value.saved(), snapshot.serverVersion(), frontend, backend,
-                snapshot.images(), snapshot.templates(), snapshot.exactRectangles());
+                snapshot.images(), snapshot.templates(), snapshot.exactRectangles(),
+                snapshot.quickAction());
         return gestureId;
     }
 

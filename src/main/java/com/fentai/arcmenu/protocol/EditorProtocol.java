@@ -10,12 +10,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /** Versioned, dependency-free protocol shared by Paper and every Fabric adapter. */
 public final class EditorProtocol
 {
     public static final String CHANNEL = "arcmenu:editor";
-    public static final int VERSION = 11;
+    public static final int VERSION = 12;
     public static final String EDITOR_VERSION = "3.4.1";
     public static final int MAX_PACKET_BYTES = 1_048_576;
     public static final int MAX_STRING_BYTES = 262_144;
@@ -29,6 +30,8 @@ public final class EditorProtocol
      */
     public static final double DIALOG_SAFE_WIDTH = 265;
     public static final double DIALOG_SAFE_HEIGHT = 136;
+    private static final Pattern LANGUAGE_PLACEHOLDER = Pattern.compile("%arcmenu_lang_[a-z0-9_.-]+%",
+            Pattern.CASE_INSENSITIVE);
 
     public static final byte TAB_FRONTEND = 0;
     public static final byte TAB_BACKEND = 1;
@@ -64,6 +67,7 @@ public final class EditorProtocol
     public static final byte OP_TEMPLATE_DELETE = 18;
     public static final byte OP_REPARENT = 19;
     public static final byte OP_UNGROUP = 20;
+    public static final byte OP_QUICK_ACTION = 21;
 
     public static final byte PROPERTY_TEXT = 0;
     public static final byte PROPERTY_NUMBER = 1;
@@ -97,12 +101,23 @@ public final class EditorProtocol
     private static final byte DELETE_TEMPLATE = 20;
     private static final byte REPARENT = 21;
     private static final byte UNGROUP = 22;
+    private static final byte SET_QUICK_ACTION = 23;
     private static final byte SNAPSHOT = 64;
     private static final byte ACK = 65;
     private static final byte ERROR = 66;
 
     private EditorProtocol()
     {}
+
+    /**
+     * Whether dialog text holds values that a quick actions dialog keeps as they were when the player joined:
+     * placeholders, state and calculations. Language placeholders follow the player's locale and stay live.
+     */
+    public static boolean dialogTextFreezes(String text)
+    {
+        String rest = LANGUAGE_PLACEHOLDER.matcher(text).replaceAll("");
+        return rest.indexOf('%') >= 0 || rest.indexOf('{') >= 0;
+    }
 
     public static boolean supportsClient(String clientVersion)
     {
@@ -329,7 +344,8 @@ public final class EditorProtocol
     public sealed interface Packet permits HelloPacket, MovePacket, ResizePacket, SwitchTabPacket, UndoPacket,
             RedoPacket, SavePacket, ApplyPacket, ClosePacket, ProbePacket, CreatePacket, DeletePacket, DeleteManyPacket,
             DuplicatePacket, GroupPacket, UngroupPacket, ReorderPacket, ReparentPacket, SetPropertyPacket,
-            SaveTemplatePacket, InstantiateTemplatePacket, DeleteTemplatePacket, SnapshotPacket, AckPacket, ErrorPacket
+            SaveTemplatePacket, InstantiateTemplatePacket, DeleteTemplatePacket, SetQuickActionPacket, SnapshotPacket, AckPacket,
+            ErrorPacket
     {}
 
     public record HelloPacket(String clientVersion) implements Packet
@@ -457,6 +473,10 @@ public final class EditorProtocol
     public record DeleteTemplatePacket(long revision, String templateId) implements Packet
     {}
 
+    /** Makes the edited dialog the one the quick actions key opens, or frees the key from it. */
+    public record SetQuickActionPacket(long revision, boolean enabled) implements Packet
+    {}
+
     public record PropertySnapshot(String key, byte type, String value, List<String> choices)
     {
         public PropertySnapshot
@@ -493,7 +513,8 @@ public final class EditorProtocol
 
     public record SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight, boolean dirty,
             boolean saved, String serverVersion, List<NodeSnapshot> frontend, List<NodeSnapshot> backend,
-            List<ImageSnapshot> images, List<TemplateSnapshot> templates, boolean exactRectangles) implements Packet
+            List<ImageSnapshot> images, List<TemplateSnapshot> templates, boolean exactRectangles, boolean quickAction)
+            implements Packet
     {
         public SnapshotPacket
         {
@@ -501,6 +522,15 @@ public final class EditorProtocol
             backend = List.copyOf(backend);
             images = List.copyOf(images);
             templates = List.copyOf(templates);
+        }
+
+        /** Snapshot of a draft that is not the quick actions dialog. */
+        public SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight, boolean dirty,
+                boolean saved, String serverVersion, List<NodeSnapshot> frontend, List<NodeSnapshot> backend,
+                List<ImageSnapshot> images, List<TemplateSnapshot> templates, boolean exactRectangles)
+        {
+            this(revision, menuId, canvasWidth, canvasHeight, dirty, saved, serverVersion, frontend, backend, images,
+                    templates, exactRectangles, false);
         }
 
         public SnapshotPacket(long revision, String menuId, double canvasWidth, double canvasHeight, boolean dirty,
@@ -688,6 +718,12 @@ public final class EditorProtocol
                 out.writeLong(value.revision());
                 writeString(out, value.templateId());
             }
+            case SetQuickActionPacket value ->
+            {
+                out.writeByte(SET_QUICK_ACTION);
+                out.writeLong(value.revision());
+                out.writeBoolean(value.enabled());
+            }
             case SnapshotPacket value ->
             {
                 out.writeByte(SNAPSHOT);
@@ -703,6 +739,7 @@ public final class EditorProtocol
                 writeImages(out, value.images());
                 writeTemplates(out, value.templates());
                 out.writeBoolean(value.exactRectangles());
+                out.writeBoolean(value.quickAction());
             }
             case AckPacket value ->
             {
@@ -788,9 +825,10 @@ public final class EditorProtocol
             case SAVE_TEMPLATE -> new SaveTemplatePacket(in.readLong(), readString(in), readString(in));
             case INSTANTIATE_TEMPLATE -> new InstantiateTemplatePacket(in.readLong(), readString(in));
             case DELETE_TEMPLATE -> new DeleteTemplatePacket(in.readLong(), readString(in));
+            case SET_QUICK_ACTION -> new SetQuickActionPacket(in.readLong(), in.readBoolean());
             case SNAPSHOT -> new SnapshotPacket(in.readLong(), readString(in), in.readDouble(), in.readDouble(),
                     in.readBoolean(), in.readBoolean(), readString(in), readNodes(in), readNodes(in), readImages(in),
-                    readTemplates(in), in.readBoolean());
+                    readTemplates(in), in.readBoolean(), in.readBoolean());
             case ACK -> new AckPacket(in.readByte(), in.readLong(), readString(in), in.readDouble(), in.readDouble(),
                     in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(), readString(in),
                     in.readBoolean(), in.readBoolean(), readString(in));

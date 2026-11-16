@@ -28,6 +28,7 @@ import com.fentai.arcmenu.protocol.EditorProtocol.ResizePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SavePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SaveTemplatePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetQuickActionPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.StringLimitException;
 import com.fentai.arcmenu.protocol.EditorProtocol.SwitchTabPacket;
@@ -560,6 +561,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
             case SaveTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_SAVE;
             case InstantiateTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_INSTANTIATE;
             case DeleteTemplatePacket ignored -> EditorProtocol.OP_TEMPLATE_DELETE;
+            case SetQuickActionPacket ignored -> EditorProtocol.OP_QUICK_ACTION;
             default -> -1;
             };
         }
@@ -597,6 +599,7 @@ public final class ArcMenuEditorClient implements ClientModInitializer
             case InstantiateTemplatePacket instantiate ->
                 new InstantiateTemplatePacket(revision, instantiate.templateId());
             case DeleteTemplatePacket deleteTemplate -> new DeleteTemplatePacket(revision, deleteTemplate.templateId());
+            case SetQuickActionPacket quickAction -> new SetQuickActionPacket(revision, quickAction.enabled());
             default -> packet;
             };
         }

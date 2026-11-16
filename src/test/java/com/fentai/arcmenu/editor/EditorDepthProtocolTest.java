@@ -5,6 +5,7 @@ import com.fentai.arcmenu.protocol.EditorProtocol;
 import com.fentai.arcmenu.protocol.EditorProtocol.NodeSnapshot;
 import com.fentai.arcmenu.protocol.EditorProtocol.PropertySnapshot;
 import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetQuickActionPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.StringLimitException;
 
@@ -30,7 +31,7 @@ final class EditorDepthProtocolTest
         assertTrue(EditorProtocol.supportsClient("1.0.0"));
         assertTrue(EditorProtocol.supportsClient("1.0.1"));
         assertFalse(EditorProtocol.supportsClient("0.1.0-M3.3"));
-        assertEquals(11, EditorProtocol.VERSION);
+        assertEquals(12, EditorProtocol.VERSION);
     }
 
     @Test
@@ -45,6 +46,28 @@ final class EditorDepthProtocolTest
         var state = new EditorState();
         state.update(snapshot);
         assertEquals(snapshot, state.snapshot());
+    }
+
+    @Test
+    void quickActionSwitchAndFlagRoundTrip()
+    {
+        var toggle = new SetQuickActionPacket(6, true);
+        assertEquals(toggle, EditorProtocol.decode(EditorProtocol.encode(toggle)));
+        var snapshot = new SnapshotPacket(6, EditorProtocol.DIALOG_PREFIX + "main", 320, 180, false, true, "26.3",
+                List.of(), List.of(), List.of(), List.of(), false, true);
+        assertEquals(snapshot, EditorProtocol.decode(EditorProtocol.encode(snapshot)));
+        var state = new EditorState();
+        state.update(snapshot);
+        assertTrue(state.snapshot().quickAction());
+    }
+
+    @Test
+    void frozenTextIgnoresLanguagePlaceholders()
+    {
+        assertTrue(EditorProtocol.dialogTextFreezes("Coins: %vault_eco_balance%"));
+        assertTrue(EditorProtocol.dialogTextFreezes("{data:level}"));
+        assertFalse(EditorProtocol.dialogTextFreezes("%arcmenu_lang_menu.title%"));
+        assertFalse(EditorProtocol.dialogTextFreezes("Shop"));
     }
 
     @Test

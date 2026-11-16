@@ -23,6 +23,7 @@ import com.fentai.arcmenu.protocol.EditorProtocol.ResizePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SavePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SaveTemplatePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetQuickActionPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SwitchTabPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.TemplateSnapshot;
@@ -518,6 +519,11 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.mcp.title"), EditorMcp.running(), mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.projects.projects"), false, mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.projects.market"), false, mouseX, mouseY);
+        if (DialogWorkspace.isDialog(snapshot))
+        {
+            x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.dialog.quick_action"),
+                    snapshot.quickAction(), mouseX, mouseY);
+        }
         String menu = snapshot == null ? EditorI18n.text("arcmenu_editor.header.disconnected")
                 : snapshot.menuId() + "  r" + snapshot.revision() + (snapshot.dirty() ? "  *" : "");
         int menuX = x + 8;
@@ -1682,6 +1688,16 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             }
             at = next + 3;
         }
+        SnapshotPacket snapshot = state.snapshot();
+        if (DialogWorkspace.isDialog(snapshot))
+        {
+            next = at + font.width(EditorI18n.text("arcmenu_editor.dialog.quick_action")) + 14;
+            if (x >= at && x < next)
+            {
+                ArcMenuEditorClient.send(new SetQuickActionPacket(snapshot.revision(), !snapshot.quickAction()));
+                return true;
+            }
+        }
         if (x >= width - 24)
         {
             onClose();
@@ -2790,7 +2806,8 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
 
     /**
      * Outlines the Dialog safe frame and marks every element that leaves it: such content shrinks on some screens
-     * instead of keeping ArcMenu's position and size.
+     * instead of keeping ArcMenu's position and size. Elements whose values the quick actions dialog keeps from
+     * when the player joined carry a frozen badge.
      */
     private void drawDialogFrame(GuiGraphicsExtractor graphics, List<NodeSnapshot> nodes, int mouseX, int mouseY)
     {
@@ -2803,6 +2820,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             double halfHeight = calibration.proxyHeight(node.height()) / 2.0;
             CanvasSnapping.Box box = new CanvasSnapping.Box(drawX - halfWidth, drawX + halfWidth, drawY - halfHeight,
                     drawY + halfHeight);
+            if (DialogWorkspace.frozen(node))
+            {
+                drawFrozenBadge(graphics, node, box, mouseX, mouseY);
+            }
             if (!DialogWorkspace.outside(box))
             {
                 continue;
@@ -2828,6 +2849,22 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         graphics.outline(left - 1, top - 1, width + 2, height + 2, DialogWorkspace.FRAME);
         graphics.text(font, EditorI18n.text("arcmenu_editor.dialog.safe_frame"), left + 3, top + 3,
                 DialogWorkspace.FRAME, true);
+    }
+
+    private void drawFrozenBadge(GuiGraphicsExtractor graphics, NodeSnapshot node, CanvasSnapping.Box box, int mouseX,
+            int mouseY)
+    {
+        String label = EditorI18n.text("arcmenu_editor.dialog.frozen");
+        int right = Math.max(screenX(box.left()) + 2, screenX(box.right()));
+        int left = right - font.width(label) - 4;
+        int top = screenY(box.top()) - 11;
+        graphics.fill(left, top, right, top + 11, DialogWorkspace.FROZEN_FILL);
+        graphics.text(font, label, left + 2, top + 2, DialogWorkspace.FROZEN, false);
+        if (mouseX >= left && mouseX < right && mouseY >= top && mouseY < top + 11)
+        {
+            hoverTooltip = new HoverTooltip(EditorI18n.text("arcmenu_editor.dialog.frozen_hint", node.id()), mouseX + 8,
+                    mouseY - 20);
+        }
     }
 
     private void drawSnapGuides(GuiGraphicsExtractor graphics)
