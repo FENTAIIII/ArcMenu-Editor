@@ -23,6 +23,7 @@ import com.fentai.arcmenu.protocol.EditorProtocol.ResizePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SavePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SaveTemplatePacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SetPropertyPacket;
+import com.fentai.arcmenu.protocol.EditorProtocol.SetQuickActionPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SnapshotPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.SwitchTabPacket;
 import com.fentai.arcmenu.protocol.EditorProtocol.TemplateSnapshot;
@@ -518,6 +519,11 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.mcp.title"), EditorMcp.running(), mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.projects.projects"), false, mouseX, mouseY);
         x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.projects.market"), false, mouseX, mouseY);
+        if (DialogWorkspace.isDialog(snapshot))
+        {
+            x = headerButton(graphics, x, EditorI18n.text("arcmenu_editor.dialog.quick_action"),
+                    snapshot.quickAction(), mouseX, mouseY);
+        }
         String menu = snapshot == null ? EditorI18n.text("arcmenu_editor.header.disconnected")
                 : snapshot.menuId() + "  r" + snapshot.revision() + (snapshot.dirty() ? "  *" : "");
         int menuX = x + 8;
@@ -721,6 +727,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         int virtualBottom = (int) Math.round(virtual.bottom());
         graphics.outline(virtualX, virtualY, Math.max(1, virtualRight - virtualX),
                 Math.max(1, virtualBottom - virtualY), 0xFFB38CFF);
+        if (DialogWorkspace.isDialog(snapshot))
+        {
+            drawDialogFrame(graphics, nodes, mouseX, mouseY);
+        }
         drawSnapGuides(graphics);
         graphics.text(font, EditorI18n.text("arcmenu_editor.viewport.game", view.width(), view.height()), view.x() + 5,
                 view.y() + 5, OVERLAY_TEXT, true);
@@ -886,7 +896,10 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
         graphics.enableScissor(panel.x(), panel.y() + 21, panel.right(), panel.bottom() - 21);
         for (PropertyField field : propertyFields)
         {
-            graphics.text(font, propertyLabel(field.property.key()), panel.x() + 8, field.y + 7, MUTED, false);
+            String unsupported = DialogWorkspace.isDialog(state.snapshot())
+                    ? DialogWorkspace.unsupportedReason(field.property.key()) : "";
+            graphics.text(font, propertyLabel(field.property.key()), panel.x() + 8, field.y + 7,
+                    unsupported.isEmpty() ? MUTED : DialogWorkspace.UNSUPPORTED, false);
             graphics.fill(field.rect.x(), field.rect.y(), field.rect.right(), field.rect.bottom(),
                     field.box.isFocused() ? 0xFF223A5B : FIELD);
             int stripe = propertyStripe(field.property.key());
@@ -900,7 +913,7 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                             mouseY - 20);
                 }
             }
-            String hint = EditorImageTypes.hint(node.kind(), field.property.key());
+            String hint = unsupported.isEmpty() ? EditorImageTypes.hint(node.kind(), field.property.key()) : unsupported;
             if (hint.isEmpty())
             {
                 hint = EditorI18n.propertyHint(field.property.key());
@@ -1674,6 +1687,16 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
                 return true;
             }
             at = next + 3;
+        }
+        SnapshotPacket snapshot = state.snapshot();
+        if (DialogWorkspace.isDialog(snapshot))
+        {
+            next = at + font.width(EditorI18n.text("arcmenu_editor.dialog.quick_action")) + 14;
+            if (x >= at && x < next)
+            {
+                ArcMenuEditorClient.send(new SetQuickActionPacket(snapshot.revision(), !snapshot.quickAction()));
+                return true;
+            }
         }
         if (x >= width - 24)
         {
@@ -2779,6 +2802,69 @@ public final class EditorScreen extends Screen implements EffectTimeline.Host
             parentId = parent == null ? "" : parent.parentId();
         }
         return false;
+    }
+
+    /**
+     * Outlines the Dialog safe frame and marks every element that leaves it: such content shrinks on some screens
+     * instead of keeping ArcMenu's position and size. Elements whose values the quick actions dialog keeps from
+     * when the player joined carry a frozen badge.
+     */
+    private void drawDialogFrame(GuiGraphicsExtractor graphics, List<NodeSnapshot> nodes, int mouseX, int mouseY)
+    {
+        for (NodeSnapshot node : nodes)
+        {
+            ElementSelectionCalibration.Calibration calibration = nodeCalibration(node);
+            double drawX = calibration.proxyX(node.x(), node.width());
+            double drawY = calibration.proxyY(node.y(), node.height());
+            double halfWidth = calibration.proxyWidth(node.width()) / 2.0;
+            double halfHeight = calibration.proxyHeight(node.height()) / 2.0;
+            CanvasSnapping.Box box = new CanvasSnapping.Box(drawX - halfWidth, drawX + halfWidth, drawY - halfHeight,
+                    drawY + halfHeight);
+            if (DialogWorkspace.frozen(node))
+            {
+                drawFrozenBadge(graphics, node, box, mouseX, mouseY);
+            }
+            if (!DialogWorkspace.outside(box))
+            {
+                continue;
+            }
+            int left = screenX(box.left());
+            int top = screenY(box.top());
+            int right = Math.max(left + 2, screenX(box.right()));
+            int bottom = Math.max(top + 2, screenY(box.bottom()));
+            graphics.fill(left, top, right, bottom, DialogWorkspace.OUTSIDE_FILL);
+            graphics.outline(left, top, right - left, bottom - top, DialogWorkspace.OUTSIDE);
+            if (mouseX >= left && mouseX < right && mouseY >= top && mouseY < bottom)
+            {
+                hoverTooltip = new HoverTooltip(EditorI18n.text("arcmenu_editor.dialog.outside", node.id()),
+                        mouseX + 8, mouseY - 20);
+            }
+        }
+        CanvasSnapping.Box frame = DialogWorkspace.safeFrame();
+        int left = screenX(frame.left());
+        int top = screenY(frame.top());
+        int width = Math.max(2, screenX(frame.right()) - left);
+        int height = Math.max(2, screenY(frame.bottom()) - top);
+        graphics.outline(left, top, width, height, DialogWorkspace.FRAME);
+        graphics.outline(left - 1, top - 1, width + 2, height + 2, DialogWorkspace.FRAME);
+        graphics.text(font, EditorI18n.text("arcmenu_editor.dialog.safe_frame"), left + 3, top + 3,
+                DialogWorkspace.FRAME, true);
+    }
+
+    private void drawFrozenBadge(GuiGraphicsExtractor graphics, NodeSnapshot node, CanvasSnapping.Box box, int mouseX,
+            int mouseY)
+    {
+        String label = EditorI18n.text("arcmenu_editor.dialog.frozen");
+        int right = Math.max(screenX(box.left()) + 2, screenX(box.right()));
+        int left = right - font.width(label) - 4;
+        int top = screenY(box.top()) - 11;
+        graphics.fill(left, top, right, top + 11, DialogWorkspace.FROZEN_FILL);
+        graphics.text(font, label, left + 2, top + 2, DialogWorkspace.FROZEN, false);
+        if (mouseX >= left && mouseX < right && mouseY >= top && mouseY < top + 11)
+        {
+            hoverTooltip = new HoverTooltip(EditorI18n.text("arcmenu_editor.dialog.frozen_hint", node.id()), mouseX + 8,
+                    mouseY - 20);
+        }
     }
 
     private void drawSnapGuides(GuiGraphicsExtractor graphics)
