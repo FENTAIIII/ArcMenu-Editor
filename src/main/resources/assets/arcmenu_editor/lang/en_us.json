@@ -1048,7 +1048,5 @@
   "arcmenu_editor.dialog.unsupported.update": "Not shown in dialogs: a Dialog refreshes when it opens or refreshes, not on a timer",
   "arcmenu_editor.dialog.unsupported.hover": "Not shown in dialogs: a Dialog does not report the pointer; use tooltip",
   "arcmenu_editor.dialog.unsupported.input": "Not shown in dialogs: the native input takes the whole Dialog, so there is no caret or draft",
-  "arcmenu_editor.dialog.quick_action": "Quick actions key",
-  "arcmenu_editor.dialog.frozen": "frozen",
-  "arcmenu_editor.dialog.frozen_hint": "%s keeps the value it had when the player joined while this dialog opens with the quick actions key"
+  "arcmenu_editor.dialog.quick_action": "Quick actions key"
 }
