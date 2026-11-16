@@ -456,7 +456,7 @@ public final class WorkspaceScreen extends Screen
                 paint();
             }
             case "open_market" -> selectMarketResource(id);
-            case "type_all", "type_menu", "type_effect", "type_template" ->
+            case "type_all", "type_menu", "type_effect", "type_dialog", "type_template" ->
             {
                 projectType = action.substring(5);
                 managerPage = 0;
@@ -510,7 +510,8 @@ public final class WorkspaceScreen extends Screen
         case "open" -> selected == 1 && !pending("open");
         case "configure" ->
             selected == 1 && WorkspaceClient.STATE.selection().getFirst().configurable() && !pending("open");
-        case "export", "delete" -> selected > 0;
+        case "export" -> selected > 0 && WorkspaceClient.STATE.selection().stream().noneMatch(p -> p.type().equals("dialog"));
+        case "delete" -> selected > 0;
         case "prepare" -> pack != null && !pack.prepared() && !pending("prepare");
         case "publish" -> pack != null && WorkspaceClient.MARKET.authenticated() && !pending("publish");
         case "delete_package" -> pack != null;
@@ -663,8 +664,8 @@ public final class WorkspaceScreen extends Screen
             }
             paint();
         }
-        case "new_menu", "new_effect", "configure", "delete", "export", "import" ->
-            form(action, action.equals("new_menu") || action.equals("new_effect") || action.equals("import") ? List.of()
+        case "new_menu", "new_effect", "new_dialog", "configure", "delete", "export", "import" ->
+            form(action, action.equals("new_menu") || action.equals("new_effect") || action.equals("new_dialog") || action.equals("import") ? List.of()
                     : selected, json ->
                     {
                         if (action.equals("export") && WorkspaceClient.MARKET.authenticated())
@@ -1153,6 +1154,7 @@ public final class WorkspaceScreen extends Screen
         {
             toolbar.append(button("new_effect", false));
         }
+        toolbar.append(button("new_dialog", false));
         toolbar.append("<span class='toolbar-spacer'></span>");
         for (String action : List.of("open", "configure", "export", "delete"))
         {
@@ -1164,8 +1166,8 @@ public final class WorkspaceScreen extends Screen
         }
         html("toolbar", toolbar.toString());
         StringBuilder filters = new StringBuilder();
-        for (String type : WorkspaceClient.STATE.effectsSupported() ? List.of("all", "menu", "effect", "template")
-                : List.of("all", "menu", "template"))
+        for (String type : WorkspaceClient.STATE.effectsSupported() ? List.of("all", "menu", "effect", "dialog", "template")
+                : List.of("all", "menu", "dialog", "template"))
         {
             filters.append(WorkspaceMarkup.button("type_" + type, "", studio("filter." + type), false,
                     "filter-pill" + (projectType.equals(type) ? " active" : "")));
@@ -1773,8 +1775,8 @@ public final class WorkspaceScreen extends Screen
         {
             var ids = new ArrayList<>(List.of("nav_projects", "nav_local_packages", "nav_installed", "nav_market",
                     "action_close", "action_refresh", "search", "toolbar", "content", "inspector", "modal_host",
-                    "control_type_all", "control_type_menu", "control_type_effect", "control_type_template",
-                    "control_modal_confirm", "control_modal_cancel", "control_new_menu", "control_new_effect",
+                    "control_type_all", "control_type_menu", "control_type_effect", "control_type_dialog", "control_type_template",
+                    "control_modal_confirm", "control_modal_cancel", "control_new_menu", "control_new_effect", "control_new_dialog",
                     "control_open", "control_configure", "control_export", "control_delete", "control_prepare",
                     "control_publish", "control_import", "control_delete_package", "control_uninstall",
                     "control_browse", "control_install", "control_like", "control_rate", "control_edit_metadata",

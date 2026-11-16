@@ -35,6 +35,7 @@ public final class WorkspaceMarkup
         case "folder" -> "<path d='M3 6h7l2 2h9v12H3V6Z'/><path d='M3 6V4h7l2 2'/>";
         case "menu", "projects", "installed_projects" ->
             "<rect x='3' y='3' width='7' height='7' rx='1.5'/><rect x='14' y='3' width='7' height='7' rx='1.5'/><rect x='3' y='14' width='7' height='7' rx='1.5'/><rect x='14' y='14' width='7' height='7' rx='1.5'/>";
+        case "dialog", "new_dialog" -> "<path d='M3 3h18v14H8l-5 4V3Z'/><path d='M7 7h10M7 11h7'/>";
         case "effect", "new_effect" -> "<path d='M4 4h16v16H4V4Z'/><path d='m10 8 6 4-6 4V8Z'/>";
         case "template" ->
             "<rect x='3' y='3' width='13' height='13' rx='2'/><rect x='8' y='8' width='13' height='13' rx='2'/>";

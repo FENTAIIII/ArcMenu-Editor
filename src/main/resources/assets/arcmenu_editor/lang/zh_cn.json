@@ -1,4 +1,8 @@
 {
+  "arcmenu_editor.projects.new_dialog": "新建对话框",
+  "arcmenu_editor.projects.hint.new_dialog": "在服务器 dialogs 目录中新建对话框画布。",
+  "arcmenu_editor.studio.filter.dialog": "对话框",
+  "arcmenu_editor.studio.type.dialog": "对话框",
   "arcmenu_editor.property.type": "区域类型",
   "arcmenu_editor.property.type_hint": "region 为普通点击区。Arcitx 为文本编辑区，必须绑定前端文本节点和独立的提交点击区。",
   "arcmenu_editor.property.arcitx_text": "输入文本",

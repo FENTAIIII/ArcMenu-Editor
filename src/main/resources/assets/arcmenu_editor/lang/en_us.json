@@ -1,4 +1,8 @@
 {
+  "arcmenu_editor.projects.new_dialog": "New dialog",
+  "arcmenu_editor.projects.hint.new_dialog": "Create a dialog canvas in the server dialogs directory.",
+  "arcmenu_editor.studio.filter.dialog": "Dialogs",
+  "arcmenu_editor.studio.type.dialog": "Dialog",
   "arcmenu_editor.property.type": "Region type",
   "arcmenu_editor.property.type_hint": "region creates a normal click region. Arcitx creates a text editing region that must bind a frontend text node and a separate submit region.",
   "arcmenu_editor.property.arcitx_text": "Input text",

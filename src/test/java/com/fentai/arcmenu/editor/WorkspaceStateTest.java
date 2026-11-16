@@ -12,6 +12,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkspaceStateTest
 {
+    @Test
+    void dialogsCanBeListedSelectedAndOpenedAsEditableProjects()
+    {
+        var state = new WorkspaceState();
+        state.update(JsonParser.parseString("{\"projects\":[{\"type\":\"dialog\",\"id\":\"shop\",\"path\":\"shops/shop.yml\"}]}\n").getAsJsonObject());
+        var project = state.projects().getFirst();
+        assertEquals("dialog:shop", project.key());
+        assertTrue(project.configurable());
+        assertFalse(project.previewOnly());
+        assertEquals("open", project.openAction());
+        state.select(project, false, false, state.rows(""));
+        assertEquals("dialog", state.references().get(0).getAsJsonObject().get("type").getAsString());
+    }
+
     private WorkspaceState state()
     {
         var state = new WorkspaceState();

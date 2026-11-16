@@ -56,7 +56,7 @@ public final class WorkspaceFormScreen extends Screen
         this.mode = mode;
         this.projects = List.copyOf(projects);
         this.submit = submit;
-        if (mode.equals("new_menu") || mode.equals("new_effect"))
+        if (mode.equals("new_menu") || mode.equals("new_effect") || mode.equals("new_dialog"))
         {
             values.put("id", "");
             values.put("folder", "");
@@ -321,9 +321,9 @@ public final class WorkspaceFormScreen extends Screen
                     }
                 }
             }
-            if (mode.equals("new_menu") || mode.equals("new_effect"))
+            if (mode.equals("new_menu") || mode.equals("new_effect") || mode.equals("new_dialog"))
             {
-                json.addProperty("type", mode.equals("new_menu") ? "menu" : "effect");
+                json.addProperty("type", mode.substring("new_".length()));
             }
             if (mode.equals("configure"))
             {

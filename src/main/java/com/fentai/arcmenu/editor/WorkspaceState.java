@@ -55,7 +55,7 @@ public final class WorkspaceState
 
         public boolean configurable()
         {
-            return type.equals("menu") || type.equals("effect");
+            return type.equals("menu") || type.equals("effect") || type.equals("dialog");
         }
 
         public String openAction()

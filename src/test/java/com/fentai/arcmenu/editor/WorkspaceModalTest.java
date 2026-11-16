@@ -30,12 +30,12 @@ class WorkspaceModalTest
     @Test
     void createFormsUseVisibleDefaultsAndSubmitTheSelectedProjectType()
     {
-        for (String mode : List.of("new_menu", "new_effect"))
+        for (String mode : List.of("new_menu", "new_effect", "new_dialog"))
         {
             var modal = modal(mode, List.of());
             assertEquals("", modal.values.get("id"));
             var parameters = modal.parameters(Map.of("id", "  new-project  ", "folder", "  addon/templates  "));
-            assertEquals(mode.equals("new_menu") ? "menu" : "effect", parameters.get("type").getAsString());
+            assertEquals(mode.substring("new_".length()), parameters.get("type").getAsString());
             assertEquals("new-project", parameters.get("id").getAsString());
             assertEquals("addon/templates", parameters.get("folder").getAsString());
             // Menus and effects start from the same canvas as the server's bundled default menus.

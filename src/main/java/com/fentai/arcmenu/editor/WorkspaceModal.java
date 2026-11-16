@@ -24,7 +24,7 @@ final class WorkspaceModal
         this.projects = List.copyOf(projects);
         switch (mode)
         {
-        case "new_menu", "new_effect" ->
+        case "new_menu", "new_effect", "new_dialog" ->
         {
             values.put("id", "");
             values.put("folder", "");
@@ -141,9 +141,9 @@ final class WorkspaceModal
                         EditorI18n.text("arcmenu_editor.projects.field." + key)));
             }
         }
-        if (mode.equals("new_menu") || mode.equals("new_effect"))
+        if (mode.equals("new_menu") || mode.equals("new_effect") || mode.equals("new_dialog"))
         {
-            json.addProperty("type", mode.equals("new_menu") ? "menu" : "effect");
+            json.addProperty("type", mode.substring("new_".length()));
         }
         if (mode.equals("configure"))
         {

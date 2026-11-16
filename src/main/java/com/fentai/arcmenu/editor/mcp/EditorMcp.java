@@ -498,7 +498,7 @@ public final class EditorMcp
         return result;
     }
 
-    /** Opens a menu or Effect composition through the server command and waits for the editor. */
+    /** Opens a menu, dialog or Effect composition through the server command and waits for the editor. */
     private static JsonObject openProject(JsonObject args) throws Exception
     {
         String id = required(args, "id");
@@ -509,8 +509,13 @@ public final class EditorMcp
             identifier(from);
         }
         Pending request = new Pending();
-        request.openId = id;
-        request.openingEffect = required(args, "mode").equals("effect");
+        String mode = required(args, "mode");
+        if (!List.of("menu", "effect", "dialog").contains(mode))
+        {
+            throw new IllegalArgumentException("Unknown project mode: " + mode);
+        }
+        request.openId = mode.equals("dialog") ? EditorProtocol.DIALOG_PREFIX + id : id;
+        request.openingEffect = mode.equals("effect");
         pending = request;
         try
         {
@@ -521,8 +526,8 @@ public final class EditorMcp
                 {
                     throw new IllegalStateException("Join an ArcMenu server first");
                 }
-                client.getConnection().sendCommand("arcmenu " + (request.openingEffect ? "editeffect " : "edit ") + id
-                        + (request.openingEffect ? (from.isEmpty() ? "" : " " + from)
+                client.getConnection().sendCommand("arcmenu edit " + mode + " " + id
+                        + (!mode.equals("menu") ? (from.isEmpty() ? "" : " " + from)
                                 : (bool(args, "create", false) ? " create" + (from.isEmpty() ? "" : " " + from) : "")));
                 return null;
             });

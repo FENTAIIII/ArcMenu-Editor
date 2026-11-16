@@ -41,9 +41,9 @@ public final class McpTools
                 "{\"action\":{\"enum\":[\"state\",\"show\",\"open\",\"login\",\"logout\",\"list\",\"detail\",\"rate\",\"like\",\"edit\",\"install\"]},\"id\":{\"type\":\"string\"},\"version\":{\"type\":\"string\"},\"q\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\",\"minimum\":1},\"sort\":{\"enum\":[\"popular\",\"newest\",\"updated\",\"rating\",\"likes\",\"downloads\"]},\"stars\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":5},\"liked\":{\"type\":\"boolean\"},\"title\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"}}",
                 "action");
         tool("arcmenu_open",
-                "Open a menu or create/open an Effect composition. Effect may clone an existing menu via fromMenu. Requires server admin permission.",
+                "Open a menu, dialog, or Effect composition. Dialog and Effect may clone an existing menu via fromMenu. Requires server admin permission.",
                 false,
-                "{\"mode\":{\"enum\":[\"menu\",\"effect\"]},\"id\":{\"type\":\"string\"},\"create\":{\"type\":\"boolean\"},\"fromMenu\":{\"type\":\"string\"}}",
+                "{\"mode\":{\"enum\":[\"menu\",\"effect\",\"dialog\"]},\"id\":{\"type\":\"string\"},\"create\":{\"type\":\"boolean\"},\"fromMenu\":{\"type\":\"string\"}}",
                 "mode,id");
         tool("arcmenu_select", "Select frontend or backend elements in the visual editor.", true,
                 "{\"ids\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"maxItems\":256},\"tab\":{\"enum\":[\"frontend\",\"backend\"]}}",
