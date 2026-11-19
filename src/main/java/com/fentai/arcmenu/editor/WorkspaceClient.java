@@ -62,8 +62,7 @@ public final class WorkspaceClient
         return thread;
     });
     private static boolean opening;
-    private static String openingType = "";
-    private static String openingId = "";
+    private static WorkspaceState.Project openingProject;
 
     private WorkspaceClient()
     {}
@@ -253,16 +252,21 @@ public final class WorkspaceClient
         client.setScreen(new WorkspaceScreen(parent, market));
     }
 
+    private static boolean matchesOpeningProject(boolean effect, String wireId)
+    {
+        return openingProject != null && openingProject.matchesSnapshot(effect, wireId);
+    }
+
     public static boolean keepingScreen(Screen screen, boolean effect, String id)
     {
         return (screen instanceof WorkspaceScreen || screen instanceof WorkspaceFormScreen
                 || screen instanceof WorkspacePreviewScreen)
-                && !(opening && openingType.equals(effect ? "effect" : "menu") && openingId.equals(id));
+                && !(opening && matchesOpeningProject(effect, id));
     }
 
     public static void opened(boolean effect, String id)
     {
-        if (openingType.equals(effect ? "effect" : "menu") && openingId.equals(id))
+        if (matchesOpeningProject(effect, id))
         {
             opening = false;
         }
@@ -413,8 +417,7 @@ public final class WorkspaceClient
         var args = project.reference();
         args.addProperty("confirmDiscard", discard);
         opening = true;
-        openingType = project.type();
-        openingId = project.id();
+        openingProject = project;
         return request(project.openAction(), args).whenComplete((reply, error) ->
         {
             if (error != null)
@@ -644,7 +647,7 @@ public final class WorkspaceClient
         configurationRequest = refreshRequest = null;
         configurationError = "";
         opening = false;
-        openingType = openingId = "";
+        openingProject = null;
         ASSEMBLER.clear();
         STATE.clear();
         WorkspacePublication.cancelCapture();

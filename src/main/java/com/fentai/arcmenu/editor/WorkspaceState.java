@@ -1,5 +1,6 @@
 package com.fentai.arcmenu.editor;
 
+import com.fentai.arcmenu.protocol.EditorProtocol;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -38,6 +39,15 @@ public final class WorkspaceState
         public String key()
         {
             return type + ":" + id;
+        }
+
+        boolean matchesSnapshot(boolean effect, String wireId)
+        {
+            if (type.equals("dialog"))
+            {
+                return !effect && (EditorProtocol.DIALOG_PREFIX + id).equals(wireId);
+            }
+            return type.equals(effect ? "effect" : "menu") && id.equals(wireId);
         }
 
         public JsonObject reference()

@@ -510,7 +510,7 @@ public final class WorkspaceScreen extends Screen
         case "open" -> selected == 1 && !pending("open");
         case "configure" ->
             selected == 1 && WorkspaceClient.STATE.selection().getFirst().configurable() && !pending("open");
-        case "export" -> selected > 0 && WorkspaceClient.STATE.selection().stream().noneMatch(p -> p.type().equals("dialog"));
+        case "export" -> selected > 0;
         case "delete" -> selected > 0;
         case "prepare" -> pack != null && !pack.prepared() && !pending("prepare");
         case "publish" -> pack != null && WorkspaceClient.MARKET.authenticated() && !pending("publish");

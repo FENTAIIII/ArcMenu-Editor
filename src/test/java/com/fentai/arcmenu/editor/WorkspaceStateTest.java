@@ -19,6 +19,9 @@ class WorkspaceStateTest
         state.update(JsonParser.parseString("{\"projects\":[{\"type\":\"dialog\",\"id\":\"shop\",\"path\":\"shops/shop.yml\"}]}\n").getAsJsonObject());
         var project = state.projects().getFirst();
         assertEquals("dialog:shop", project.key());
+        assertTrue(project.matchesSnapshot(false, "dialog:shop"));
+        assertFalse(project.matchesSnapshot(false, "shop"));
+        assertFalse(project.matchesSnapshot(true, "shop"));
         assertTrue(project.configurable());
         assertFalse(project.previewOnly());
         assertEquals("open", project.openAction());
